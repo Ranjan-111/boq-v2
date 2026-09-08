@@ -26,11 +26,11 @@ venv/
 .env.*
 !.env.example
 
-# --- Databases / storage ---
+# --- Databases / storage (runtime data only; NOT the backend/app/storage source pkg) ---
 *.sqlite3
 *.db
 data/uploads/
-storage/
+/storage/
 
 # --- Editors ---
 .idea/
