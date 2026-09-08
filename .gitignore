@@ -1,0 +1,45 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Node / frontend ---
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+.eslintcache
+coverage/
+
+# --- Python / backend ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Databases / storage ---
+*.sqlite3
+*.db
+data/uploads/
+storage/
+
+# --- Editors ---
+.idea/
+.vscode/
+*.swp
+
+# --- OCErp reference copy: NEVER commit. AGPL-3.0 source must not be
+# redistributed through this repository. It stays local under reference/ only.
+reference/OpenConstructionERP-main/
+reference/OpenConstructionERP/
+reference/*.zip
+reference/chat-plan.md
