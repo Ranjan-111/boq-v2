@@ -42,6 +42,7 @@ ALLOWLIST: tuple[str, ...] = (
     "docs/api-contract.md",
     "docs/testing-strategy.md",
     "README.md",
+    "tests/unit/test_reference_leak_guard.py",  # tests the guard with bait strings
 )
 
 
