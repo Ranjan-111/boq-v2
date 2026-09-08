@@ -18,18 +18,18 @@
 
 | ID | Ticket | Pri | Eff | Depends |
 |---|---|---|---|---|
-| T010 | Monorepo scaffold: `frontend/ backend/ core/ ingestion/ takeoff/ classification/ provenance/ review/ boq/ catalog/ pricing/ exports/ tests/` + pyproject + uv/pip tooling | P0 | 1 | — |
-| T011 | `core/`: domain types (UUIDs, quantities as Decimal, units, geometry record schema) | P0 | 3 | T010 |
-| T012 | `core/`: measurement/approval/run state machines + transitions module (pure) | P0 | 2 | T011 |
-| T013 | `core/`: provenance model (source handles, evidence refs, input digests) + audit-trail record types | P0 | 2 | T011 |
-| T014 | `backend/`: SQLAlchemy models for all entities + Alembic baseline migration | P0 | 3 | T012, T013 |
-| T015 | `backend/`: FastAPI app skeleton, auth (JWT), error envelopes, request-id middleware | P0 | 3 | T014 |
-| T016 | OpenAPI spec authored first; CI validates spec + implementation match | P0 | 2 | T015 |
-| T017 | Postgres-backed job queue (FOR UPDATE SKIP LOCKED) + worker process + SSE progress | P0 | 3 | T015 |
-| T018 | Storage: S3-compatible interface + local-FS dev adapter + signed URLs | P0 | 2 | T015 |
-| T019 | Upload security: size/magic-byte validation, virus scan hook, private storage | P0 | 2 | T018 |
-| T020 | CI skeleton: lint (ruff), type-check (mypy), tests (pytest), **import-linter layering guard**, license-scan + reference-leak guard | P0 | 2 | T010 |
-| T021 | Observability baseline: structlog JSON, /healthz /readyz, /metrics | P1 | 1 | T015 |
+| T010 ✅DONE | Monorepo scaffold: `frontend/ backend/ core/ ingestion/ takeoff/ classification/ provenance/ review/ boq/ catalog/ pricing/ exports/ tests/` + pyproject + uv/pip tooling | P0 | 1 | — |
+| T011 ✅DONE | `core/`: domain types (UUIDs, quantities as Decimal, units, geometry record schema) | P0 | 3 | T010 |
+| T012 ✅DONE | `core/`: state machines + transitions module (pure) | P0 | 2 | T011 |
+| T013 ✅DONE | `core/`: provenance model (source handles, evidence refs, input digests) + audit-trail record types | P0 | 2 | T011 |
+| T014 ✅DONE | SQLAlchemy models for all entities + Alembic baseline migration | P0 | 3 | T012, T013 |
+| T015 ✅DONE | FastAPI app, auth (JWT), error envelopes, request-id middleware | P0 | 3 | T014 |
+| T016 ◐PARTIAL | OpenAPI spec authored first; CI validates spec + implementation match | P0 | 2 | T015 |
+| T017 ✅DONE | Postgres-backed job queue (FOR UPDATE SKIP LOCKED) + worker process + SSE progress | P0 | 3 | T015 |
+| T018 ✅DONE | Storage: S3-compatible interface + local-FS dev adapter + signed URLs | P0 | 2 | T015 |
+| T019 ✅DONE | Upload security (core; router wiring R3): size/magic-byte validation, virus scan hook, private storage | P0 | 2 | T018 |
+| T020 ✅DONE | CI skeleton (guards; first remote run on push): lint (ruff), type-check (mypy), tests (pytest), **import-linter layering guard**, license-scan + reference-leak guard | P0 | 2 | T010 |
+| T021 ◐PARTIAL | Observability baseline: structlog JSON, /healthz /readyz, /metrics | P1 | 1 | T015 |
 
 **Gate:** contracts frozen. `domain-model.md` + `api-contract.md` become
 additive-only; changes are PR'd against the docs first.
@@ -121,7 +121,7 @@ additive-only; changes are PR'd against the docs first.
 
 | ID | Ticket | Pri | Eff | Depends |
 |---|---|---|---|---|
-| T110 | App shell, routing, design system, auth screens, project CRUD | P0 | 4 | T016 |
+| T110 | App shell, routing, design system, auth screens, project CRUD | ◐PARTIAL | done R2 | T016 |
 | T111 | Upload flow + job progress (SSE) | P0 | 2 | T017 |
 | T112 | Drawing viewer: tiles + normalized-geometry SVG overlay, pan/zoom, layer control | P0 | 6 | T018, T030–T033 |
 | T113 | Evidence highlighting: measurement↔drawing bidirectional | P0 | 4 | T070, T112 |
