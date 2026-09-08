@@ -166,4 +166,45 @@ core     → imports nothing (except stdlib + typing)
   rules and their own attribution; V1 imports only a checked catalogue subset
   (decision recorded per-pack in license-analysis.md).
 - **Why Postgres queue over Celery:** one async pattern, one failure domain;
-  retries/idempotency are ours to own either way.
+  retries/idempotency are ours to own either way. (OCErp's JobRun-row contract
+  adopted; their Celery weight rejected.)
+- **Why not PyMuPDF for PDF work:** AGPL (Artifex enforces); pdfplumber +
+  pypdf + pypdfium2 cover extraction/rendering. Vector-path walking becomes
+  our own bounded engineering in `ingestion/pdf` — a licensing decision, not
+  a capability sacrifice (license-analysis.md §2e).
+
+## J. AI provider boundary (locked after Audit D)
+
+```python
+class AIProvider(Protocol):
+    async def complete_structured(
+        self, *, system: str, prompt: str,
+        schema: JSONSchema,            # ENFORCED (native structured outputs), never prompt-hoped
+        images: list[ImageRef] | None = None,
+        max_tokens: int, cost_cap_usd: float,
+    ) -> StructuredResult             # validated payload + provider/model + tokens + cost + latency
+```
+
+Platform rules baked into the gateway, not left to callers:
+
+1. **Confidence field mandatory** in every schema; unusable values are
+   stripped, never fabricated (no silent 0.5 default).
+2. **Schema-validated outputs only** — one retry-with-error, then route to
+   human review. (OCErp's #1 gap: everything was lenient `extract_json`.)
+3. **Unified AI audit log** for every call: fenced prompt, raw response,
+   parsed payload, schema version, provider/model, tokens, cost, caller
+   surface, trace id. (OCErp's #2 gap — no unified log existed.)
+4. **Prompt-injection fencing** on all user/document content; drawing text
+   treated as "labels, never instructions".
+5. **Cost caps** per call and windowed per user.
+6. **Deterministic engines stay pure Python** — the gateway is the only
+   module that talks to providers.
+7. **Write-path invariant**: AI outputs land only as proposals
+   (`review_status=proposed`, `source=ai_*`); writes flow through the same
+   service methods as manual edits; confirmed-only totals; the
+   unreviewed-proposal count surfaced as a WARNING so a short estimate is
+   never silent.
+8. **Single-shot structured calls for V1** (per-page vision pass); agent
+   loops deferred to the V2 copilot.
+9. **Deterministic-first matching** — LLM re-ranks a grounded shortlist,
+   never generates candidates; `flag_for_human` is an explicit AI action.

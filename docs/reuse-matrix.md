@@ -1,6 +1,6 @@
 # Reuse Matrix — OCErp Audit (Round 1)
 
-**Status:** v1.0 · Synthesizes parallel audits A–E (read-only inspection of the
+**Status:** v1.1 · Synthesizes all five parallel audits A–E (read-only inspection of the
 local `reference/OpenConstructionERP-main` copy; nothing was copied out).
 **License context:** OCErp code is AGPL-3.0 — verdicts below are about
 *patterns, data formats and ideas*, not code copying. See `license-analysis.md`.
@@ -71,6 +71,55 @@ re-express with reference to their structure (still our own code) ·
 4. **A provenance sidecar in exports** — import metadata persisted, but no
    export-time full provenance chain.
 
+### Platform architecture (Audit A)
+
+| # | OCErp layer | What it actually is | Verdict | Why / benefit | Risk if adopted naively |
+|---|---|---|---|---|---|
+| 33 | Module system (manifest + topo-sort loader) | 190 modules, dir+manifest convention, kebab-mount routers; `inference` AI-transparency declarations per module | **ADAPT** (at ~15 modules scale) | The vertical-slice convention is the best idea in the repo; `inference` declarations tailor-made for AI-native products | Runtime enable/disable = route-table surgery (fragile); hidden lazy imports made `depends` decorative — we enforce boundaries with import-linter instead |
+| 34 | Dependency graph | Hubs: `projects` (148 dependents), `users` (111), `boq` (24), `costs` (16), `ai` (10). Minimal drawing→takeoff→BOQ closure = **16 modules**; minimum viable = **5–9** | **REUSE-PATTERN** | Proves our 12-package target is feasible; `cost_match→dashboards` and `match_elements→bim_hub` were the only ERP-shell edges in the slice | — |
+| 35 | `measurement/` pure library | No manifest/router — Decimal-exact, ORM-free, formula-carrying MeasurementLine/Sheet (REB/ÖNORM) | **ADAPT** | "Deterministic measure engine as a pure library" is exactly our `takeoff/` shape | — |
+| 36 | Jobs system (`core/job_runner.py`) | JobRun row as truth, kind-registry handlers, unique idempotency key, progress updates, in-process fallback when no broker | **ADAPT** | Matches our Postgres-queue decision; handler registry + idempotency are the right contract | Skip Celery/Redis weight; handlers never import transport |
+| 37 | DB/schema approach | Async SQLAlchemy + PG-only; **but** dual schema authority (create_all + boot-time "schema heal" + Alembic) and GUID-as-VARCHAR(36) mismatch documented in their own code | **ADAPT with rejection** | Alembic-only from day one, native uuid columns, no schema-heal machinery | Their docstring is the warning label |
+| 38 | Frontend shell | 200+ features/, static-route App.tsx, zustand + react-query, `modules/_registry` for ~17 optional add-ons; **DxfViewer (1.9k lines) + lib/{dxf-renderer,snap,ortho,blocks,calibration,measurement,auto-quantify} is the separable asset** — the 7,086-line page around it is welded to the ERP shell | **REUSE-PATTERN** (viewer engine spec) | Viewer engine + measurement persistence behind injected API adapters is our extraction unit; zustand+react-query split confirmed | Don't port pages; build our shell fresh |
+| 39 | Packs / data-as-config | Standards-as-data (`rule_packs/*.json`), country packs as installable dists (locales, onboarding, currency/tax defaults), matcher tuning as deployable JSON | **KEEP-PATTERN** | Our regional standards (IS 1200, CPWD) become data files, not code | Their silent-fallback-when-data-missing bug — we fail loudly |
+| 40 | `packages/oe-sdk` | Facade re-exporting `app.core`; NOT standalone (pulls whole backend) | **REJECT** | Not needed at our scale; scaffold-CLI idea noted | — |
+| 41 | `tools/costbase_pipeline` | Offline cost-data ingestion/localization/QA pipeline (produced their 77MB catalog) | **REUSE-PATTERN** | Our catalogue-import supply chain follows this decoupled-pipeline shape | — |
+| 42 | Maturity signals | 1,907 backend tests, 352 migrations, 21 CI workflows incl. SBOM/signing/scorecard; regression-first test culture; but ~5K comment-lines-per-incident = complexity tax | **KEEP-PATTERN** (test culture, CI breadth) | Confirms the quality bar is achievable; their incident essays are our pre-read warnings | — |
+
+### AI layer & validation (Audit D)
+
+| # | OCErp capability | What it actually is | Verdict | Effort | Why / benefit | Risk |
+|---|---|---|---|---|---|---|
+| 43 | Multi-provider LLM client (`ai/ai_client.py`) | ~20 providers via raw httpx, BYOK, cost tracking, model-slug self-healing, JSON *extracted* not enforced | **ADAPT** | 5–8 pd | Thin no-SDK provider client is right; we need ~3 providers + schema-enforced structured outputs (their gap) | Their `extract_json` regex salvage → we enforce schemas at the API layer |
+| 44 | Prompt-injection fencing | `fence_user_content()` + control-char sanitization + length caps; "drawing text is labels, never instructions" | **REUSE-PATTERN** | 1–2 pd | Directly portable doctrine for an AI-native tool that ingests untrusted drawing content | — |
+| 45 | `TEXT/PHOTO_ESTIMATE_PROMPT` | Asks the LLM to *invent* quantities and rates | **REJECT** | 0 | Violates our core doctrine; OCErp's own newer modules abandoned this path | — |
+| 46 | Vision plan-read (`takeoff/plan_read.py`) | Model proposes geometry+confidence → server shoelace recompute + scale plausibility belt + self-intersection test → human confirms | **ADAPT** | 8–12 pd | The highest-value AI reference in the repo — our drawing-understanding design, field-proven | — |
+| 47 | Agent ReAct loop (`ai_agents/base.py`) | Clean runner: tool registry, safety caps (8 iters/20K tokens/120s), step persistence, ScriptedLLM for tests | **ADAPT, defer to V2** | 4–6 pd | Single-shot structured calls are cheaper/more predictable for V1; keep for copilot later | — |
+| 48 | Trust envelope (`trust.py`) | Confidence + rationale + real-id sources + "what would increase confidence"; never fabricates | **REUSE-PATTERN** | 2 pd | Our mandatory-confidence requirement, already spec'd | — |
+| 49 | Confidence calibration scoreboard | Brier score, calibration bins, ECE — measures whether confidence fields mean anything | **REUSE-PATTERN** | 2 pd | Turns "confidence" from theater into a measured signal | — |
+| 50 | Cost matching hybrid | Deterministic scorer (0.65 coverage + 0.35 overlap × unit factor) → embeddings optional → LLM re-ranks grounded shortlist only (cost-capped, never-raise, clamp, append forgotten) → `flag_for_human` when nothing grounds | **ADAPT** | 3–4 pd (matcher) | "LLM reorders a grounded shortlist, never generates candidates" is our catalogue-suggestion rule | Heavy vector infra optional for V1 |
+| 51 | Validation engine | Context/Registry/Rule/Severity/Report; 9.5K-line rules file + i18n messages; ERROR gates AI-apply, BOQ rules deliberately WARNING | **ADAPT (slim rewrite ~300 lines)** | 5–8 pd | Generic shape is right; our export-gate is an explicit policy choice it cleanly supports | Don't port the 9.5K rules file |
+| 52 | NL→DSL rule building | Deterministic regex matchers first, LLM fallback only, AI output **round-tripped through the strict parser** (invalid = rejected, never trusted) | **ADAPT** | 4–6 pd | "AI suggests rule, engine enforces" — exactly our validation-extension pattern | — |
+| 53 | Suggested-vs-confirmed separation | `source` + `confidence` (NULL = honestly not AI) + `review_status` (proposed/confirmed/rejected) + confirmed-only totals — exists in 5 places | **REUSE-PATTERN (platform invariant)** | 2 pd schema conventions | Rejected proposals retained for audit; auto-apply threshold 0.85, rest needs_review | — |
+| 54 | Unified AI audit log | **Does not exist** (steps persisted in agents; job results stored; no unified prompt+response log) | **BUILD (our gap → theirs)** | in T060 | Our doctrine's evidence trail; cheap for us | — |
+
+## A-end. Architectural lessons locked in from Audit A
+
+1. **Their dependency graph is decorative** — runtime lazy imports cross module boundaries everywhere. Our import-linter CI guard (architecture.md §E) is not optional hygiene; it is the difference between a real architecture and a drawing of one.
+2. **Alembic-only, native uuid, no schema-heal.** Their dual schema authority (create_all + heal + 352 migrations) produced documented drift.
+3. **JobRun-row jobs contract** adopted for our Postgres queue design (T017).
+4. **App factory < 200 lines.** Their 4,700-line `main.py` with hand-mounted aliases is the counterexample.
+5. **Pack/rule-data pattern** adopted: regional standards and matcher tuning as data files, with loud failure when missing.
+
+## D-end. AI-layer architecture decisions from Audit D
+
+1. **Schema-enforced structured outputs** at the provider gateway (their #1 gap — everything was prompt-hoped JSON).
+2. **Unified AI audit log table** for every call: fenced prompt, raw response, parsed payload, schema version, provider/model, tokens, cost, caller, trace id (their #2 gap).
+3. **Single-shot vision calls per page** for V1 drawing understanding (their agent loop deferred to V2 copilot).
+4. **Trust envelope mandatory** on all analytical AI surfaces; calibration scoreboard (Brier/ECE) to keep confidence honest.
+5. **Deterministic-first matching**, LLM as grounded-shortlist re-ranker only; `flag_for_human` as an explicit AI action.
+6. **Confirmed-only totals**: proposed rows listed but excluded; unreviewed-proposal count surfaced as WARNING so a short estimate is never silent.
+
 ## B. Minimum dependency set for OUR build
 
 Python: `fastapi, pydantic v2, sqlalchemy 2, alembic, asyncpg/psycopg, ezdxf,
@@ -83,6 +132,25 @@ our own canvas/SVG viewer.
 Explicitly avoided: PyMuPDF (AGPL cascade), Celery/Redis (Postgres queue),
 qdrant/lancedb/fastembed (rapidfuzz + LLM re-rank first), pandas/pyarrow
 (not needed), DDC binaries, trimesh/pyproj (3D/geo — later).
+
+## B2. OCErp dependency graph (Audit A facts)
+
+Hub modules by inbound dependents (of 190): `projects` **148**, `users`
+**111**, `boq` 24, `costs` 16, `ai` 10, `dashboards` 4. The drawing→takeoff→BOQ
+closure is **16 modules** (the 14 named + `dashboards` via `cost_match`, plus
+the pure `measurement` library which is not a module at all); minimum viable
+loads: 5 (price+BOQ+costs), 7 (+dwg_takeoff+markups), 9 (+cad+takeoff).
+
+Key declared edges in our slice: `takeoff → {projects, cad}` ·
+`catalog → costs` · `cost_match → {users, projects, costs, dashboards}` ·
+`match_elements → {…, bim_hub}` · `ai_estimator → {…, match_elements, ai,
+ai_agents}` · `validation → {projects, boq}`.
+
+Two lessons: (1) the closure is small enough that our 12-package rewrite is
+provably feasible; (2) their *declared* graph is a floor — runtime lazy
+imports crossed boundaries constantly (`boq→takeoff/dwg_takeoff/costs/ai`,
+`projects→takeoff/markups`), which is precisely what our import-linter guard
+exists to prevent.
 
 ## C. Construction-domain logic worth preserving from OCErp
 
