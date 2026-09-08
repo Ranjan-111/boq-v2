@@ -43,3 +43,6 @@ reference/OpenConstructionERP-main/
 reference/OpenConstructionERP/
 reference/*.zip
 reference/chat-plan.md
+
+# frontend build output (already covered by dist/; keep explicit)
+frontend/dist/
