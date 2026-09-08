@@ -1,0 +1,153 @@
+# Ticket Backlog
+
+**Status:** Round 1 · Prioritized backlog driving Rounds B–E.
+**Legend:** P0 = V1 blocker · P1 = V1 strongly wanted · P2 = V2 · epics map to
+`agent-plan.md` rounds. Effort in ideal person-days (pd).
+
+## EPIC 0 — Audit & decisions (Round A) — ✅ complete (this round)
+
+- T001 ✅ Import OCErp into `reference/` (local-only, gitignored)
+- T002 ✅ Module inventory (190 backend modules mapped, 12 groups)
+- T003 ✅ Key-module deep audits (takeoff, dwg_takeoff, boq, costs, cost_match, eac, cad, measurement, markups, validation, ai, ai_estimator, approval_routes)
+- T004 ✅ License analysis (AGPL §13, PyMuPDF cascade, data-compilation claim, binding policy)
+- T005 ✅ Reuse/adapt/rewrite/reject matrix (32 components)
+- T006 ✅ Architecture decision + stack selection
+- T007 ✅ Domain model + API contract (foundational, Lead-owned)
+
+## EPIC 1 — Foundation (Round B) — sequential, Lead-owned
+
+| ID | Ticket | Pri | Eff | Depends |
+|---|---|---|---|---|
+| T010 | Monorepo scaffold: `frontend/ backend/ core/ ingestion/ takeoff/ classification/ provenance/ review/ boq/ catalog/ pricing/ exports/ tests/` + pyproject + uv/pip tooling | P0 | 1 | — |
+| T011 | `core/`: domain types (UUIDs, quantities as Decimal, units, geometry record schema) | P0 | 3 | T010 |
+| T012 | `core/`: measurement/approval/run state machines + transitions module (pure) | P0 | 2 | T011 |
+| T013 | `core/`: provenance model (source handles, evidence refs, input digests) + audit-trail record types | P0 | 2 | T011 |
+| T014 | `backend/`: SQLAlchemy models for all entities + Alembic baseline migration | P0 | 3 | T012, T013 |
+| T015 | `backend/`: FastAPI app skeleton, auth (JWT), error envelopes, request-id middleware | P0 | 3 | T014 |
+| T016 | OpenAPI spec authored first; CI validates spec + implementation match | P0 | 2 | T015 |
+| T017 | Postgres-backed job queue (FOR UPDATE SKIP LOCKED) + worker process + SSE progress | P0 | 3 | T015 |
+| T018 | Storage: S3-compatible interface + local-FS dev adapter + signed URLs | P0 | 2 | T015 |
+| T019 | Upload security: size/magic-byte validation, virus scan hook, private storage | P0 | 2 | T018 |
+| T020 | CI skeleton: lint (ruff), type-check (mypy), tests (pytest), **import-linter layering guard**, license-scan + reference-leak guard | P0 | 2 | T010 |
+| T021 | Observability baseline: structlog JSON, /healthz /readyz, /metrics | P1 | 1 | T015 |
+
+**Gate:** contracts frozen. `domain-model.md` + `api-contract.md` become
+additive-only; changes are PR'd against the docs first.
+
+## EPIC 2 — Ingestion (Round C, parallel)
+
+| ID | Ticket | Pri | Eff | Depends | Notes |
+|---|---|---|---|---|---|
+| T030 | DXF parser (ezdxf): entities→normalized Geometry, **capture dxf.handle for stable identity**, layers, blocks-emitted-once, INSUNITS reading | P0 | 5–8 | T011, T013 | OCErp pattern #4/#7 |
+| T031 | DXF sheet/layout detection + measurability rules (modelspace-first, refuse ambiguous) | P0 | 2 | T030 | |
+| T032 | PDF parser: pdfplumber vector paths + text tokens (dimension candidates), pypdfium2 page tiles | P0 | 5–7 | T011 | PyMuPDF banned |
+| T033 | Raster ingestion: storage + AI-vision text/region pass; NO auto-measurement | P0 | 3 | T030 (interfaces) | |
+| T034 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies |
+| T035 | OOM-isolated extraction worker (RLIMIT_AS child process) | P1 | 2 | T032 | |
+| T036 | Corruption/adversarial file handling + format sniffing + fixtures | P0 | 2 | T030, T032, T033 | with H1 |
+
+## EPIC 3 — Deterministic takeoff engine (Round C, parallel)
+
+| ID | Ticket | Pri | Eff | Depends | Notes |
+|---|---|---|---|---|---|
+| T040 | Geometry kernel: Shapely-based primitives, unit-safe area/length/count, self-intersection refusal | P0 | 3 | T011 | |
+| T041 | Measurement rules registry (rule_id, versioned, replayable) | P0 | 2 | T040 | |
+| T042 | Wall detection from parallel line pairs → centerlines, lengths, footprint areas | P0 | 5 | T030, T040 | **OCErp has nothing — our build** |
+| T043 | Room/space polygonization from wall lines (polygonize, fill, label-by-text-proximity) | P0 | 5 | T042 | **our build** |
+| T044 | Floor area rules (Gross/Net per room aggregation, storey roll-up) | P0 | 2 | T043 | |
+| T045 | Opening detection: door/window blocks by name/geometry + counts (DXF); text+vector candidates (PDF) | P0 | 4 | T030, T032 | |
+| T046 | Deduction rules (openings subtracted from wall areas; MEASURED_ZERO states) | P0 | 2 | T042, T045 | |
+| T047 | PDF vector candidate detectors (areas/lengths/counts + seeded count-by-example) | P1 | 3 | T032 | |
+| T048 | Raster candidate detectors (OpenCV rooms/walls, honest confidences, "(verify)") | P1 | 3 | T033 | |
+| T049 | Measurement states + exceptions engine (BLOCKING vs REVIEW; scale-unconfirmed guard) | P0 | 3 | T041, T034 | |
+| T050 | Determinism test harness: golden-run replay (same inputs → identical outputs, engine_version-stamped) | P0 | 2 | T041 | with H1 |
+
+## EPIC 4 — AI layer (Round C/D, parallel)
+
+| ID | Ticket | Pri | Eff | Depends |
+|---|---|---|---|---|
+| T060 | Provider abstraction: httpx-based, JSON-schema structured outputs, mandatory confidence, prompt/response audit log | P0 | 3 | T011 |
+| T061 | Sheet classification (plan/section/elevation/detail) with confidence | P0 | 2 | T060, T030 |
+| T062 | Element classification suggestions (+label reading) with confidence + explanation | P0 | 3 | T060, T042, T043 |
+| T063 | Catalogue suggestion: rapidfuzz prefilter → LLM re-rank → 4-tier queue (nothing applies without human confirm) | P0 | 3 | T060, catalog schema |
+| T064 | Exception explainer (plain-language, cites evidence) | P1 | 2 | T060, T049 |
+| T065 | Numerical guardrails: AI writes only suggestion tables; type-layer + import-linter enforced; tests prove no AI path writes quantities | P0 | 2 | T060, T020 |
+| T066 | Failure/retry handling, cost caps, provider fallback | P1 | 2 | T060 |
+
+## EPIC 5 — Review workspace & provenance (Round C/D)
+
+| ID | Ticket | Pri | Eff | Depends |
+|---|---|---|---|---|
+| T070 | Evidence assembly: highlight rects/paths per measurement (all formats), evidence API | P0 | 3 | T013, T030–T033 |
+| T071 | Exceptions UI queue: severity, filter, resolve actions | P0 | 3 | T049, F-epic |
+| T072 | Correction workflow: audited quantity corrections (original preserved, provenance=human_correction) | P0 | 3 | T012, T014 |
+| T073 | Classification overrides (element_type human > AI, recorded) | P0 | 2 | T062 |
+| T074 | Scale confirmation UI (two-point calibration + confirm gate) | P0 | 2 | T034 |
+| T075 | Audit trail API + viewer (who/what/when/before/after) | P0 | 2 | T013, T014 |
+| T076 | Blocker queue: unresolved BLOCKING items list, export gate | P0 | 2 | T049 |
+
+## EPIC 6 — Catalogue & BOQ (Round D)
+
+| ID | Ticket | Pri | Eff | Depends |
+|---|---|---|---|---|
+| T080 | Catalogue schema + region scoping + units reconciliation | P0 | 2 | T014 |
+| T081 | India starter dataset: hand-authored ~500–1,000 CPWD-aligned items from public DSR structure + terms recorded | P0 | 4 | T080, license policy |
+| T082 | Bulk import (CSV/XLSX with column mapping + preview) — users bring their own DSR/SoR | P0 | 3 | T080 |
+| T083 | Search: rapidfuzz lexical + categories (+AI re-rank via T063) | P0 | 2 | T080 |
+| T084 | Mapping: measurement → catalogue item, unit compatibility validation, unmapped = BLOCKING | P0 | 3 | T080, T049 |
+| T085 | BOQ assembly: sections (CPWD sub-head informed), items from mappings, manual/PC-sum lines | P0 | 4 | T084 |
+| T086 | Recompute + diff on upstream change; duplicate detection | P0 | 3 | T085 |
+
+## EPIC 7 — Pricing & approval (Round D)
+
+| ID | Ticket | Pri | Eff | Depends |
+|---|---|---|---|---|
+| T090 | Rates: DEFAULT/PROJECT/VENDOR scopes, integer minor units, provenance | P0 | 2 | T080 |
+| T091 | Pricing engine: qty×rate, markup stack (percentage/fixed, cumulative), section+BOQ totals, banker's rounding | P0 | 3 | T085, T090 |
+| T092 | Approval: submit/approve/reject with audit; lock-as-approval (CAS); stale invalidation on mutation | P0 | 3 | T085 |
+| T093 | Validation report (blockers: unresolved exceptions, unmapped, unpriced) — server-side, export gate | P0 | 2 | T092 |
+
+## EPIC 8 — Exports (Round D)
+
+| ID | Ticket | Pri | Eff | Depends |
+|---|---|---|---|---|
+| T100 | CSV export | P0 | 1 | T091 |
+| T101 | XLSX export (openpyxl, styled, subtotals) | P0 | 2 | T091 |
+| T102 | PDF export (reportlab, branded, markup cascade) | P0 | 3 | T091 |
+| T103 | Provenance sidecar (JSON: every row's chain) + export manifest + reproducibility check | P0 | 2 | T093, T100–T102 |
+| T104 | Export artifact immutability (sha256, storage) | P0 | 1 | T103 |
+
+## EPIC 9 — Frontend (Rounds C/D/E)
+
+| ID | Ticket | Pri | Eff | Depends |
+|---|---|---|---|---|
+| T110 | App shell, routing, design system, auth screens, project CRUD | P0 | 4 | T016 |
+| T111 | Upload flow + job progress (SSE) | P0 | 2 | T017 |
+| T112 | Drawing viewer: tiles + normalized-geometry SVG overlay, pan/zoom, layer control | P0 | 6 | T018, T030–T033 |
+| T113 | Evidence highlighting: measurement↔drawing bidirectional | P0 | 4 | T070, T112 |
+| T114 | Review workspace: exceptions, evidence panel, corrections, overrides, audit view | P0 | 5 | T071–T076 |
+| T115 | Scale confirmation UX | P0 | 1 | T074 |
+| T116 | BOQ workspace: sections/items grid, mapping picker w/ suggestions, rate editing, markups, totals | P0 | 6 | T085–T093 |
+| T117 | Approval + export UX (validation report, blocker gating, downloads) | P0 | 2 | T093, T100 |
+| T118 | Manual takeoff tools (raster drawings): on-screen length/area/count with provenance | P1 | 4 | T112, T074 |
+| T119 | Keyboard shortcuts, empty states, onboarding tour | P1 | 2 | T110 |
+
+## EPIC 10 — Hardening & QA (Round E)
+
+| ID | Ticket | Pri | Eff |
+|---|---|---|---|
+| T120 | Adversarial fixtures: corrupt DXF/PDF, missing scale, rotated sheets, multi-storey, overlapping walls, bowtie polygons | P0 | 3 |
+| T121 | Golden-run regression suite (determinism) + property-based tests (hypothesis) on geometry/rounding | P0 | 2 |
+| T122 | AI-hallucination tests: model returns numbers → engine must ignore | P0 | 1 |
+| T123 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2 |
+| T124 | Security review: authz matrix, upload hardening, rate limits, secrets audit | P0 | 2 |
+| T125 | Performance: 50k-entity DXF < 60s parse, viewer < 3s, BOQ 5k recompute < 2s; profiling + indexes | P1 | 3 |
+| T126 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 |
+| T127 | Accessibility pass (WCAG AA on review/BOQ screens) | P1 | 2 |
+| T128 | Deploy: Docker Compose (app/worker/db/minio/caddy) + GH Actions pipeline + prod config + backup | P0 | 3 |
+| T129 | Docs: user guide, API reference, runbook | P1 | 2 |
+
+## Totals
+
+~110–135 pd ideal effort (matches reuse-matrix.md estimate §E).
+Critical path: T010→T014→T030/T032→T042→T043→T049→T084→T085→T091→T092→T101.
