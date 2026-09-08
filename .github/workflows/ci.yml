@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pipx install uv || pip install uv
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - run: .venv/bin/ruff check .
+      - run: .venv/bin/mypy core ingestion takeoff classification provenance review boq catalog pricing exports backend
+
+  architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pipx install uv || pip install uv
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - name: import-linter boundary check
+        run: .venv/bin/lint-imports
+      - name: reference-leak guard
+        run: .venv/bin/python tools/guards/reference_leak.py
+
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: boq
+          POSTGRES_PASSWORD: boq
+          POSTGRES_DB: boq_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U boq"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://boq:boq@localhost:5432/boq_test
+      JWT_SECRET: ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pipx install uv || pip install uv
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - name: migrations
+        run: .venv/bin/alembic upgrade head -c backend/alembic.ini
+      - name: unit + integration tests
+        run: .venv/bin/pytest tests
+
+  license-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pipx install uv || pip install uv
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - name: pip-audit (vulnerabilities)
+        run: .venv/bin/pip-audit --skip-editable
+      - name: banned-license check (AGPL must never enter the tree)
+        run: |
+          .venv/bin/pip list --format=json | .venv/bin/python -c '
+          import json,sys
+          banned = {"PyMuPDF"}
+          pkgs = {p["name"] for p in json.load(sys.stdin)}
+          hit = banned & pkgs
+          if hit:
+              print(f"BANNED PACKAGES PRESENT: {hit}"); sys.exit(1)
+          print("license check: clean")'
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - working-directory: frontend
+        run: |
+          if [ -f package.json ]; then
+            npm ci && npm run build
+          else
+            echo "frontend not scaffolded yet — skip"
+          fi
