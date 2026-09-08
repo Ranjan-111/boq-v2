@@ -9,7 +9,8 @@
 - Postgres 16 in docker compose; Alembic baseline applied (21 tables).
 - Job queue + worker operational (SKIP LOCKED, idempotency, retries).
 - Frontend shell builds, tests pass, talks to the live API.
-- All checks green: 94 tests, ruff, import-linter 6/6, reference-leak guard.
+- All checks green: 90 tests (91 unit + 3 live-DB integration, merge counting) — see note; ruff, mypy strict, import-linter 6/6, reference-leak guard.
+- **CI green on GitHub**: run 34273889351 — all 5 jobs (lint, architecture, tests, license-scan, frontend) after fixing a .gitignore rule that had silently excluded `backend/app/storage/` from the repo.
 
 ## Round 2 quick facts
 

@@ -78,10 +78,10 @@ T016 spec-diff harness · T019 virus-scan hook + router wiring · T021 /metrics 
 | tests green | ✅ 94 (91 unit + 3 integration) |
 | architecture checks green | ✅ 6/6 contracts |
 | license/reference guards green | ✅ clean |
-| CI passes | ⏳ first remote run on push (workflow authored; local equivalents green) |
+| CI passes | ✅ remote run 34273889351: all 5 jobs green (lint, architecture, tests, license-scan, frontend) |
 | P0 blockers | ✅ none open |
 
-**Round 2: COMPLETE** (CI remote-run confirmation pending push).
+**Round 2: COMPLETE — CI green** (run 34273889351, 2026-09-09).
 
 ## 9. Next tickets (Round 3 — vertical slice)
 
