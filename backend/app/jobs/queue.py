@@ -112,12 +112,15 @@ async def report_progress(session: AsyncSession, job_id: str, percent: int) -> N
 async def complete(
     session: AsyncSession, job_id: str, result: dict[str, Any] | None = None
 ) -> None:
+    import json
+
+    result_json = json.dumps(result) if result is not None else None
     await session.execute(
         text(
             "UPDATE jobs SET status = 'succeeded', finished_at = now(), "
-            "result = :r, progress = 100 WHERE id = :id"
+            "result = CAST(:r AS jsonb), progress = 100 WHERE id = :id"
         ),
-        {"r": result, "id": job_id},
+        {"r": result_json, "id": job_id},
     )
     await session.flush()
 

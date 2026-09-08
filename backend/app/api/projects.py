@@ -23,13 +23,23 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectOut(BaseModel):
-    id: str
+    id: str | uuid.UUID
     name: str
     client_name: str | None
     region_code: str
     currency: str
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def serialize(cls, p: Project) -> dict[str, object]:
+        return {
+            "id": str(p.id),
+            "name": p.name,
+            "client_name": p.client_name,
+            "region_code": p.region_code,
+            "currency": p.currency,
+        }
 
 
 @router.post("", status_code=201, response_model=ProjectOut)
@@ -66,16 +76,16 @@ async def list_projects(
     items = result.scalars().all()
     return {
         "items": [
-            ProjectOut(
-                id=p.id,
-                name=p.name,
-                client_name=p.client_name,
-                region_code=p.region_code,
-                currency=p.currency,
-            )
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "client_name": p.client_name,
+                "region_code": p.region_code,
+                "currency": p.currency,
+            }
             for p in items
         ],
-        "next_cursor": items[-1].id if len(items) == min(limit, 100) else None,
+        "next_cursor": str(items[-1].id) if len(items) == min(limit, 100) else None,
     }
 
 

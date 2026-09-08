@@ -45,13 +45,14 @@ class TokenClaims:
 
 def issue_token(
     *,
-    user_id: str,
+    user_id: str | uuid.UUID,
     role: str,
     secret: str,
     algorithm: str,
     minutes: int,
     token_type: str = "access",  # noqa: S107 - type label, not a password default
 ) -> str:
+    user_id = str(user_id)  # accept uuid.UUID or str (ORM returns UUID)
     if not _is_uuid(user_id):
         raise ValueError("user_id must be a uuid")
     claims = TokenClaims(
