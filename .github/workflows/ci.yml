@@ -9,8 +9,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
@@ -21,8 +21,8 @@ jobs:
   architecture:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
@@ -51,22 +51,22 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://boq:boq@localhost:5432/boq_test
       JWT_SECRET: ci-secret
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
       - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
       - name: migrations
-        run: .venv/bin/alembic upgrade head -c backend/alembic.ini
+        run: .venv/bin/alembic -c backend/alembic.ini upgrade head
       - name: unit + integration tests
-        run: .venv/bin/pytest tests
+        run: .venv/bin/pytest core/tests backend/tests tests -q
 
   license-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
@@ -87,8 +87,8 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - working-directory: frontend

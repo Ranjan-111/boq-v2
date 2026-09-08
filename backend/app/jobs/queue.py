@@ -9,9 +9,10 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import text
+from sqlalchemy import func, text, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.models import JobRun
@@ -142,15 +143,18 @@ async def fail(session: AsyncSession, job_id: str, error: str, *, retryable: boo
 
 async def cancel(session: AsyncSession, job_id: str) -> bool:
     """Cancel a queued job; running jobs cannot be cancelled in V1."""
-    res = await session.execute(
-        text(
-            "UPDATE jobs SET status = 'cancelled', finished_at = now() "
-            "WHERE id = :id AND status = 'queued'"
+    # Typed as CursorResult: execute() on a DML statement returns a cursor
+    # result at runtime (Result itself has no rowcount in the type stubs).
+    res = cast(
+        CursorResult[Any],
+        await session.execute(
+            update(JobRun)
+            .where(JobRun.id == job_id, JobRun.status == "queued")
+            .values(status="cancelled", finished_at=func.now())
         ),
-        {"id": job_id},
     )
     await session.flush()
-    return res.rowcount > 0
+    return bool(res.rowcount)
 
 
 async def get_status(session: AsyncSession, job_id: str) -> dict[str, Any] | None:

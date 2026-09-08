@@ -35,35 +35,35 @@ def proposed() -> ScaleCalibration:
 
 
 class TestScaleGate:
-    def test_proposed_scale_refuses_to_measure(self):
+    def test_proposed_scale_refuses_to_measure(self) -> None:
         with pytest.raises(ScaleNotConfirmed):
             convert_length(Decimal("500"), "mm", proposed(), MeasurementUnit.M)
 
-    def test_unknown_scale_refuses(self):
+    def test_unknown_scale_refuses(self) -> None:
         unknown = ScaleCalibration("s1", ScaleCalibrationStatus.UNKNOWN, None)
         with pytest.raises(ScaleNotConfirmed):
             convert_length(Decimal("500"), "mm", unknown, MeasurementUnit.M)
 
-    def test_confirmed_length_conversion(self):
+    def test_confirmed_length_conversion(self) -> None:
         # 5000 drawing units at 1mm/unit = 5000mm = 5m
         assert convert_length(
             Decimal("5000"), "mm", confirmed(), MeasurementUnit.M
         ) == Decimal("5")
 
-    def test_unit_base_conversion(self):
+    def test_unit_base_conversion(self) -> None:
         # 5 drawing meters, 1 unit = 1mm => 5 * 1000 * 1 mm = 5000mm = 5m? No:
         # 5 m-units x 1000 mm/m x 1 = 5000 mm = 5 m
         assert convert_length(
             Decimal("5"), "m", confirmed(), MeasurementUnit.M
         ) == Decimal("5")
 
-    def test_area_applies_scale_squared(self):
+    def test_area_applies_scale_squared(self) -> None:
         # 1 drawing unit² at 1mm/unit = 1 mm² = 1e-6 m²
         assert convert_area(
             Decimal("1"), "mm", confirmed(), MeasurementUnit.M2
         ) == Decimal("0.000001")
 
-    def test_imperial_base(self):
+    def test_imperial_base(self) -> None:
         # 1 inch-unit at 1:1 => 25.4mm
         assert convert_length(
             Decimal("1"), "in", confirmed(), MeasurementUnit.MM
@@ -71,19 +71,19 @@ class TestScaleGate:
 
 
 class TestMeasurementStateDerivation:
-    def test_zero_becomes_measured_zero(self):
+    def test_zero_becomes_measured_zero(self) -> None:
         assert (
             measurement_state_for(Decimal(0), has_evidence=True)
             is MeasurementState.MEASURED_ZERO
         )
 
-    def test_nonzero_measured(self):
+    def test_nonzero_measured(self) -> None:
         assert (
             measurement_state_for(Decimal("3.2"), has_evidence=True)
             is MeasurementState.MEASURED
         )
 
-    def test_no_evidence_is_blocked_invariant_1(self):
+    def test_no_evidence_is_blocked_invariant_1(self) -> None:
         assert (
             measurement_state_for(Decimal("3.2"), has_evidence=False)
             is MeasurementState.BLOCKED
@@ -91,6 +91,6 @@ class TestMeasurementStateDerivation:
 
 
 class TestRounding:
-    def test_six_places_bankers(self):
+    def test_six_places_bankers(self) -> None:
         assert round_quantity(Decimal("0.0000005")) == Decimal("0.000000")
         assert round_quantity(Decimal("0.0000015")) == Decimal("0.000002")

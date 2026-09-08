@@ -20,13 +20,13 @@ from core.provenance.records import (
 
 
 class TestSourceHandle:
-    def test_dxf_handle_is_captured(self):
+    def test_dxf_handle_is_captured(self) -> None:
         h = SourceHandle(
             format=SourceFormat.DXF_ENTITY, sheet_ref="s1", entity_ref="2A1F", layer="WALL"
         )
         assert h.entity_ref == "2A1F"
 
-    def test_frozen(self):
+    def test_frozen(self) -> None:
         import dataclasses
 
         h = SourceHandle(format=SourceFormat.PDF_VECTOR, sheet_ref="s", entity_ref="p1")
@@ -35,17 +35,17 @@ class TestSourceHandle:
 
 
 class TestMeasurementInputsDigest:
-    def test_digest_is_order_insensitive_over_refs(self):
+    def test_digest_is_order_insensitive_over_refs(self) -> None:
         a = MeasurementInputs(refs=("g1", "g2"))
         b = MeasurementInputs(refs=("g2", "g1"))
         assert a.digest() == b.digest()
 
-    def test_digest_changes_with_inputs(self):
+    def test_digest_changes_with_inputs(self) -> None:
         a = MeasurementInputs(refs=("g1",), constants={"height_mm": 3000})
         b = MeasurementInputs(refs=("g1",), constants={"height_mm": 3100})
         assert a.digest() != b.digest()
 
-    def test_digest_is_stable(self):
+    def test_digest_is_stable(self) -> None:
         a = MeasurementInputs(refs=("g1", "g2"), constants={"k": 1})
         assert a.digest() == MeasurementInputs(
             refs=("g2", "g1"), constants={"k": 1}
@@ -53,13 +53,13 @@ class TestMeasurementInputsDigest:
 
 
 class TestInvariant1:
-    def test_evidence_required(self):
+    def test_evidence_required(self) -> None:
         assert measurement_has_evidence((EvidenceLink(kind="geometry", ref="g1"),))
         assert not measurement_has_evidence(())
 
 
 class TestExceptionRecord:
-    def test_ai_can_only_explain(self):
+    def test_ai_can_only_explain(self) -> None:
         e = ExceptionRecord(
             code="scale_unconfirmed",
             severity=ExceptionSeverity.BLOCKING,
@@ -72,7 +72,7 @@ class TestExceptionRecord:
 
 
 class TestAuditRecord:
-    def test_before_after_diff_shape(self):
+    def test_before_after_diff_shape(self) -> None:
         rec = AuditRecord(
             actor="user-1",
             action=AuditAction.CORRECT_QUANTITY,
@@ -87,7 +87,7 @@ class TestAuditRecord:
 
 
 class TestRuleRef:
-    def test_replay_contract(self):
+    def test_replay_contract(self) -> None:
         r = RuleRef(
             rule_id="wall_centerline_length", engine_version="0.1.0", inputs_digest="ab12"
         )

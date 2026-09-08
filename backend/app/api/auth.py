@@ -26,7 +26,7 @@ class RegisterBody(LoginBody):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"  # noqa: S105 - auth-scheme label, not a credential
-    user: dict
+    user: dict[str, str]
 
 
 @router.post("/register", status_code=201, response_model=TokenResponse)
@@ -110,7 +110,7 @@ async def me(
     request: Request,
     session: AsyncSession = Depends(session_dependency),
     settings: Settings = Depends(get_settings),
-) -> dict:
+) -> dict[str, str]:
     user = await _require_user(request, session, settings)
     return {
         "id": user.id,

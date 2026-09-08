@@ -15,12 +15,12 @@ from core.domain.states import (
 
 
 class TestMeasurementStates:
-    def test_initial_states_are_all_valid_mints(self):
+    def test_initial_states_are_all_valid_mints(self) -> None:
         # all five states may be minted directly by a run
         for s in MeasurementState:
             assert s  # enum loads
 
-    def test_needs_review_can_be_accepted(self):
+    def test_needs_review_can_be_accepted(self) -> None:
         assert (
             transition_measurement(
                 MeasurementState.NEEDS_REVIEW, MeasurementState.MEASURED
@@ -28,19 +28,19 @@ class TestMeasurementStates:
             is MeasurementState.MEASURED
         )
 
-    def test_measured_cannot_jump_to_not_measurable(self):
+    def test_measured_cannot_jump_to_not_measurable(self) -> None:
         with pytest.raises(IllegalTransition):
             transition_measurement(
                 MeasurementState.MEASURED, MeasurementState.NOT_MEASURABLE
             )
 
-    def test_blocked_resolves_to_measured(self):
+    def test_blocked_resolves_to_measured(self) -> None:
         assert (
             transition_measurement(MeasurementState.BLOCKED, MeasurementState.MEASURED)
             is MeasurementState.MEASURED
         )
 
-    def test_measured_zero_is_flaggable_for_review(self):
+    def test_measured_zero_is_flaggable_for_review(self) -> None:
         assert (
             transition_measurement(
                 MeasurementState.MEASURED_ZERO, MeasurementState.NEEDS_REVIEW
@@ -48,7 +48,7 @@ class TestMeasurementStates:
             is MeasurementState.NEEDS_REVIEW
         )
 
-    def test_same_state_is_noop(self):
+    def test_same_state_is_noop(self) -> None:
         assert (
             transition_measurement(MeasurementState.MEASURED, MeasurementState.MEASURED)
             is MeasurementState.MEASURED
@@ -56,24 +56,24 @@ class TestMeasurementStates:
 
 
 class TestRunStates:
-    def test_happy_path(self):
+    def test_happy_path(self) -> None:
         s = transition_run(RunState.QUEUED, RunState.RUNNING)
         s = transition_run(s, RunState.COMPLETED_WITH_EXCEPTIONS)
         assert s is RunState.COMPLETED_WITH_EXCEPTIONS
         assert is_terminal_run(s)
 
-    def test_queued_cannot_complete(self):
+    def test_queued_cannot_complete(self) -> None:
         with pytest.raises(IllegalTransition):
             transition_run(RunState.QUEUED, RunState.COMPLETED)
 
-    def test_terminal_states_are_frozen(self):
+    def test_terminal_states_are_frozen(self) -> None:
         for state in (RunState.COMPLETED, RunState.FAILED):
             with pytest.raises(IllegalTransition):
                 transition_run(state, RunState.RUNNING)
 
 
 class TestBoqStates:
-    def test_full_lifecycle(self):
+    def test_full_lifecycle(self) -> None:
         s = BoqStatus.DRAFT
         for nxt in (BoqStatus.IN_REVIEW, BoqStatus.REVIEWED, BoqStatus.APPROVED):
             s = transition_boq(s, nxt)
@@ -81,21 +81,21 @@ class TestBoqStates:
         s = transition_boq(s, BoqStatus.EXPORTED)
         assert is_terminal_boq_export(s)
 
-    def is_terminal_check(self):  # helper naming see below
+    def is_terminal_check(self) -> None:  # helper naming see below
         pass
 
-    def test_reject_returns_to_draft(self):
+    def test_reject_returns_to_draft(self) -> None:
         assert (
             transition_boq(BoqStatus.IN_REVIEW, BoqStatus.DRAFT) is BoqStatus.DRAFT
         )
 
-    def test_approved_goes_stale_on_input_change(self):
+    def test_approved_goes_stale_on_input_change(self) -> None:
         assert (
             transition_boq(BoqStatus.APPROVED, BoqStatus.STALE_APPROVED)
             is BoqStatus.STALE_APPROVED
         )
 
-    def test_stale_requires_redraft_then_reapproval(self):
+    def test_stale_requires_redraft_then_reapproval(self) -> None:
         # stale -> draft -> in_review -> ... (no shortcut to APPROVED)
         with pytest.raises(IllegalTransition):
             transition_boq(BoqStatus.STALE_APPROVED, BoqStatus.APPROVED)
@@ -104,7 +104,7 @@ class TestBoqStates:
         s = transition_boq(s, BoqStatus.REVIEWED)
         assert transition_boq(s, BoqStatus.APPROVED) is BoqStatus.APPROVED
 
-    def test_draft_cannot_be_exported(self):
+    def test_draft_cannot_be_exported(self) -> None:
         assert not boq_may_export(BoqStatus.DRAFT)
         assert not boq_may_export(BoqStatus.STALE_APPROVED)
 

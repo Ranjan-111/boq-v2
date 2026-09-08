@@ -12,10 +12,10 @@ from dataclasses import dataclass
 
 def new_id() -> str:
     """Mint a UUIDv7 (time-ordered); falls back to v4 on old stdlibs."""
-    try:
-        return str(uuid.uuid7())
-    except AttributeError:  # pragma: no cover - depends on Python version
-        return str(uuid.uuid4())
+    uuid7 = getattr(uuid, "uuid7", None)
+    if uuid7 is not None:
+        return str(uuid7())
+    return str(uuid.uuid4())  # pragma: no cover - depends on Python version
 
 
 def _validate(value: str, label: str) -> str:

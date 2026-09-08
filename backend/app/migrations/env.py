@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from logging.config import fileConfig
+from typing import Any
 
 from alembic import context
 from sqlalchemy import pool
@@ -24,9 +25,9 @@ settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 
-def include_object(obj, name, type_, reflected, compare_to):
+def include_object(obj: Any, name: str | None, type_: str, reflected: bool, compare_to: Any) -> bool:
     """Skip Postgres system schemas."""
-    if type_ == "table" and obj.schema is not None:
+    if type_ == "table" and getattr(obj, "schema", None) is not None:
         return False
     return True
 

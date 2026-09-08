@@ -7,7 +7,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 
 # Password hashing
 _BCRYPT_ROUNDS = 12
@@ -77,7 +78,7 @@ def verify_token(
 ) -> TokenClaims:
     try:
         payload = jwt.decode(token, secret, algorithms=[algorithm])
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise TokenInvalid("malformed or expired token") from exc
     if payload.get("typ") != expected_type:
         raise TokenInvalid(f"expected {expected_type} token")

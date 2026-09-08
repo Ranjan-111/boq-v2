@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 pytestmark = pytest.mark.integration
 
@@ -28,7 +29,7 @@ BASE_URL = os.environ.get(
 TEST_DB = os.environ.get("MIGRATION_TEST_DB", "boq_test_mig")
 
 
-async def _admin_engine():
+async def _admin_engine() -> AsyncGenerator[AsyncEngine]:
     engine = create_async_engine(BASE_URL, isolation_level="AUTOCOMMIT")
     try:
         yield engine
@@ -37,7 +38,7 @@ async def _admin_engine():
 
 
 @pytest.fixture(scope="module")
-def migrated_db():
+def migrated_db() -> Generator[str]:
     """Create scratch DB, run upgrade head via subprocess, yield, drop."""
     import subprocess
     import sys
@@ -79,7 +80,7 @@ def migrated_db():
     asyncio.run(teardown())
 
 
-async def test_all_domain_tables_exist(migrated_db):
+async def test_all_domain_tables_exist(migrated_db: str) -> None:
     engine = create_async_engine(migrated_db)
     try:
         async with engine.connect() as conn:
@@ -96,7 +97,7 @@ async def test_all_domain_tables_exist(migrated_db):
     assert not missing, f"missing tables: {missing}"
 
 
-async def test_ai_separation_tables_exist(migrated_db):
+async def test_ai_separation_tables_exist(migrated_db: str) -> None:
     """Domain invariant: AI suggestions live in their own table, not in measurements."""
     engine = create_async_engine(migrated_db)
     try:
@@ -112,7 +113,7 @@ async def test_ai_separation_tables_exist(migrated_db):
     assert "ai_confidence" not in cols, "measurements must not carry AI confidence"
 
 
-async def test_downgrade_base_then_upgrade(migrated_db):
+async def test_downgrade_base_then_upgrade(migrated_db: str) -> None:
     """Idempotent roundtrip: downgrade all, upgrade back."""
     import subprocess
     import sys

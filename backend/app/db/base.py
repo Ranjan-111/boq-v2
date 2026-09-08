@@ -33,7 +33,7 @@ class Base(DeclarativeBase):
         super().__init_subclass__(**kwargs)
 
 
-Base.metadata.naming_convention = naming_convention  # type: ignore[attr-defined]
+Base.metadata.naming_convention = naming_convention
 
 
 def make_async_engine(url: str, **kwargs: Any) -> AsyncEngine:

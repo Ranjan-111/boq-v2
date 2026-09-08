@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -67,7 +68,7 @@ async def list_projects(
     session: AsyncSession = Depends(session_dependency),
     limit: int = 50,
     cursor: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     q = select(Project).where(Project.deleted_at.is_(None)).order_by(Project.created_at, Project.id)
     if cursor:
         q = q.where(Project.id > cursor)

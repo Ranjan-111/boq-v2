@@ -59,11 +59,12 @@ _DRAWING_TO_MM: dict[str, Decimal] = {
     "ft": Decimal("304.8"),
 }
 
+# Length/count targets only. Area/volume conversions go through
+# convert_area()/convert_volume() (scale applies squared/cubed), so they
+# are deliberately not in this divisor table.
 _MM_TO_TARGET_DIVISOR: dict[MeasurementUnit, Decimal] = {
     MeasurementUnit.MM: Decimal(1),
     MeasurementUnit.M: Decimal(1000),
-    MeasurementUnit.M2: None,  # area — handled by square
-    MeasurementUnit.M3: None,
     MeasurementUnit.COUNT: Decimal(1),
 }
 
@@ -76,9 +77,10 @@ def convert_length(
     factor = calibration.require_confirmed()
     per_mm = _DRAWING_TO_MM[drawing_unit]
     physical_mm = value * per_mm * factor
-    divisor = _MM_TO_TARGET_DIVISOR[target]
-    if divisor is None:
-        raise ValueError(f"{target} is not a length unit")
+    try:
+        divisor = _MM_TO_TARGET_DIVISOR[target]
+    except KeyError:
+        raise ValueError(f"{target} is not a length unit") from None
     return physical_mm / divisor
 
 
