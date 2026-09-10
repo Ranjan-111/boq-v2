@@ -3,14 +3,18 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/apiClient";
 import AppHeader from "../components/AppHeader";
+import DrawingsTab from "../components/DrawingsTab";
+import RunsTab from "../components/RunsTab";
+import BoqTab from "../components/BoqTab";
+import ExportsTab from "../components/ExportsTab";
 
 type Tab = "drawings" | "runs" | "boq" | "exports";
 
-const TABS: { id: Tab; label: string; note: string }[] = [
-  { id: "drawings", label: "Drawings", note: "Upload arrives in Round 3." },
-  { id: "runs", label: "Runs", note: "Measurement runs arrive in Round 3." },
-  { id: "boq", label: "BOQ", note: "The BOQ workspace arrives in Round 4." },
-  { id: "exports", label: "Exports", note: "Exports arrive in Round 4." },
+const TABS: { id: Tab; label: string }[] = [
+  { id: "drawings", label: "Drawings" },
+  { id: "runs", label: "Runs" },
+  { id: "boq", label: "BOQ" },
+  { id: "exports", label: "Exports" },
 ];
 
 export default function ProjectWorkspacePage() {
@@ -67,24 +71,15 @@ export default function ProjectWorkspacePage() {
               ))}
             </div>
 
-            <div className="card p-8">
-              {tab === "drawings" ? (
-                <div className="grid place-items-center rounded-lg border-2 border-dashed border-ink-200 bg-ink-50 p-10 text-center">
-                  <p className="text-sm font-medium text-ink-700">
-                    Drawing upload arrives in Round 3
-                  </p>
-                  <p className="mt-1 max-w-sm text-xs text-ink-500">
-                    PDF, DXF and raster drawings will upload here, parse to
-                    sheets, and require scale confirmation before any
-                    measurement runs.
-                  </p>
-                </div>
-              ) : (
-                <p className="text-center text-sm text-ink-500">
-                  {TABS.find((t) => t.id === tab)?.note}
-                </p>
-              )}
-            </div>
+            {projectId && tab === "drawings" ? (
+              <DrawingsTab projectId={projectId} />
+            ) : projectId && tab === "runs" ? (
+              <RunsTab projectId={projectId} />
+            ) : projectId && tab === "boq" ? (
+              <BoqTab projectId={projectId} />
+            ) : (
+              <ExportsTab />
+            )}
           </>
         ) : null}
       </main>
