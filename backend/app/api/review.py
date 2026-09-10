@@ -21,6 +21,7 @@ from backend.app.api.scope import problem_error
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import (
     AuditEntry,
+    DrawingSheet,
     Element,
     EvidenceLinkModel,
     ExceptionModel,
@@ -36,10 +37,17 @@ router = APIRouter(tags=["review"])
 
 
 async def _measurement_row(
-    session: AsyncSession, measurement_row_id: str, user: User
+    session: AsyncSession, measurement_ref: str, user: User
 ) -> tuple[MeasurementModel, MeasurementRun]:
+    """Resolve a measurement by durable identity (measurement_id) or row id.
+
+    The viewer passes the durable measurement_id from the list payload; the
+    row id also resolves (both are honest references to the same row).
+    """
     m = (await session.execute(
-        select(MeasurementModel).where(MeasurementModel.id == measurement_row_id)
+        select(MeasurementModel).where(
+            (MeasurementModel.measurement_id == measurement_ref)
+            | (MeasurementModel.id == measurement_ref))
     )).scalar_one_or_none()
     if m is None:
         raise problem_error(404, "not_found", "measurement not found")
@@ -57,13 +65,13 @@ async def _measurement_row(
     return m, run
 
 
-@router.get("/measurements/{measurement_row_id}/evidence")
+@router.get("/measurements/{measurement_ref}/evidence")
 async def get_measurement_evidence(
-    measurement_row_id: str,
+    measurement_ref: str,
     user: User = Depends(require_user),
     session: AsyncSession = Depends(session_dependency),
 ) -> dict[str, Any]:
-    m, run = await _measurement_row(session, measurement_row_id, user)
+    m, run = await _measurement_row(session, measurement_ref, user)
     evidence_rows = (await session.execute(
         select(EvidenceLinkModel).where(
             EvidenceLinkModel.subject_type == "measurement",
@@ -85,8 +93,17 @@ async def get_measurement_evidence(
             geometries.append({
                 "geom_type": g.geom_type, "coordinates": g.coordinates,
                 "source_format": g.source_format,
-                "source_handles": g.source_handles, "layer": None,
+                "source_handles": g.source_handles,
+                # V1 geometry rows carry layer per source handle; expose the
+                # first non-null one for viewer grouping.
+                "layer": next((h.get("layer") for h in g.source_handles
+                               if h.get("layer")), None),
             })
+    sheet = (await session.execute(
+        select(DrawingSheet).where(DrawingSheet.id == (
+            select(Element.sheet_id).where(Element.id == m.element_id).scalar_subquery()
+        ))
+    )).scalar_one_or_none()
     return {
         "id": str(m.id), "measurement_id": m.measurement_id,
         "run_id": str(run.id), "state": m.state, "label": m.label,
@@ -97,6 +114,8 @@ async def get_measurement_evidence(
             for e in evidence_rows
         ],
         "geometry": geometries,
+        "sheet": ({"id": str(sheet.id), "sheet_ref": sheet.sheet_ref}
+                  if sheet is not None else None),
     }
 
 

@@ -102,8 +102,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             {"name": "auth"},
             {"name": "projects"},
             {"name": "drawings"},
+            {"name": "sheets"},
             {"name": "runs"},
+            {"name": "review"},
+            {"name": "boqs"},
             {"name": "jobs"},
+            {"name": "catalog"},
         ],
     )
     app.state.settings = settings
@@ -132,13 +136,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 request_id=getattr(request.state, "request_id", None),
             )
 
-    from backend.app.api import auth, boqs, projects, review, runs
+    from backend.app.api import (
+        auth,
+        boqs,
+        catalog,
+        drawings,
+        jobs,
+        projects,
+        review,
+        runs,
+        sheets,
+    )
 
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(projects.router, prefix="/api/v1")
     app.include_router(runs.router, prefix="/api/v1")
     app.include_router(review.router, prefix="/api/v1")
     app.include_router(boqs.router, prefix="/api/v1")
+    # Round 4 upstream slice (T019/T020): upload→parse→sheets→scale→catalog.
+    app.include_router(drawings.router, prefix="/api/v1")
+    app.include_router(drawings.drawing_router, prefix="/api/v1")
+    app.include_router(sheets.router, prefix="/api/v1")
+    app.include_router(catalog.router, prefix="/api/v1")
+    app.include_router(jobs.router, prefix="/api/v1")
 
     app.state.SessionLocal = None  # legacy name guard
     return app

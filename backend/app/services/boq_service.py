@@ -296,6 +296,23 @@ async def submit_boq(session: AsyncSession, *, project_id: str, boq_id: str,
     return {"status": boq.status}
 
 
+async def review_boq(session: AsyncSession, *, project_id: str, boq_id: str,
+                    actor: str, note: str | None = None) -> dict[str, Any]:
+    """IN_REVIEW -> REVIEWED: a human has completed their review pass.
+
+    This is the hop the approval gate requires (approve only accepts
+    REVIEWED); it is the reviewer's explicit statement, so it is audited
+    like every other transition.
+    """
+    boq = await _owned_boq(session, boq_id, project_id)
+    try:
+        boq.status = transition_boq(BoqStatus(boq.status), BoqStatus.REVIEWED).value
+    except ValueError as exc:
+        raise BoqServiceError("illegal_transition", str(exc)) from exc
+    await _audit(session, actor, AuditAction.UPDATE.value, boq, note=note)
+    return {"status": boq.status}
+
+
 async def approve_boq(session: AsyncSession, *, project_id: str, boq_id: str,
                       actor: str, note: str | None = None) -> dict[str, Any]:
     """APPROVE only when: legal transition, items exist, zero unresolved
@@ -326,7 +343,9 @@ async def approve_boq(session: AsyncSession, *, project_id: str, boq_id: str,
         boq.status = transition_boq(BoqStatus(boq.status), BoqStatus.APPROVED).value
     except ValueError as exc:
         raise BoqServiceError("illegal_transition", str(exc)) from exc
-    boq.approved_by = actor  # Mapped[str] column; native Uuid keeps str form
+    # Uuid column (typed str in the ORM): asyncpg SELECTs hand back pgproto
+    # UUIDs, hand-built rows hand back str — accept both.
+    boq.approved_by = str(actor)
     boq.approved_at = datetime.now(UTC)
     await _audit(session, actor, AuditAction.APPROVE.value, boq, note=note)
     return {"status": boq.status}
@@ -349,11 +368,22 @@ async def mark_stale_if_approved(session: AsyncSession, boq: BoqModel) -> None:
         boq.status = transition_boq(BoqStatus.APPROVED, BoqStatus.STALE_APPROVED).value
 
 
+def _as_uuid(value: str | uuid.UUID) -> uuid.UUID:
+    """Coerce an actor/subject id to a native uuid.
+
+    ORM rows are typed Mapped[str] but asyncpg returns pgproto UUID objects
+    for Uuid columns — so a caller-selected user/boq hands us a UUID here
+    while hand-built test rows hand us str. Accept both (str round-trips
+    through uuid.UUID; a UUID passes through).
+    """
+    return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
+
 async def _audit(session: AsyncSession, actor: str, action: str, boq: BoqModel,
                  *, note: str | None = None) -> None:
     session.add(AuditEntry(
-        id=str(uuid.uuid4()), actor=uuid.UUID(actor), action=action,
-        subject_type="boq", subject_id=uuid.UUID(str(boq.id)),
+        id=str(uuid.uuid4()), actor=_as_uuid(actor), action=action,
+        subject_type="boq", subject_id=_as_uuid(boq.id),
         before={"status": boq.status}, after={"status": boq.status},
         reason=note,
     ))
@@ -511,9 +541,9 @@ async def execute_export(
             boq.status = transition_boq(
                 BoqStatus.APPROVED, BoqStatus.EXPORTED).value
         session.add(AuditEntry(
-            id=str(uuid.uuid4()), actor=uuid.UUID(actor),
+            id=str(uuid.uuid4()), actor=_as_uuid(actor),
             action=AuditAction.EXPORT.value, subject_type="export",
-            subject_id=uuid.UUID(str(artifact.id)),
+            subject_id=_as_uuid(artifact.id),
             after={"sha256": sha, "boq_status": boq.status},
         ))
         await session.flush()

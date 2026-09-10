@@ -119,4 +119,10 @@ async def run_worker(*, poll_seconds: float | None = None, once: bool = False) -
 
 
 if __name__ == "__main__":
-    asyncio.run(run_worker())
+    # Run the CANONICAL module, not this __main__ copy: python -m executes
+    # this file as __main__, a SEPARATE module object from backend.app.jobs.
+    # worker (which handlers.py registers into via `from ... import worker`).
+    # Delegating keeps exactly one _HANDLERS registry.
+    from backend.app.jobs.worker import run_worker as _run_worker
+
+    asyncio.run(_run_worker())

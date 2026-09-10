@@ -237,16 +237,17 @@ class TestBoqServiceGates:
                                               boq_id=boq_id, actor=user.id)
             await boq_service.submit_boq(session, project_id=project.id,
                                          boq_id=boq_id, actor=user.id)
-            # IN_REVIEW -> APPROVED is illegal; REVIEWED is required.
+            # IN_REVIEW -> APPROVED is illegal; REVIEWED (the reviewer's
+            # completion hop, review_boq) is required.
             with pytest.raises(boq_service.BoqServiceError):
                 await boq_service.approve_boq(session, project_id=project.id,
                                               boq_id=boq_id, actor=user.id)
-            boq.status = "reviewed"  # REVIEWED step arrives with T072/T114
-            await session.flush()
+            reviewed = await boq_service.review_boq(
+                session, project_id=project.id, boq_id=boq_id, actor=user.id)
+            assert reviewed["status"] == "reviewed"
             approved = await boq_service.approve_boq(
                 session, project_id=project.id, boq_id=boq_id, actor=user.id)
             assert approved["status"] == "approved"
-
             # Export with a trusted server-built approval context.
             artifact = ExportArtifact(id=str(uuid.uuid4()), boq_id=boq.id,
                                       format="csv", status="pending",
@@ -344,8 +345,9 @@ class TestBoqServiceGates:
                 select(BoqModel).where(BoqModel.id == built["boq_id"]))).scalar_one()
             await boq_service.submit_boq(session, project_id=project.id,
                                         boq_id=boq.id, actor=user.id)
-            boq.status = "reviewed"
-            await session.flush()
+            reviewed = await boq_service.review_boq(
+                session, project_id=project.id, boq_id=boq.id, actor=user.id)
+            assert reviewed["status"] == "reviewed"
             with pytest.raises(boq_service.BoqServiceError, match="adversarial probe blocker"):
                 await boq_service.approve_boq(session, project_id=project.id,
                                               boq_id=boq.id, actor=user.id)
@@ -355,6 +357,47 @@ class TestBoqServiceGates:
             ok = await boq_service.approve_boq(session, project_id=project.id,
                                                boq_id=boq.id, actor=user.id)
             assert ok["status"] == "approved"
+        finally:
+            await session.rollback()
+            await session.close()
+            await engine.dispose()
+
+
+class TestQueueFail:
+    """Regression: queue.fail reused one bind param across a varchar column
+    assignment and a text comparison — asyncpg rejects that with
+    AmbiguousParameterError, so EVERY fail() call crashed (Worker 1 probe)."""
+
+    async def test_fail_marks_terminal_and_retryable(self, migrated_db: str) -> None:
+        from backend.app.db.models import JobRun
+        from backend.app.jobs import queue
+
+        engine = make_async_engine(migrated_db)
+        session = await make_sessionmaker(engine)().__aenter__()
+        try:
+            job_id = await queue.submit(session, queue.JobSpec(
+                kind="measurement_run", payload={"probe": True},
+                idempotency_key=f"probe:{uuid.uuid4().hex}"))
+            # Terminal failure: status flips, finished_at set, error recorded.
+            status = await queue.fail(session, job_id, "boom", retryable=False)
+            assert status == "failed"
+            row = (await session.execute(
+                select(JobRun).where(JobRun.id == job_id)
+            )).scalar_one()
+            assert row.status == "failed"
+            assert row.error == "boom"
+            assert row.finished_at is not None
+            # Retryable failure: requeued, finished_at NOT set.
+            job_id2 = await queue.submit(session, queue.JobSpec(
+                kind="measurement_run", payload={"probe": True},
+                idempotency_key=f"probe:{uuid.uuid4().hex}"))
+            status2 = await queue.fail(session, job_id2, "retry me", retryable=True)
+            assert status2 == "queued"
+            row2 = (await session.execute(
+                select(JobRun).where(JobRun.id == job_id2)
+            )).scalar_one()
+            assert row2.status == "queued"
+            assert row2.finished_at is None
         finally:
             await session.rollback()
             await session.close()

@@ -86,6 +86,24 @@ class TestValidate:
             )
         assert e.value.code == "bad_mime"
 
+    def test_octet_stream_falls_through_to_magic_sniff(self) -> None:
+        # Browsers send application/octet-stream for .dxf (no registered
+        # OS mime type). The honest-unknown mime must reach the magic-byte
+        # sniff, which is the check that cannot be lied about.
+        v = validate_upload(
+            filename="plan.dxf", data=_dxf(), max_bytes=1000,
+            declared_mime="application/octet-stream",
+        )
+        assert v.format == "dxf"
+        # ...and the sniff still refuses lies: octet-stream with fake-DXF
+        # bytes (no SECTION/ENTITIES markers) is rejected by content.
+        with pytest.raises(UploadRejected) as e:
+            validate_upload(
+                filename="fake.dxf", data=b"garbage bytes", max_bytes=1000,
+                declared_mime="application/octet-stream",
+            )
+        assert e.value.code == "bad_magic"
+
     def test_unsanitizable_filename_rejected(self) -> None:
         with pytest.raises(UploadRejected):
             validate_upload(filename="", data=PDF, max_bytes=1000)

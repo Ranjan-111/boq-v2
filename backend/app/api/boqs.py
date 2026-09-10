@@ -125,6 +125,23 @@ async def submit_boq(
         raise problem_error(exc.status, exc.code, exc.message) from exc
 
 
+@router.post("/boqs/{boq_id}/review")
+async def review_boq(
+    boq_id: str,
+    body: NoteBody | None = None,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """IN_REVIEW -> REVIEWED — the reviewer's completion hop (contract 90)."""
+    boq = await _resolve_callers_boq(session, boq_id, user)
+    try:
+        return await boq_service.review_boq(
+            session, project_id=str(boq.project_id), boq_id=boq_id,
+            actor=user.id, note=body.note if body else None)
+    except boq_service.BoqServiceError as exc:
+        raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
 @router.post("/boqs/{boq_id}/approve")
 async def approve_boq(
     boq_id: str,
@@ -196,7 +213,7 @@ async def create_export(
     try:
         job_id = await submit(session, JobSpec(
             kind="boq_export",
-            payload={"export_id": artifact.id, "actor": user.id},
+            payload={"export_id": str(artifact.id), "actor": str(user.id)},
             idempotency_key=f"export:{artifact.id}",
         ))
     except DuplicateJob as exc:

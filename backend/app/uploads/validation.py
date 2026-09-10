@@ -24,6 +24,11 @@ ALLOWED_MIME = {
     "image/webp": "raster",
     "application/dxf": "dxf",
     "application/acad": "dxf",
+    # Chromium maps .dxf to image/vnd.dxf (there is no registered OS mime
+    # type); like octet-stream it is an unknown-to-us DXF declaration that
+    # falls through to the magic-byte sniff, which cannot be lied about.
+    "image/vnd.dxf": None,
+    "application/octet-stream": None,
 }
 
 

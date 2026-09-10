@@ -7,6 +7,7 @@ Every read endpoint filters by state/quantity_type like the contract says.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -19,6 +20,7 @@ from backend.app.api.scope import owned_project, problem_error
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import (
     DrawingSheet,
+    Element,
     ExceptionModel,
     MeasurementModel,
     MeasurementRun,
@@ -42,6 +44,7 @@ class RunOptions(BaseModel):
 
 class RunOut(BaseModel):
     id: str
+    project_id: str
     status: str
     stats: dict[str, int] | None
     error: str | None
@@ -52,7 +55,7 @@ class RunOut(BaseModel):
 
 def _run_out(r: MeasurementRun) -> dict[str, Any]:
     return {
-        "id": str(r.id), "status": r.status,
+        "id": str(r.id), "project_id": str(r.project_id), "status": r.status,
         "stats": r.stats, "error": r.error, "engine_version": r.engine_version,
     }
 
@@ -97,83 +100,89 @@ async def create_run(
 
 
 async def _owned_run(
-    session: AsyncSession, run_id: str, project_id: str
+    session: AsyncSession, run_id: str, user: User
 ) -> MeasurementRun:
+    """Run readable only through its project's creator (contract: /runs/{id})."""
     run = (await session.execute(
-        select(MeasurementRun).where(
-            MeasurementRun.id == run_id,
-            MeasurementRun.project_id == project_id,
-        )
+        select(MeasurementRun).where(MeasurementRun.id == run_id)
     )).scalar_one_or_none()
     if run is None:
+        raise problem_error(404, "not_found", "run not found")
+    project = (await session.execute(
+        select(Project).where(Project.id == run.project_id,
+                              Project.created_by == user.id,
+                              Project.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if project is None:
         raise problem_error(404, "not_found", "run not found")
     return run
 
 
-@router.get("/projects/{project_id}/runs/{run_id}")
-async def get_project_run(
-    project_id: str,
+@router.get("/runs/{run_id}")
+async def get_run(
     run_id: str,
     user: User = Depends(require_user),
     session: AsyncSession = Depends(session_dependency),
-    project: Project = Depends(owned_project),
 ) -> dict[str, Any]:
-    run = await _owned_run(session, run_id, project.id)
-    return _run_out(run)
+    return _run_out(await _owned_run(session, run_id, user))
 
 
-@router.get("/projects/{project_id}/runs/{run_id}/measurements")
+@router.get("/runs/{run_id}/measurements")
 async def list_run_measurements(
-    project_id: str,
     run_id: str,
     state: str | None = Query(default=None),
     quantity_type: str | None = Query(default=None),
     user: User = Depends(require_user),
     session: AsyncSession = Depends(session_dependency),
-    project: Project = Depends(owned_project),
 ) -> dict[str, Any]:
-    run = await _owned_run(session, run_id, project.id)
-    q = select(MeasurementModel).where(MeasurementModel.run_id == run.id)
+    run = await _owned_run(session, run_id, user)
+    q = select(MeasurementModel, Element).join(
+        Element, MeasurementModel.element_id == Element.id).where(
+        MeasurementModel.run_id == run.id)
     if state:
         q = q.where(MeasurementModel.state == state)
     if quantity_type:
         q = q.where(MeasurementModel.quantity_type == quantity_type)
     rows = (await session.execute(q.order_by(
-        MeasurementModel.created_at, MeasurementModel.id))).scalars().all()
+        MeasurementModel.created_at, MeasurementModel.id))).all()
     from backend.app.db.models import EvidenceLinkModel
-    ev_counts: dict[str, int] = {}
+    ev_rows: Sequence[EvidenceLinkModel] = ()
     if rows:
         ev_rows = (await session.execute(
-            select(EvidenceLinkModel.subject_id)
+            select(EvidenceLinkModel)
             .where(EvidenceLinkModel.subject_type == "measurement",
                    EvidenceLinkModel.subject_id.in_(
-                       [uuid.UUID(str(r.id)) for r in rows]))
-        )).all()
-        for (subject,) in ev_rows:
-            ev_counts[str(subject)] = ev_counts.get(str(subject), 0) + 1
+                       [uuid.UUID(str(m.id)) for m, _e in rows]))
+        )).scalars().all()
+    ev_by_subject: dict[str, list[EvidenceLinkModel]] = {}
+    for e in ev_rows:
+        ev_by_subject.setdefault(str(e.subject_id), []).append(e)
     return {"items": [
         {
-            "id": str(r.id), "measurement_id": r.measurement_id,
-            "element_id": str(r.element_id), "quantity_type": r.quantity_type,
-            "value": str(r.value) if r.value is not None else None,
-            "unit": r.unit, "rule_id": r.rule_id, "state": r.state,
-            "label": r.label, "evidence_count": ev_counts.get(str(r.id), 0),
-            "inputs_digest": r.inputs_digest,
+            "id": str(m.id), "measurement_id": m.measurement_id,
+            "element_id": str(m.element_id), "quantity_type": m.quantity_type,
+            "value": str(m.value) if m.value is not None else None,
+            "unit": m.unit, "rule_id": m.rule_id, "state": m.state,
+            "label": m.label, "element_label": el.label,
+            "evidence_count": len(ev_by_subject.get(str(m.id), [])),
+            "evidence": [
+                {"kind": e.kind, "ref": e.ref, "note": e.note}
+                for e in ev_by_subject.get(str(m.id), [])
+            ],
+            "inputs_digest": m.inputs_digest,
         }
-        for r in rows
+        for m, el in rows
     ]}
 
 
-@router.get("/projects/{project_id}/runs/{run_id}/exceptions")
+@router.get("/runs/{run_id}/exceptions")
 async def list_run_exceptions(
-    project_id: str,
     run_id: str,
     severity: str | None = Query(default=None),
     user: User = Depends(require_user),
     session: AsyncSession = Depends(session_dependency),
-    project: Project = Depends(owned_project),
 ) -> dict[str, Any]:
-    run = await _owned_run(session, run_id, project.id)
+    run = await _owned_run(session, run_id, user)
     q = select(ExceptionModel).where(ExceptionModel.run_id == run.id)
     if severity:
         q = q.where(ExceptionModel.severity == severity)

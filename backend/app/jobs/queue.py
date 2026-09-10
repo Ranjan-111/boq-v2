@@ -129,13 +129,16 @@ async def complete(
 async def fail(session: AsyncSession, job_id: str, error: str, *, retryable: bool) -> str:
     """Fail a job: retry (requeue) if attempts remain, else mark failed. Returns new status."""
     new_status = "queued" if retryable else "failed"
+    # One param per usage site: asyncpg rejects a single :s bound both as a
+    # varchar column assignment and as a text comparison (AmbiguousParameterError).
     await session.execute(
         text(
-            "UPDATE jobs SET status = :s, error = :e, "
-            "finished_at = CASE WHEN :s = 'failed' THEN now() ELSE finished_at END "
+            "UPDATE jobs SET status = CAST(:status AS varchar), error = :e, "
+            "finished_at = CASE WHEN :is_failed THEN now() ELSE finished_at END "
             "WHERE id = :id"
         ),
-        {"s": new_status, "e": error, "id": job_id},
+        {"status": new_status, "e": error, "id": job_id,
+         "is_failed": not retryable},
     )
     await session.flush()
     return new_status
