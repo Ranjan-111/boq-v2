@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,14 @@ SOURCE_PACKAGES = ("core", "ingestion", "takeoff", "classification",
 
 
 def _run_import_linter(cwd: Path) -> subprocess.CompletedProcess[str]:
-    lint_imports = ROOT / ".venv" / "bin" / "lint-imports"
+    """Run the real guard CLI from the CURRENT interpreter's venv.
+
+    Resolving from sys.executable (not a hardcoded ROOT/.venv path) keeps the
+    guard test working in any checkout whose venv runs pytest — the way CI
+    creates .venv inside its own checkout. lint-imports is a dev dependency
+    installed next to the interpreter.
+    """
+    lint_imports = Path(sys.executable).with_name("lint-imports")
     return subprocess.run(
         [str(lint_imports), "--config", "pyproject.toml", "--no-cache"],
         capture_output=True, text=True, cwd=cwd, check=False,
