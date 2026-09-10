@@ -119,6 +119,13 @@ class ExceptionCode(StrEnum):
     MISSING_RATE = "missing_rate"
     MISSING_EVIDENCE = "missing_evidence"
     PARSE_INCOMPLETE = "parse_incomplete"
+    # Round 5 (full takeoff engine) — additive codes. Severity policy in
+    # takeoff.engine.SEVERITY_POLICY; every refusal surfaces, never swallows.
+    ROOM_NOT_ENCLOSED = "room_not_enclosed"
+    ROOM_TOPOLOGY = "room_topology"
+    OPENING_AMBIGUOUS = "opening_ambiguous"
+    OPENING_PARTIAL_SPAN = "opening_partial_span"
+    PDF_PATH_UNCLASSIFIED = "pdf_path_unclassified"
 
 
 class RateScope(StrEnum):

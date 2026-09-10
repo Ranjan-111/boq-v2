@@ -17,7 +17,10 @@ import ezdxf
 OUT = Path(__file__).parent / "dxf"
 
 
-def _wall_pair(msp: object, x0: float, y0: float, x1: float, y1: float, t: float) -> None:
+def _wall_pair(
+    msp: object, x0: float, y0: float, x1: float, y1: float, t: float,
+    layer: str = "WALL",
+) -> None:
     """One wall segment drawn as two parallel lines (a wall 'pair')."""
     dx, dy = x1 - x0, y1 - y0
     length = (dx * dx + dy * dy) ** 0.5
@@ -27,8 +30,8 @@ def _wall_pair(msp: object, x0: float, y0: float, x1: float, y1: float, t: float
     a1 = (x1 + nx * t / 2, y1 + ny * t / 2)
     b0 = (x0 - nx * t / 2, y0 - ny * t / 2)
     b1 = (x1 - nx * t / 2, y1 - ny * t / 2)
-    msp.add_line(a0, a1, dxfattribs={"layer": "WALL"})
-    msp.add_line(b0, b1, dxfattribs={"layer": "WALL"})
+    msp.add_line(a0, a1, dxfattribs={"layer": layer})
+    msp.add_line(b0, b1, dxfattribs={"layer": layer})
 
 
 def build_wall_plan() -> bytes:
@@ -123,6 +126,143 @@ def build_block_fixture() -> bytes:
     return _export(doc)
 
 
+# ---------------------------------------------------------------------------
+# Round 5 — full takeoff engine fixtures (rooms, openings, deductions)
+# ---------------------------------------------------------------------------
+
+
+def _rectangle_walls(
+    msp: object, x: float, y: float, w: float, h: float, t: float,
+    layer: str = "WALL",
+) -> None:
+    """A closed rectangle of 4 wall-segment pairs (a fully enclosed room)."""
+    _wall_pair(msp, x, y, x + w, y, t, layer=layer)          # bottom
+    _wall_pair(msp, x, y, x, y + h, t, layer=layer)          # left
+    _wall_pair(msp, x + w, y, x + w, y + h, t, layer=layer)  # right
+    _wall_pair(msp, x, y + h, x + w, y + h, t, layer=layer)  # top
+
+
+def build_room_plan() -> bytes:
+    """One closed 4000x3000 mm room (4 wall pairs) + a KITCHEN TEXT label.
+
+    Rooms T043: the room's enclosing rectangle is detectable via wall
+    centerline polygonization; the label token provides the room name.
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    msp = doc.modelspace()
+    _rectangle_walls(msp, 0, 0, 4000, 3000, t=200.0)
+    msp.add_text("KITCHEN", dxfattribs={
+        "layer": "TEXT", "height": 200}).set_placement((1000, 1500))
+    return _export(doc)
+
+
+def build_two_room_plan() -> bytes:
+    """Two rooms sharing one wall: 6 wall segments forming 2 enclosed rooms."""
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    msp = doc.modelspace()
+    # Outer rectangle 6000x3000, then a dividing wall at x=4000.
+    _rectangle_walls(msp, 0, 0, 6000, 3000, t=200.0)
+    _wall_pair(msp, 4000, 0, 4000, 3000, t=200.0)
+    msp.add_text("BEDROOM", dxfattribs={
+        "layer": "TEXT", "height": 200}).set_placement((1500, 1500))
+    msp.add_text("BATH", dxfattribs={
+        "layer": "TEXT", "height": 200}).set_placement((4800, 1500))
+    return _export(doc)
+
+
+def build_wall_with_doorway() -> bytes:
+    """One wall pair with a 900mm doorway gap + a D900 door block in it.
+
+    T045 honest-evidence doctrine: a bare collinear gap between wall runs is
+    NOT counted as an opening (two separate walls is equally plausible —
+    never a guess). A gap CORROBORATED by a door/window-named block placed in
+    the gap span is a counted opening. This fixture draws the doorway the way
+    real CAD does: split faces + door block in the gap.
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    if "DOOR" not in doc.layers:
+        doc.layers.add("DOOR")
+    msp = doc.modelspace()
+    t = 200.0
+    y1 = 5000.0
+    gap_lo, gap_hi = 2000.0, 2900.0  # 900 mm doorway
+    # Two parallel faces at x = ±t/2, each split by the same gap span.
+    for x in (-t / 2, t / 2):
+        msp.add_line((x, 0), (x, gap_lo), dxfattribs={"layer": "WALL"})
+        msp.add_line((x, gap_hi), (x, y1), dxfattribs={"layer": "WALL"})
+    # Door block D900 in the gap: leaf along the wall line, jambs spanning
+    # the thickness — local bbox x∈[-100,100], y∈[-450,450].
+    door = doc.blocks.new("D900")
+    door.add_line((0, -450), (0, 450), dxfattribs={"layer": "DOOR"})
+    door.add_line((-100, -450), (100, -450), dxfattribs={"layer": "DOOR"})
+    door.add_line((-100, 450), (100, 450), dxfattribs={"layer": "DOOR"})
+    msp.add_blockref("D900", insert=(0, 2450))
+    return _export(doc)
+
+
+def build_opening_blocks() -> bytes:
+    """Door/window blocks by name: D1000 door + W1200 window INSERTs, one wall pair.
+
+    T045/T046: members deliberately span THROUGH the wall (±150 / ±100 in y
+    against a 200-thick wall) so each block's placed bbox fully crosses the
+    wall footprint — the honest full-span opening case (partial-span openings
+    are surfaced as exceptions, never silently under-deducted).
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    if "DOOR" not in doc.layers:
+        doc.layers.add("DOOR")
+    if "WINDOW" not in doc.layers:
+        doc.layers.add("WINDOW")
+    msp = doc.modelspace()
+    # A continuous wall pair to host them (6000mm, 200 thick, on y=0)
+    _wall_pair(msp, 0, 0, 6000, 0, t=200.0)
+    # Door block D1000: jambs spanning through the wall + leaf line.
+    door = doc.blocks.new("D1000")
+    door.add_line((0, -150), (0, 150), dxfattribs={"layer": "DOOR"})
+    door.add_line((1000, -150), (1000, 150), dxfattribs={"layer": "DOOR"})
+    door.add_line((0, 0), (1000, 0), dxfattribs={"layer": "DOOR"})
+    # Window block W1200: three glazing lines spanning the wall thickness.
+    win = doc.blocks.new("W1200")
+    win.add_line((0, -100), (1200, -100), dxfattribs={"layer": "WINDOW"})
+    win.add_line((0, 0), (1200, 0), dxfattribs={"layer": "WINDOW"})
+    win.add_line((0, 100), (1200, 100), dxfattribs={"layer": "WINDOW"})
+    msp.add_blockref("D1000", insert=(1000, 0))
+    msp.add_blockref("W1200", insert=(3000, 0))
+    return _export(doc)
+
+
+def build_multi_storey_hint() -> bytes:
+    """Same room plan at two insert elevations? No — V1 refuses nonzero INSERT z.
+
+    Instead: two separate rooms with storey-indicating TEXT tokens (L1/L2
+    labels) — storey roll-up remains a labeling concern, honest about V1.
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    msp = doc.modelspace()
+    _rectangle_walls(msp, 0, 0, 3000, 2000, t=150.0)
+    _rectangle_walls(msp, 10000, 0, 3000, 2000, t=150.0)
+    msp.add_text("ROOM L1", dxfattribs={
+        "layer": "TEXT", "height": 150}).set_placement((1000, 1000))
+    msp.add_text("ROOM L2", dxfattribs={
+        "layer": "TEXT", "height": 150}).set_placement((11000, 1000))
+    return _export(doc)
+
+
 FIXTURES: dict[str, object] = {
     "wall_plan.dxf": build_wall_plan,
     "no_units.dxf": build_no_units,
@@ -131,6 +271,11 @@ FIXTURES: dict[str, object] = {
     "corrupt.dxf": build_corrupt,
     "paperspace_only.dxf": build_paperspace_only,
     "block_wall.dxf": build_block_fixture,
+    "room_plan.dxf": build_room_plan,
+    "two_room_plan.dxf": build_two_room_plan,
+    "wall_with_doorway.dxf": build_wall_with_doorway,
+    "opening_blocks.dxf": build_opening_blocks,
+    "multi_storey_hint.dxf": build_multi_storey_hint,
 }
 
 

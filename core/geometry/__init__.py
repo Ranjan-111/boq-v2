@@ -161,10 +161,46 @@ class SheetSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class TextToken:
+    """One captured TEXT/MTEXT label — evidence, never geometry.
+
+    docs/domain-model.md §Element.label: room names arrive from drawing text
+    with `label_evidence`. A token carries its source handle + insertion point
+    in drawing units; it is NOT measurable and never becomes a geometry row.
+    Confidence/meaning is decided downstream (nearest-room matching is
+    deterministic; AI classification of *labels* is the later advisory layer).
+    """
+
+    text: str
+    insertion: tuple[float, float]
+    handle: SourceHandleRef
+    height: float | None = None  # text height in drawing units, when known
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "text": self.text,
+            "insertion": list(self.insertion),
+            "height": self.height,
+            "handle": self.handle.to_json(),
+        }
+
+    @classmethod
+    def from_json(cls, data: dict[str, Any]) -> TextToken:
+        handle = SourceHandleRef.from_json(data["handle"])
+        height = data.get("height")
+        return cls(
+            text=str(data["text"]),
+            insertion=(float(data["insertion"][0]), float(data["insertion"][1])),
+            height=float(height) if height is not None else None,
+            handle=handle,
+        )
+@dataclass(frozen=True, slots=True)
 class ParseResult:
     """Complete output of parsing one drawing file.
 
     geometries are in drawing units with stable source handles.
+    text_tokens: TEXT/MTEXT labels captured for evidence (room labels,
+    dimension annotations) — additive; parsers that capture none emit ().
     warnings: surfaced problems (skipped entities, ambiguous sheets) — never
     swallowed; the run engine converts them to exception records.
     """
@@ -172,5 +208,6 @@ class ParseResult:
     drawing_units: str  # mm|cm|m|in|ft — from the file, or "unknown"
     geometries: tuple[NormalizedGeometry, ...]
     sheets: tuple[SheetSummary, ...]
+    text_tokens: tuple[TextToken, ...] = ()
     warnings: tuple[str, ...] = ()
     source_sha256: str = ""  # immutable raw-file version, populated by ingestion
