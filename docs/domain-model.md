@@ -32,6 +32,11 @@ Project 1───* CatalogueItem (region-scoped)
              Rate 1──* CatalogueItem  (vendor/scoped rates)
              
 Measurement *───1 CatalogueItem (mapping → produces BoqItem)
+             — Round 5 mapping doctrine: group by (rule_id, unit), never bare
+             unit (room m² ≠ wall m²); one catalogue item maps at most one
+             group — collisions block ALL claimants symmetrically (gross and
+             net never bill as one line); unmapped groups are BLOCKING
+             `UNMAPPED_MEASUREMENT` exceptions, resolved only by a human.
 BoqItem 1──* PriceComponent?  → NO: BoqItem carries rate + markup + computed total
 Boq 1───* BoqSection 1───* BoqItem
 Boq 1───1 Approval
@@ -99,7 +104,9 @@ ReviewDecision *──1 (Measurement | Exception | Mapping)  — audit trail row
 ### Exception
 - `id`, `run_id`, `measurement_id?`, `element_id?`, `sheet_id?`
 - `code` (catalogued, e.g., `SCALE_UNCONFIRMED`, `OPEN_POLYLINE`, `OVERLAP_DETECTED`,
-  `AI_LOW_CONFIDENCE`, `UNMAPPED_MEASUREMENT`, `MISSING_RATE`),
+  `AI_LOW_CONFIDENCE`, `UNMAPPED_MEASUREMENT`, `MISSING_RATE`,
+  `ROOM_NOT_ENCLOSED`, `OPENING_AMBIGUOUS` — a bare collinear wall gap with
+  no corroborating door/window block: never a counted opening),
 - `severity`: `BLOCKING | REVIEW | INFO`
 - `message`, `evidence` (auto-gathered refs), `ai_explanation?`, `created_at`
 - Resolved by ReviewDecision or by fixing inputs (run re-executes → exception re-evaluated).

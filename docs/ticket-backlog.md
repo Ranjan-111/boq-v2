@@ -40,9 +40,9 @@ additive-only; changes are PR'd against the docs first.
 |---|---|---|---|---|---|
 | T030 ◐R3 | DXF parser (ezdxf): entities→normalized Geometry, **capture dxf.handle for stable identity**, layers, blocks-emitted-once, INSUNITS reading | P0 | 5–8 | T011, T013 | OCErp pattern #4/#7. R3: core+INSERT+refusals done; paperspace viewports later |
 | T031 ◐R3 | DXF sheet/layout detection + measurability rules (modelspace-first, refuse ambiguous) | P0 | 2 | T030 | R3: modelspace-first + paperspace refusal done |
-| T032 | PDF parser: pdfplumber vector paths + text tokens (dimension candidates), pypdfium2 page tiles | P0 | 5–7 | T011 | PyMuPDF banned |
+| T032 ◐R5 | PDF parser: pdfplumber vector paths + text tokens (dimension candidates), pypdfium2 page tiles | P0 | 5–7 | T011 | PyMuPDF banned. R5: parse_pdf + text tokens + honest refusals (corrupt/no-Root/encrypted-locked) + hand-authored ASCII fixtures done; pypdfium2 page tiles later |
 | T033 | Raster ingestion: storage + AI-vision text/region pass; NO auto-measurement | P0 | 3 | T030 (interfaces) | |
-| T034 ◐R3 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies. R3: DXF proposal + confirmed-scale validation done; PDF later |
+| T034 ◐R5 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies. R3: DXF proposal + confirmed-scale validation; R5: PDF `1:N` text regex proposal (PROPOSED-only) done; scale-bar heuristic later |
 | T035 | OOM-isolated extraction worker (RLIMIT_AS child process) | P1 | 2 | T032 | |
 | T036 ◐R3 | Corruption/adversarial file handling + format sniffing + fixtures | P0 | 2 | T030, T032, T033 | with H1. R3: DXF adversarial fixtures + refusals done |
 | T037 | DWG input via external conversion (post-V1/V2): DWG→DXF via OSS converter (ODA File Converter-class) or documented user export step; downstream pipeline reuses the DXF parser unchanged — entity extraction, INSERT/block handling, measurement, evidence all identical. No proprietary converter dependency (DDC binary chain rejected, reuse-matrix #2/#5) | P2 | 2–3 | T030 | OCErp's own DWG path also shells out to proprietary x86-only converters; conversion-to-DXF is the only licensing-clean route |
@@ -54,11 +54,11 @@ additive-only; changes are PR'd against the docs first.
 | T040 ✅R3 | Geometry kernel: Shapely-based primitives, unit-safe area/length/count, self-intersection refusal | P0 | 3 | T011 | R3: done (takeoff/kernel.py) |
 | T041 ✅R3 | Measurement rules registry (rule_id, versioned, replayable) | P0 | 2 | T040 | R3: done (takeoff/rules, run_rule discipline guard-tested) |
 | T042 ◐R3 | Wall detection from parallel line pairs → centerlines, lengths, footprint areas | P0 | 5 | T030, T040 | **OCErp has nothing — our build**. R3: straight-wall trust policy done (finite congruent support, reciprocal unique pairing, ambiguity refused, explicit max thickness) |
-| T043 | Room/space polygonization from wall lines (polygonize, fill, label-by-text-proximity) | P0 | 5 | T042 | **our build** |
-| T044 | Floor area rules (Gross/Net per room aggregation, storey roll-up) | P0 | 2 | T043 | |
-| T045 | Opening detection: door/window blocks by name/geometry + counts (DXF); text+vector candidates (PDF) | P0 | 4 | T030, T032 | |
-| T046 | Deduction rules (openings subtracted from wall areas; MEASURED_ZERO states) | P0 | 2 | T042, T045 | |
-| T047 | PDF vector candidate detectors (areas/lengths/counts + seeded count-by-example) | P1 | 3 | T032 | |
+| T043 ◐R5 | Room/space polygonization from wall lines (polygonize, fill, label-by-text-proximity) | P0 | 5 | T042 | **our build**. R5: centerline polygonize + labels strictly-inside + honest absence/refusal splits done |
+| T044 ◐R5 | Floor area rules (Gross/Net per room aggregation, storey roll-up) | P0 | 2 | T043 | R5: gross/net per room + floor roll-up done; multi-storey roll-up later |
+| T045 ◐R5 | Opening detection: door/window blocks by name/geometry + counts (DXF); text+vector candidates (PDF) | P0 | 4 | T030, T032 | R5: DXF named-block + corroboration doctrine (bare gaps never openings) done; PDF text+vector candidates later |
+| T046 ◐R5 | Deduction rules (openings subtracted from wall areas; MEASURED_ZERO states) | P0 | 2 | T042, T045 | R5: geometric net-area rule + MEASURED_ZERO opening counts done |
+| T047 ◐R5 | PDF vector candidate detectors (areas/lengths/counts + seeded count-by-example) | P1 | 3 | T032 | R5: detectors landed, deliberately NOT registered as rules (candidates propose, humans confirm) |
 | T048 | Raster candidate detectors (OpenCV rooms/walls, honest confidences, "(verify)") | P1 | 3 | T033 | |
 | T049 ◐R3 | Measurement states + exceptions engine (BLOCKING vs REVIEW; scale-unconfirmed guard) | P0 | 3 | T041, T034 | R3: measure_sheet/measure_parsed with scale gate, evidence enforcement, warning propagation, content-bound replay done |
 | T050 ◐R3 | Determinism test harness: golden-run replay (same inputs → identical outputs, engine_version-stamped) | P0 | 2 | T041 | with H1. R3: digest binding + ordering determinism tested; persisted golden runs later |
@@ -157,7 +157,7 @@ ceiling.
 
 | ID | Ticket | Pri | Eff |
 |---|---|---|---|
-| T120 ◐R3 | Adversarial fixtures: corrupt DXF/PDF, missing scale, rotated sheets, multi-storey, overlapping walls, bowtie polygons | P0 | 3. R3: DXF adversarial suite done (test_trust_hardening + parser refusals) |
+| T120 ◐R5 | Adversarial fixtures: corrupt DXF/PDF, missing scale, rotated sheets, multi-storey, overlapping walls, bowtie polygons | P0 | 3 | | R3: DXF adversarial suite; R5: room/opening adversarial DXF (multi-storey phantom-opening, doorway-corroborated, two-room) + hand-authored PDF suite (corrupt/encrypted/twopage/raster_only) |
 | T121 | Golden-run regression suite (determinism) + property-based tests (hypothesis) on geometry/rounding | P0 | 2 |
 | T122 | AI-hallucination tests: model returns numbers → engine must ignore | P0 | 1 |
 | T123 ◐R3 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2. R3: evidence enforcement + digest binding tested; persisted chain later |

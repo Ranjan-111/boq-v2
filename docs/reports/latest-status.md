@@ -1,61 +1,67 @@
 # Latest Status
 
-**Verified:** 2026-09-10 · **HEAD:** Round 4 complete locally (commits
-`3f65938..` through the Round 4 series; see round-4-report.md) — push +
-remote CI run pending at the time of this writing.
-**Current:** Round 4 — **the product slice is COMPLETE and locally verified
-end to end**, including the browser E2E of the gated journey.
+**Verified:** 2026-09-11 · **HEAD:** Round 5 complete locally (the Round 5
+commit series; see round-5-report.md).
+**Current:** Round 5 — **the full takeoff engine is COMPLETE and locally
+verified**: rooms, floors, openings, deductions on DXF + PDF, with the
+trust doctrine enforced on every new surface and the R4 unmapped gap
+closed (unmapped measurements now BLOCK approval/export server-side
+until a human resolves them).
 
-Rounds 1–3 remain completed historical milestones. Round 4 turned the
-verified trust boundary into a usable product: upload → parse → human scale
-confirmation → measurement run → BOQ build → submit/review/approve →
-approval-gated CSV export, all through the UI, with every trust refusal
-demonstrated in the browser.
+Rounds 1–4 remain completed historical milestones. Round 5 turned the
+single-element engine (walls) into the full deterministic takeoff: every
+element kind the roadmap defines for this round measures through the same
+gated pipeline, with the two belief-breaking false positives (phantom
+openings between separate buildings; gross+net billed as one line)
+caught and refused before they could reach a BOQ.
 
-## This checkpoint (Round 4)
+## This checkpoint (Round 5)
 
-- **Upstream API (T019/T020):** validate-before-store upload with
-  magic-byte sniffing, parse jobs on the SKIP-LOCKED queue, sheets with
-  PROPOSED calibrations only, `POST /sheets/{id}/scale/confirm` as the ONLY
-  CONFIRMED writer (audited), catalog with integer-minor rates.
-- **Run persistence:** stored-bytes re-parse, persisted CONFIRMED
-  calibration, measurements with durable `measurement_id` identities,
-  elements + geometry + evidence links + exceptions; unconfirmed scale is a
-  BLOCKING exception with zero measurements — never a guess.
-- **BOQ gates, server-side:** build from MEASURED-only rows (unmapped units
-  reported as blockers), submit → review → approve state machine enforced
-  with audited transitions; export builds the `ExportApproval` scope from
-  trusted persistence; artifacts content-addressed with sha256.
-- **Frontend:** the four workspace tabs are live (upload/parse polling,
-  inline human scale confirmation, run form that offers ONLY confirmed-scale
-  sheets, measurement table with per-row state badges, click-to-highlight
-  evidence in a pan/zoom SVG viewer, exceptions with inline resolve, BOQ
-  workspace with 409 blocker surfacing, export card with sha + download).
-- **Browser E2E (T126):** Playwright journey register → … → CSV download,
-  green (8.6s), including the pre-gate refusal (Start run disabled until a
-  human confirms scale).
-- **Six latent defects the journey exposed were closed with regressions**
-  (queue.fail param bug, `-m` worker registry split, honest browser mimes
-  rejected, asyncpg UUID/str crashes, a store-mirror render loop, a
-  reviewed-state dead end) — see round-4-report.md.
+- **Rooms + floors (T043/T044):** centerline polygonization with honest
+  absence vs refusal splits (<3 walls = no room, no exception; ≥3 walls
+  unclosed = `room_not_enclosed` REVIEW; topology errors BLOCKING),
+  container/contained annulus handling, TEXT-token labels strictly
+  inside faces, gross/net per room + floor roll-up.
+- **Openings + deductions (T045/T046):** named-block detection (one
+  placed block = one opening; local-frame hosting) + the corroboration
+  doctrine — **bare collinear gaps are never openings**, only gaps with
+  a door/window-named block in the span count; bare gaps surface as
+  `opening_ambiguous` REVIEW. Net wall area subtracts geometrically
+  from rule inputs (replay-honest); zero openings = MEASURED_ZERO with
+  evidence.
+- **PDF ingestion (T032/T034/T047):** pdfplumber parser with the same
+  ParseResult contract, text tokens, honest refusals (corrupt/no-Root/
+  encrypted-locked), PROPOSED-only scale proposals from `1:N` text;
+  candidate detectors (areas/lengths/count-by-example) deliberately
+  not registered as rules. Backend run/parse paths dispatch on format.
+- **BOQ determinism (the R4 gap closed):** mapping groups by
+  (rule_id, unit); catalogue collisions settle SYMMETRICALLY (all
+  claimants blocked — never first-by-order); unmapped groups persist as
+  BLOCKING `unmapped_measurement` exception rows, so approve/export
+  refuse until a human resolves them through the audited endpoint. The
+  browser E2E now walks this resolution flow.
+- **ENGINE_VERSION 0.3.1 → 0.4.0** (new rules change the measured
+  vocabulary; determinism pins re-verified byte-identical).
 
 ## Verified checks (exact)
 
 | Check | Result |
 |---|---|
-| pytest (core/tests + backend/tests + tests, live PG) | **344 passed** |
-| Browser E2E | **1 passed** (8.6s) |
-| mypy strict (CI list) | 84 files clean |
+| pytest (tests/unit + tests/integration + core/tests + backend/tests, live PG) | **435 passed** |
+| Browser E2E (api :8099 + worker + vite + Postgres) | **1 passed** (8.8s) |
+| mypy strict (CI list) | 83 files clean |
 | ruff check . | clean |
 | lint-imports | 9 kept, 0 broken |
-| reference-leak guard | clean (151 files) |
+| reference-leak guard | clean (180 files) |
 | frontend vitest | 46 passed |
 | frontend build (tsc strict) | clean |
-| clean-worktree CI reproduction (fresh install) | all of the above green |
+| fixtures | byte-stable; 5 new DXF + 5 new PDF only |
 
-## Next up (Round 5 candidates — from the backlog, not committed to)
+## Next up (Round 6 candidates — from the backlog, not committed to)
 
-Review workspace depth (T114), BOQ editing endpoints, xlsx/pdf export
-(T101/T102), list-runs/list-exports endpoints, catalog management UI, sheet
-tiles, deploy hardening (T128). The E2E-in-CI composition is also open (needs
-the api+worker+vite service set in a CI job).
+Raster ingestion + AI-vision candidates (T033/T048 — the deferred half of
+Round 5, blocked on the AI layer), AI provider abstraction + guardrails
+(T060/T065), review workspace depth (T114), BOQ editing endpoints
+(T086), xlsx/pdf export (T101/T102), list-runs/list-exports endpoints,
+catalog management UI, sheet tiles. The E2E-in-CI composition remains
+open.

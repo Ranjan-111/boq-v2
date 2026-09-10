@@ -1,28 +1,28 @@
 # Tool Availability — Current Checkpoint
 
-**Verified:** 2026-09-10 (Round 4 product slice) · **Environment:**
+**Verified:** 2026-09-11 (Round 5 full takeoff engine) · **Environment:**
 local macOS workspace.
 Historical routing/classifier errors below belong to earlier sessions and
 must not be treated as current tool status.
 
 | Capability | Actual result this checkpoint |
 |---|---|
-| Shell/read/edit | Working; full-stack orchestration (api :8099 + worker + Vite dev server + Postgres) driven for E2E; clean-worktree CI reproduction executed |
+| Shell/read/edit | Working; full-stack orchestration (api :8099 + worker + Vite dev server + Postgres) driven for E2E including the new unmapped-blocker resolution flow |
 | Test isolation | Architecture guard tests copy the source tree into tmp dirs — user repo never mutated |
-| Python suite | **344 passed, 0 skipped** (live PostgreSQL; +44 over Round 3); job queue now has a dedicated live-DB regression (`TestQueueFail`) after the ambiguous-param defect |
-| PostgreSQL | Container `boqv2-postgres-1` healthy on 5432; dev DB migrated to head (`93865264fc81`) during the round; scratch CI DB + worktree cleaned up after verification |
-| Ruff / mypy | ruff clean; mypy strict 84 files clean |
-| Architecture | import-linter **9 kept, 0 broken** (unchanged — worker imports of ingestion/takeoff are unconstrained modules, verified, no pyproject change needed) |
-| Subagents | **2 worker agents ran** (limit 3) — Worker 1 (upload/parse/sheets/scale/catalog API), Worker 2 (frontend flow); both delivered verified reports; integration findings folded into round-4-report.md |
-| Frontend | **46 vitest passed** (was 5); tsc strict + Vite build clean; `npm ci` parity check in clean worktree passed |
-| Browser E2E | **Green** — Playwright 1.63 + chromium, the gated DXF→wall→BOQ→CSV journey in 8.6s against the real backend; `make e2e` target added; not yet in remote CI (needs the api+worker+vite service composition) |
-| Clean-worktree CI reproduction | Caught the undeclared `rapidfuzz` dependency before push (venv-only, fresh install would 500 on import); fresh-venv install + all gates green |
-| Remote CI | Round 4 push pending at checkpoint time (local verification complete) |
+| Python suite | **435 passed, 0 skipped** (live PostgreSQL; +91 over Round 4: 21 full-engine, 20 DXF text/block, 51 PDF parser/candidates, minus R3 pins updated to the R5 measurement contract) |
+| PostgreSQL | Container `boqv2-postgres-1` healthy on 5432; dev DB at head (no new migrations this round — engine output widened additively; unmapped blockers reuse the exceptions table) |
+| Ruff / mypy | ruff clean; mypy strict 83 files clean |
+| Architecture | import-linter **9 kept, 0 broken** (unchanged — new modules respect the same contracts) |
+| Subagents | **2 worker agents ran** (limit 3) — Worker A (PDF parser + candidates + fixtures, 51 tests), Worker B (DXF text tokens + opening-block names, 20 tests); both delivered verified reports; integration findings folded into round-5-report.md |
+| Frontend | **46 vitest passed**; tsc strict + Vite build clean; E2E spec extended with the Round 5 unmapped-resolution flow |
+| Browser E2E | **Green** — the gated journey in 8.8s against the real backend, now including approve-refused-with-blockers → audited resolve → approve; not yet in remote CI (needs the api+worker+vite service composition) |
+| Remote CI | Round 5 push pending at checkpoint time (local verification complete) |
 
-Installed versions checked this round: rapidfuzz 3.14.6 (MIT;
-License-Expression in METADATA), Playwright 1.63 with chromium headless
-shell, ezdxf 1.4.4, Shapely 2.1.2, mypy 2.3.1, pytest 9.1.1, import-linter
-2.15. Banned-package spot check clean (no PyMuPDF).
+Installed versions checked this round: pdfplumber 0.11.10 (MIT) — the
+PDF stack landed this round (pypdf + pypdfium2 already present for
+metadata/tiles; PyMuPDF remains banned and absent), Playwright 1.63,
+ezdxf 1.4.4, Shapely 2.1.2, mypy 2.3.1, pytest 9.1.1, import-linter 2.15.
+Banned-package spot check clean.
 
 Tool notes worth retaining (cumulative):
 - `lint-imports` CLI takes `--config`, not `-c`; `python -m importlinter`
@@ -52,3 +52,9 @@ Tool notes worth retaining (cumulative):
 - FastAPI's newer `include_router` keeps `_IncludedRouter` wrappers —
   `app.routes` no longer shows included paths; dump `app.openapi()` for
   route verification.
+- **SQLAlchemy asyncpg batched INSERTs with RETURNING break when str ids
+  are passed for `Uuid` columns and >1 row is flushed together**
+  (insertmanyvalues sentinel matching compares the str params against
+  pgproto UUID returns → `KeyError` → `InvalidRequestError`). The codebase
+  idiom is add→flush PER ROW; batched flushes of hand-built Uuid-id rows
+  must be split. Bit the unmapped-exception inserts this round.
