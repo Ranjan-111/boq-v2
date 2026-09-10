@@ -46,8 +46,10 @@ class ScaleCalibration:
             raise ScaleNotConfirmed(
                 f"sheet {self.sheet_id}: scale is {self.status.value}, not confirmed"
             )
-        assert self.units_per_drawing_unit is not None  # confirmed implies set
-        return self.units_per_drawing_unit
+        factor = self.units_per_drawing_unit
+        if factor is None or not factor.is_finite() or factor <= 0:
+            raise ScaleNotConfirmed("confirmed scale requires a positive finite factor")
+        return factor
 
 
 _DRAWING_TO_MM: dict[str, Decimal] = {
@@ -65,7 +67,6 @@ _DRAWING_TO_MM: dict[str, Decimal] = {
 _MM_TO_TARGET_DIVISOR: dict[MeasurementUnit, Decimal] = {
     MeasurementUnit.MM: Decimal(1),
     MeasurementUnit.M: Decimal(1000),
-    MeasurementUnit.COUNT: Decimal(1),
 }
 
 
@@ -75,7 +76,7 @@ def convert_length(
 ) -> Decimal:
     """Convert a drawing-unit length to a project unit via confirmed scale."""
     factor = calibration.require_confirmed()
-    per_mm = _DRAWING_TO_MM[drawing_unit]
+    per_mm = drawing_unit_mm(drawing_unit)
     physical_mm = value * per_mm * factor
     try:
         divisor = _MM_TO_TARGET_DIVISOR[target]
@@ -92,7 +93,7 @@ def convert_area(
     if target is not MeasurementUnit.M2:
         raise ValueError(f"{target} is not an area unit")
     factor = calibration.require_confirmed()
-    per_mm = _DRAWING_TO_MM[drawing_unit]
+    per_mm = drawing_unit_mm(drawing_unit)
     mm2 = value * (per_mm * factor) ** 2
     return mm2 / Decimal(1_000_000)  # mm² -> m²
 
@@ -110,3 +111,10 @@ def round_quantity(value: Decimal, places: int = 6) -> Decimal:
     """Standard quantity rounding (banker's) — NUMERIC(18,6) alignment."""
     quantum = Decimal(1).scaleb(-places)
     return value.quantize(quantum, rounding=ROUND_HALF_EVEN)
+
+
+def drawing_unit_mm(unit: str) -> Decimal:
+    try:
+        return _DRAWING_TO_MM[unit]
+    except KeyError:
+        raise ValueError(f"unsupported drawing unit: {unit!r}") from None
