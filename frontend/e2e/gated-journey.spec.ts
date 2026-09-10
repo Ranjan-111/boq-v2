@@ -141,6 +141,10 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   const runSelect = page.getByRole("combobox", { name: /completed run/i });
   await expect(runSelect.getByRole("option", { name: /measured\)/ })).toBeAttached();
   await runSelect.selectOption({ index: 1 }); // the (only) completed session run
+  // The option VALUE is the full run id — captured for the API-side
+  // exception resolution below.
+  const runId = await runSelect.inputValue();
+  expect(runId).toMatch(/^[0-9a-f-]{36}$/);
   await page.getByRole("button", { name: /build boq/i }).first().click();
   await expect(page.getByText(/brick wall/i)).toBeVisible({ timeout: 30_000 });
 
@@ -149,6 +153,33 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
 
   await page.getByRole("button", { name: /complete review/i }).click();
   await expect(page.getByText(/^reviewed$/)).toBeVisible({ timeout: 15_000 });
+
+  // Round 5 trust closure: the run's m2 rule groups (wall footprint AND
+  // wall net of openings) collide on the single m2 catalogue unit and the
+  // count group has no item at all — auto-mapping cannot pick who bills,
+  // so approve is refused server-side and the UI surfaces the unmapped
+  // blockers. The human resolves them (their decision), then approval passes.
+  await page.getByRole("button", { name: "Approve" }).click();
+  const blockerMsg = page.getByText(/unmapped_measurement: measurement not mapped/i);
+  await expect(blockerMsg.first()).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(async (fullRunId) => {
+    const t = localStorage.getItem("boq.token")!;
+    const res = await fetch(`/api/v1/runs/${fullRunId}/exceptions`, {
+      headers: { Authorization: `Bearer ${t}` },
+    });
+    if (!res.ok) throw new Error(`exception list failed: ${res.status}`);
+    const body = (await res.json()) as { items: { id: string; code: string }[] };
+    const unresolved = body.items.filter((e) => e.code === "unmapped_measurement");
+    if (unresolved.length === 0) throw new Error("no unmapped blockers found");
+    for (const exc of unresolved) {
+      const done = await fetch(`/api/v1/exceptions/${exc.id}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ resolution: "mapped by hand (E2E journey)" }),
+      });
+      if (!done.ok) throw new Error(`resolve failed: ${done.status}`);
+    }
+  }, runId);
 
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText(/approved/i).first()).toBeVisible({ timeout: 15_000 });
