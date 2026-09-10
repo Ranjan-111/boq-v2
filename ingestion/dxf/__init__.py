@@ -12,6 +12,9 @@ written fresh against docs/domain-model.md):
     but not measurable (refuse to guess which viewport is the drawing).
   * Block references (INSERT) are exploded into their placements as separate
     geometry, keeping the INSERT's handle + the block entity's handle.
+  * TEXT/MTEXT labels are captured as evidence tokens with their source
+    handle (T043 room labels) — evidence, never geometry. Refusals (empty
+    text, out-of-plane insertion) stay per-handle warnings, never phantoms.
 """
 from __future__ import annotations
 
@@ -30,6 +33,7 @@ from core.geometry import (
     ParseResult,
     SheetSummary,
     SourceHandleRef,
+    TextToken,
 )
 
 # $INSUNITS → our unit vocabulary (docs/domain-model.md: never guessed).
@@ -44,6 +48,10 @@ _INSUNITS_CODES: dict[int, str] = {
 # Entity types we normalize. Anything else is skipped with a warning (never
 # silently dropped, never guessed at).
 _MEASURABLE_TYPES = frozenset({"LINE", "LWPOLYLINE", "POLYLINE"})
+
+# Label entities (T043): captured as text tokens, NOT geometry. They stay out
+# of _MEASURABLE_TYPES — a label is evidence for room naming, never a shape.
+_TEXT_TYPES = frozenset({"TEXT", "MTEXT"})
 
 
 class DxfParseError(ValueError):
@@ -211,6 +219,47 @@ def _warning(entity: DXFEntity, reason: str) -> str:
     return f"unsupported {entity.dxftype()} handle={_handle_of(entity)}: {reason}"
 
 
+def _text_token_of(entity: Any, sheet_ref: str) -> TextToken:
+    """One TEXT/MTEXT entity → one evidence token.
+
+    Labels are captured for room naming (T043 / docs/domain-model.md
+    §Element.label), never as geometry: the token keeps the insertion point in
+    drawing units + the stable source handle. Rotation is display-only — the
+    insertion point is the anchor either way, so rotated labels are captured.
+    Refusals raise and become per-handle warnings in the parse loop:
+      * empty-after-strip text (never a phantom token),
+      * out-of-plane or non-finite insertion (its plan position is never
+        guessed from an elevation the V1 plane contract rejects).
+    """
+    etype = entity.dxftype()
+    if etype == "MTEXT":
+        # ezdxf 1.4: .text keeps raw inline formatting codes (\P, \A1;...);
+        # plain_text() returns the readable content. Verified against .venv.
+        raw = entity.plain_text()
+        height = (
+            float(entity.dxf.char_height)
+            if entity.dxf.hasattr("char_height")
+            else None
+        )
+    else:
+        raw = entity.dxf.text
+        height = float(entity.dxf.height) if entity.dxf.hasattr("height") else None
+    text = str(raw).strip()
+    if not text:
+        raise DxfParseError("empty text")
+    insertion = entity.dxf.insert
+    if not all(math.isfinite(float(v)) for v in insertion):
+        raise DxfParseError("non-finite coordinates")
+    if insertion.z != 0:
+        raise DxfParseError("nonzero elevation")
+    return TextToken(
+        text=text,
+        insertion=(float(insertion.x), float(insertion.y)),
+        handle=_handle_ref(sheet_ref, entity),
+        height=height,
+    )
+
+
 def _explode_insert(entity: Any, sheet_ref: str) -> list[NormalizedGeometry]:
     """Atomic placement: any unsupported/skipped member refuses the whole INSERT."""
     reason = _unsupported_reason(entity)
@@ -271,10 +320,23 @@ def parse_dxf(data: bytes) -> ParseResult:
     warnings: list[str] = []
 
     geometries: list[NormalizedGeometry] = []
+    text_tokens: list[TextToken] = []
     measurable = 0
     skipped = 0
     for entity in msp:
         etype = entity.dxftype()
+        if etype in _TEXT_TYPES:
+            # Labels are evidence, never geometry (T043): capture or warn,
+            # the same honest stance as geometry — a malformed TEXT becomes
+            # a per-handle warning, never a phantom token, never a crash.
+            try:
+                token = _text_token_of(entity, sheet_ref)
+            except Exception as exc:
+                skipped += 1
+                warnings.append(_warning(entity, str(exc) or "malformed text"))
+                continue
+            text_tokens.append(token)
+            continue
         try:
             if etype == "INSERT":
                 geoms = _explode_insert(entity, sheet_ref)
@@ -297,11 +359,13 @@ def parse_dxf(data: bytes) -> ParseResult:
 
     # Modelspace is the measurable sheet (T031). Paper-space layouts are
     # parsed for completeness but refused: which viewport is "the drawing"?
+    # entity_count includes captured text tokens: they are entities on the
+    # sheet (visible evidence), just not measurable geometry.
     sheets = [
         SheetSummary(
             sheet_ref=sheet_ref,
             layout_name="Model",
-            entity_count=measurable + skipped,
+            entity_count=measurable + skipped + len(text_tokens),
             measurable_count=measurable,
             is_modelspace=True,
             unit_code=units,
@@ -330,6 +394,7 @@ def parse_dxf(data: bytes) -> ParseResult:
         drawing_units=units,
         geometries=tuple(geometries),
         sheets=tuple(sheets),
+        text_tokens=tuple(text_tokens),
         warnings=tuple(warnings),
     )
 
@@ -372,12 +437,86 @@ def sheets_of(data: bytes) -> tuple[SheetSummary, ...]:
     return parse_dxf(data).sheets
 
 
+# ---------------------------------------------------------------------------
+# Opening-block ground truth (T045): block-name classification + the
+# INSERT-handle → block-name map the openings detector joins on. Pure
+# helpers; the detector (takeoff/) owns the wiring.
+# ---------------------------------------------------------------------------
+
+# Marker vocabulary for door/window blocks. Prefix-or-exact,
+# case-insensitive: "D1000"/"W1200" (marker + nominal width) and bare
+# "DOOR"/"WIN" match, while "WALLSEG" must NOT — see is_opening_block_name
+# for the exact boundary rule.
+OPENING_BLOCK_PATTERNS: tuple[str, ...] = (
+    "D",
+    "W",
+    "DOOR",
+    "WINDOW",
+    "DR",
+    "WIN",
+)
+
+
+def is_opening_block_name(name: str) -> bool:
+    """True when a block name marks a door/window (deterministic, no guess).
+
+    A name is an opening marker when it equals a pattern (case-insensitive)
+    or is a pattern followed by its digit width running to the END of the
+    name — the drawn convention D1000/W1200 ("door 1000", "window 1200").
+    The digit boundary keeps wall/room vocabulary that merely shares a first
+    letter ("WALLSEG") out, and anything after the width ("D1000LH") is
+    refused rather than guessed at: an unclassified opening surfaces for
+    review, a misclassified wall silently corrupts the deduction.
+    OPENING_BLOCK_PATTERNS is the extension point for further conventions.
+    """
+    upper = name.strip().upper()
+    for pattern in OPENING_BLOCK_PATTERNS:
+        if upper == pattern:
+            return True
+        if upper.startswith(pattern):
+            rest = upper[len(pattern):]
+            if rest.isdigit():
+                return True
+    return False
+
+
+def block_names_by_insert_handle(data: bytes) -> dict[str, str]:
+    """Every modelspace INSERT's handle → the block name it references.
+
+    T045 ground truth: exploded geometry chains the INSERT's handle
+    (source_handles[0]) but block NAME is not part of SourceHandleRef (core
+    contract) — the openings detector joins on that handle to classify door
+    leaf/window lines. This re-parses the same bytes (a second ezdxf read;
+    the honest cost of keeping ParseResult unchanged), in modelspace order,
+    so the result is deterministic. INSERTs without a usable name are left
+    out: their placement is refused by the geometry path anyway.
+    """
+    try:
+        doc = ezdxf.read(io.StringIO(data.decode("utf-8", errors="replace")))  # type: ignore[attr-defined]
+    except Exception as exc:
+        raise DxfParseError(f"ezdxf could not parse: {exc}") from exc
+    if not hasattr(doc, "modelspace"):
+        raise DxfParseError("not a DXF drawing")
+    names: dict[str, str] = {}
+    for entity in doc.modelspace():
+        if entity.dxftype() != "INSERT":
+            continue
+        name = entity.dxf.get("name")
+        if name:
+            names[_handle_of(entity)] = str(name)
+    return names
+
+
 __all__ = [
+    "OPENING_BLOCK_PATTERNS",
     "DxfParseError",
     "NormalizedGeometry",
     "ParseResult",
     "SheetSummary",
     "SourceHandleRef",
+    "TextToken",
+    "block_names_by_insert_handle",
+    "is_opening_block_name",
     "parse_dxf",
     "propose_scale_from_units",
     "sheets_of",

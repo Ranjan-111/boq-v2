@@ -5,7 +5,10 @@ The provenance contract under test:
   * INSUNITS is read, never guessed (absent → "unknown" → not measurable),
   * modelspace is the measurable sheet; paper space is refused,
   * corrupt files fail loudly,
-  * INSERT explosion keeps the full handle chain.
+  * INSERT explosion keeps the full handle chain,
+  * TEXT/MTEXT labels are captured as evidence tokens (T043) — captured
+    with their handle or refused with a warning, never silently dropped,
+  * opening blocks are classified by name and mapped by INSERT handle (T045).
 
 Unit-marked: pure parsing, no DB. ezdxf is a real dependency, not mocked.
 """
@@ -18,9 +21,14 @@ from pathlib import Path
 import ezdxf
 import pytest
 
-from core.domain.enums import GeomType
+from core.domain.enums import GeomType, SourceFormat
 from core.geometry import ParseResult
-from ingestion.dxf import DxfParseError, parse_dxf
+from ingestion.dxf import (
+    DxfParseError,
+    block_names_by_insert_handle,
+    is_opening_block_name,
+    parse_dxf,
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "dxf"
 
@@ -164,13 +172,15 @@ def _parse_document(doc):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("kind", [
-    "spline", "ellipse", "point", "text", "mtext", "hatch", "solid",
+    "spline", "ellipse", "point", "hatch", "solid",
     "point_1", "lwpolyline_1",
 ])
 def test_other_entity_types_never_silently_dropped(kind):
     """Vocabulary beyond LINE/LWPOLYLINE/POLYLINE/INSERT is refused WITH a
     warning — the docs contract is "skipped with a warning (never silently
     dropped)". A silent drop would make an unsupported sheet look complete.
+    (TEXT/MTEXT are no longer here: they are captured as evidence tokens —
+    see TestTextTokens. They stay out of the geometry path entirely.)
     """
     doc = ezdxf.new("R2010")
     doc.units = 4
@@ -181,10 +191,6 @@ def test_other_entity_types_never_silently_dropped(kind):
         entity = msp.add_ellipse((0, 0), (10, 0), 0.5)
     elif kind == "point":
         entity = msp.add_point((3, 3))
-    elif kind == "text":
-        entity = msp.add_text("hello")
-    elif kind == "mtext":
-        entity = msp.add_mtext("hello")
     elif kind == "hatch":
         entity = msp.add_hatch()
     elif kind == "solid":
@@ -551,3 +557,262 @@ def test_source_digest_binds_original_file_bytes():
     assert first.source_sha256 == hashlib.sha256(original).hexdigest()
     assert parse_dxf(original).source_sha256 == first.source_sha256
     assert parse_dxf(changed).source_sha256 != first.source_sha256
+
+
+# ---------------------------------------------------------------------------
+# T043 — TEXT/MTEXT label capture (evidence tokens, never geometry)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestTextTokens:
+    def test_room_label_is_captured_with_full_identity(self) -> None:
+        result = parse("room_plan.dxf")
+        assert len(result.text_tokens) == 1
+        token = result.text_tokens[0]
+        assert token.text == "KITCHEN"
+        assert token.insertion == (1000.0, 1500.0)
+        assert token.height == 200.0
+        assert token.handle.sheet_ref == "modelspace"
+        assert token.handle.format is SourceFormat.DXF_ENTITY
+        assert token.handle.layer == "TEXT"
+        # a REAL handle (present in the raw file bytes), not a positional id
+        assert re.search(rb"^38$", load("room_plan.dxf"), re.M)
+        assert token.handle.entity_ref == "38"
+        assert token.handle.entity_ref not in ("", "0")
+
+    def test_label_handle_is_stable_across_reparse(self) -> None:
+        first = parse("room_plan.dxf")
+        second = parse("room_plan.dxf")
+        assert first.text_tokens == second.text_tokens, (
+            "text tokens must be identical across re-parses"
+        )
+        assert (
+            first.text_tokens[0].handle.entity_ref
+            == second.text_tokens[0].handle.entity_ref
+        )
+
+    def test_labels_captured_in_modelspace_order(self) -> None:
+        result = parse("two_room_plan.dxf")
+        assert [t.text for t in result.text_tokens] == ["BEDROOM", "BATH"]
+
+    def test_labels_are_evidence_never_geometry(self) -> None:
+        """A room_plan with 8 wall lines + 1 label must produce exactly 8
+        geometries — the label joins text_tokens, not the geometry rows, and
+        must never appear as a warning either (it is honest evidence).
+        """
+        result = parse("room_plan.dxf")
+        assert len(result.geometries) == 8
+        assert result.warnings == ()
+        # the sheet counts the token as an entity (it IS on the sheet)
+        assert result.sheets[0].entity_count == 9
+        assert result.sheets[0].measurable_count == 8
+
+    def test_storey_labels_captured(self) -> None:
+        result = parse("multi_storey_hint.dxf")
+        assert [t.text for t in result.text_tokens] == ["ROOM L1", "ROOM L2"]
+
+    def test_mtext_plain_text_char_height_and_insert(self) -> None:
+        r"""MTEXT inline formatting codes (\P, \A1;) must reach the token as
+        readable text — ezdxf 1.4's plain_text() — with the insertion point
+        (dxf.insert.xy) and char height, not the raw code string.
+        """
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        mtext = doc.modelspace().add_mtext("MAIN \\P HALL")
+        mtext.dxf.char_height = 150.0
+        mtext.set_location((250.0, 400.0))
+        result = _parse_document(doc)
+        assert result.warnings == ()
+        assert result.geometries == ()
+        assert len(result.text_tokens) == 1
+        token = result.text_tokens[0]
+        assert token.text == "MAIN \n HALL", "inline \\P becomes a newline"
+        assert token.insertion == (250.0, 400.0)
+        assert token.height == 150.0
+        assert token.handle.format is SourceFormat.DXF_ENTITY
+
+    def test_mtext_char_height_absent_in_source_is_none(self) -> None:
+        """A hand-edited MTEXT whose height code 40 never made it into the
+        file must yield height=None (absence is honest), not a default.
+        (ezdxf's writer always emits 40, so the tag is stripped by hand —
+        the in-memory API cannot produce the absent case.)
+        """
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        doc.modelspace().add_mtext("ANONYMOUS")
+        stream = io.StringIO()
+        doc.write(stream)
+        raw = stream.getvalue()
+        needle = " 40\n2.5\n 71\n1\n  1\nANONYMOUS\n"
+        assert needle in raw, "expected the char-height tag to strip"
+        stripped = raw.replace(needle, " 71\n1\n  1\nANONYMOUS\n", 1)
+        result = parse_dxf(stripped.encode())
+        assert len(result.text_tokens) == 1
+        assert result.text_tokens[0].height is None
+        assert result.text_tokens[0].text == "ANONYMOUS"
+
+    def test_text_without_height_tag_gets_none(self) -> None:
+        """A hand-edited TEXT whose height code 40 never made it into the file
+        must yield height=None (absence is honest), not a default.
+        """
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        doc.modelspace().add_text("HAND EDITED")
+        stream = io.StringIO()
+        doc.write(stream)
+        raw = stream.getvalue()
+        needle = " 40\n2.5\n  1\nHAND EDITED\n"
+        assert needle in raw, "expected the height tag to strip"
+        stripped = raw.replace(needle, "  1\nHAND EDITED\n", 1)
+        result = parse_dxf(stripped.encode())
+        assert len(result.text_tokens) == 1
+        assert result.text_tokens[0].height is None
+        assert result.text_tokens[0].text == "HAND EDITED"
+
+    def test_rotated_label_is_captured(self) -> None:
+        """Rotation is display-only: the insertion point is the anchor either
+        way, so a rotated label is captured as-is, no warning.
+        """
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        text = doc.modelspace().add_text(
+            "ROTATED", dxfattribs={"height": 100, "rotation": 30}
+        )
+        text.set_placement((1000.0, 1500.0))
+        result = _parse_document(doc)
+        assert result.warnings == ()
+        assert [t.text for t in result.text_tokens] == ["ROTATED"]
+        assert result.text_tokens[0].insertion == (1000.0, 1500.0)
+
+    def test_empty_after_strip_text_warns_and_makes_no_phantom(self) -> None:
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        entity = doc.modelspace().add_text("   ")
+        entity.dxf.height = 50
+        result = _parse_document(doc)
+        assert result.text_tokens == ()
+        assert result.geometries == ()
+        assert any(
+            entity.dxf.handle in w and "TEXT" in w and "empty text" in w
+            for w in result.warnings
+        )
+
+    def test_whitespace_text_survives_strip(self) -> None:
+        """Leading/trailing whitespace is display padding, not content: the
+        stripped inner text is the token."""
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        doc.modelspace().add_text("  STUDY  ", dxfattribs={"height": 100})
+        result = _parse_document(doc)
+        assert [t.text for t in result.text_tokens] == ["STUDY"]
+
+    def test_text_with_nonzero_elevation_warns_and_makes_no_token(self) -> None:
+        """T043 refinement: a label elevated out of the V1 plane has no honest
+        plan position — warn + skip, never project it back onto the plane.
+        (set via dxf.insert = (x, y, z), the documented ezdxf attribute.)
+        """
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        entity = doc.modelspace().add_text("FLOATING", dxfattribs={"height": 100})
+        entity.dxf.insert = (5.0, 6.0, 7.0)
+        result = _parse_document(doc)
+        assert result.text_tokens == ()
+        assert result.geometries == ()
+        assert any(
+            entity.dxf.handle in w and "TEXT" in w and "nonzero elevation" in w
+            for w in result.warnings
+        )
+
+    def test_text_without_content_tag_is_a_warning_not_a_crash(self) -> None:
+        """A hand-edited file whose TEXT lost its content tag (code 1) reads
+        back as text='' in ezdxf 1.4 — the empty-text refusal covers it; the
+        parser must warn, never crash, never emit a phantom token.
+        """
+        doc = ezdxf.new("R2010")
+        doc.units = 4
+        doc.modelspace().add_text("GHOST")
+        stream = io.StringIO()
+        doc.write(stream)
+        raw = stream.getvalue()
+        stripped = raw.replace("  1\nGHOST\n", "  1\n\n", 1)
+        assert stripped != raw
+        result = parse_dxf(stripped.encode())
+        assert result.text_tokens == ()
+        assert any("TEXT" in w and "empty text" in w for w in result.warnings)
+
+    def test_text_tokens_are_deterministic(self) -> None:
+        first = parse("two_room_plan.dxf")
+        second = parse("two_room_plan.dxf")
+        assert first.text_tokens == second.text_tokens
+        assert first == second, "ParseResult must be byte-stable across re-parses"
+
+
+# ---------------------------------------------------------------------------
+# T045 — opening-block markers (name classification + INSERT-handle map)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestOpeningBlockNames:
+    def test_insert_handles_map_to_block_names(self) -> None:
+        names = block_names_by_insert_handle(load("opening_blocks.dxf"))
+        assert names == {"40": "D1000", "42": "W1200"}
+
+    def test_map_covers_exploded_geometry_leading_handles(self) -> None:
+        """The T045 join: exploded door-leaf lines lead with the INSERT
+        handle, so every INSERT handle that produced geometry must be a key
+        of the map. (Bare LINE handles are not keys — INSERTs only.)
+        """
+        result = parse("opening_blocks.dxf")
+        assert result.geometries, "fixture must explode into geometry"
+        names = block_names_by_insert_handle(load("opening_blocks.dxf"))
+        insert_handles = {
+            g.source_handles[0].entity_ref
+            for g in result.geometries
+            if len(g.source_handles) == 2  # exploded: INSERT handle + member
+        }
+        assert insert_handles == {"40", "42"}
+        assert insert_handles <= set(names), (
+            "every exploded INSERT's handle must appear in the name map"
+        )
+
+    def test_opening_names_classified_exactly(self) -> None:
+        cases = {
+            "D1000": True, "W1200": True, "d1000": True, "w1200": True,
+            "DOOR": True, "WIN": True, "DR": True, "door900": True,
+            "WINDOW2100": True, "dr45": True,
+            "WALLSEG": False, "X1000": False, "D1000LH": False,
+            "KITCHEN": False, "WALL": False, "D 1000": False, "WIN-1200": False,
+        }
+        for name, expected in cases.items():
+            assert is_opening_block_name(name) is expected, name
+
+    def test_block_wall_fixture_is_not_opening_named(self) -> None:
+        """WALLSEG geometry must keep exploding as plain wall geometry — the
+        opening-name classifier must not touch the INSERT explosion path.
+        """
+        result = parse("block_wall.dxf")
+        assert len(result.geometries) == 2
+        names = block_names_by_insert_handle(load("block_wall.dxf"))
+        assert all(
+            not is_opening_block_name(n) for n in names.values()
+        ), names
+        assert result.warnings == ()
+
+    def test_map_is_deterministic(self) -> None:
+        data = load("opening_blocks.dxf")
+        assert block_names_by_insert_handle(data) == (
+            block_names_by_insert_handle(data)
+        )
+
+    def test_non_insert_entities_are_absent_from_map(self) -> None:
+        """Only INSERT handles belong in the map — LINE handles must not
+        appear (the openings detector joins on INSERT handles only).
+        """
+        names = block_names_by_insert_handle(load("room_plan.dxf"))
+        assert names == {}
+
+    def test_corrupt_file_raises_structural_error(self) -> None:
+        with pytest.raises(DxfParseError):
+            block_names_by_insert_handle(load("corrupt.dxf"))
