@@ -189,11 +189,27 @@ async def execute_run(
     except KeyError as exc:
         await _fail_run(session, run, f"stored drawing missing: {exc}")
         return {"ok": False, "status": run.status, "error": run.error}
-    try:
-        parsed = parse_dxf(data)
-    except DxfParseError as exc:
-        await _fail_run(session, run, f"drawing re-parse failed: {exc}")
-        return {"ok": False, "status": run.status, "error": run.error}
+    # Format dispatch (Round 5: DXF + PDF paths; raster is later).
+    block_names: dict[str, str] = {}
+    if drawing.format == "pdf":
+        from ingestion.pdf import PdfParseError, parse_pdf
+
+        try:
+            parsed = parse_pdf(data)
+        except PdfParseError as exc:
+            await _fail_run(session, run, f"drawing re-parse failed: {exc}")
+            return {"ok": False, "status": run.status, "error": run.error}
+    else:
+        try:
+            parsed = parse_dxf(data)
+            # Opening-block names (T045): INSERT handle -> block name, so the
+            # engine's named-block opening detection has its evidence map.
+            from ingestion.dxf import block_names_by_insert_handle
+
+            block_names = block_names_by_insert_handle(data)
+        except DxfParseError as exc:
+            await _fail_run(session, run, f"drawing re-parse failed: {exc}")
+            return {"ok": False, "status": run.status, "error": run.error}
 
     calibration = ScaleCalibration(
         sheet_id=sheet.sheet_ref,
@@ -204,7 +220,7 @@ async def execute_run(
     )
     out: RunOutput = measure_parsed(
         parsed, sheet_id=sheet.sheet_ref, calibration=calibration,
-        max_wall_thickness=max_wall_thickness,
+        max_wall_thickness=max_wall_thickness, block_names=block_names,
     )
     await _persist_run_output(session, run=run, sheet=sheet,
                               parsed_geometries=parsed.geometries, out=out)

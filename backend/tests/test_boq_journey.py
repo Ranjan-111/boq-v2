@@ -106,15 +106,29 @@ async def _confirm_scale(
 
 
 async def _seed_catalogue(session: AsyncSession) -> CatalogueItem:
-    item = CatalogueItem(id=str(uuid.uuid4()), region_code="IN", code="2.1.1",
-                         description="Brick wall 230mm thick", unit="m",
-                         category_path="walls/brick", source="manual")
-    session.add(item)
-    await session.flush()
-    session.add(RateModel(id=str(uuid.uuid4()), catalogue_item_id=item.id,
-                          scope="default", currency="INR", amount_minor=85_000))
-    await session.flush()
-    return item
+    """One catalogue item per DISTINCT unit group the wall_plan run emits
+    (m lengths, m2 wall areas, opening counts). Note the honest consequence:
+    the run has TWO m2 rule groups (footprint + net of openings) but only
+    unit-based auto-mapping in V1 — the second m2 group can never silently
+    claim the same item (collision guard) and is surfaced as a blocker for
+    the human mapping UI (post-V1, T084)."""
+    items: list[CatalogueItem] = []
+    for code, description, unit, amount in (
+        ("2.1.1", "Brick wall 230mm thick", "m", 85_000),
+        ("2.1.2", "Brick wall (measured area)", "m2", 4_250),
+        ("2.1.4", "Door/window opening count", "count", 1_200_000),
+    ):
+        item = CatalogueItem(id=str(uuid.uuid4()), region_code="IN", code=code,
+                             description=description, unit=unit,
+                             category_path="walls/brick", source="manual")
+        session.add(item)
+        await session.flush()
+        session.add(RateModel(id=str(uuid.uuid4()),
+                              catalogue_item_id=item.id, scope="default",
+                              currency="INR", amount_minor=amount))
+        await session.flush()
+        items.append(item)
+    return items[0]
 
 
 async def _make_run(
@@ -186,19 +200,25 @@ class TestRunService:
             result = await run_service.execute_run(
                 session, run_id=run.id, storage=storage, max_wall_thickness=250)
             assert result["ok"] is True
-            assert result["stats"]["measured"] == 4  # 2 walls x (length + area)
+            assert result["stats"]["measured"] == 8
+            # Round 5 wall contract: 2 walls x (length, footprint area,
+            # opening count, net area); no openings drawn in wall_plan, so
+            # the two count rows are honest MEASURED_ZERO (value 0).
             persisted = await _refetch_run(session, run)
             assert persisted.status == "completed"
             rows = (await session.execute(
                 select(MeasurementModel).where(MeasurementModel.run_id == run.id)
             )).scalars().all()
-            assert len(rows) == 4
+            assert len(rows) == 8
+            assert sum(1 for r in rows if r.state == "measured") == 6
+            assert sum(1 for r in rows if r.state == "measured_zero") == 2
+            zero_counts = [r for r in rows if r.state == "measured_zero"]
+            assert all(r.quantity_type == "count" for r in zero_counts)
             for r in rows:
-                assert r.state == "measured"
                 assert r.measurement_id  # durable identity persisted
                 assert r.inputs_digest
             # identity is unique per run (the migration constraint)
-            assert len({r.measurement_id for r in rows}) == 4
+            assert len({r.measurement_id for r in rows}) == 8
         finally:
             await session.rollback()
             await session.close()
@@ -216,15 +236,32 @@ class TestBoqServiceGates:
             await run_service.execute_run(session, run_id=run.id, storage=storage,
                                           max_wall_thickness=250)
 
-            # Build: only the m-unit measurements map (the area m2 has no item).
+            # Build: lengths (m) and opening counts (count) map. The two m2
+            # rule groups (footprint + net of openings) both claim the single
+            # m2 catalogue item — a collision that auto-mapping cannot settle
+            # (who bills gross and who bills net is a human decision), so ALL
+            # four m2 rows surface as unmapped blockers, never a silent pick.
             built = await boq_service.build_boq_from_run(
                 session, project_id=project.id, from_run_id=run.id, actor=user.id)
             boq_id = built["boq_id"]
-            assert built["item_count"] == 1
-            # The two m2 footprint measurements map to no catalogue item and
-            # are reported as unmapped blockers — honest, never silently dropped.
+            assert built["item_count"] == 2
             assert sorted(built["unmapped"]) == [
-                "Wall 1 footprint (m2)", "Wall 2 footprint (m2)"]
+                "Wall 1 footprint (wall.footprint.area.v1 m2)",
+                "Wall 1 net of openings (wall.net.area.v1 m2)",
+                "Wall 2 footprint (wall.footprint.area.v1 m2)",
+                "Wall 2 net of openings (wall.net.area.v1 m2)",
+            ]
+            # R4 gap closed: unmapped rows persist as BLOCKING exceptions on
+            # the run, so approve/export cannot pass until a human resolves.
+            blockers = (await session.execute(
+                select(ExceptionModel).where(
+                    ExceptionModel.run_id == run.id,
+                    ExceptionModel.code == "unmapped_measurement",
+                )
+            )).scalars().all()
+            assert len(blockers) == 4
+            assert all(b.severity == "blocking" for b in blockers)
+            assert all(b.resolved_at is None for b in blockers)
 
             boq = (await session.execute(
                 select(BoqModel).where(BoqModel.id == boq_id))).scalar_one()
@@ -245,6 +282,17 @@ class TestBoqServiceGates:
             reviewed = await boq_service.review_boq(
                 session, project_id=project.id, boq_id=boq_id, actor=user.id)
             assert reviewed["status"] == "reviewed"
+            # With unresolved unmapped blockers the server-side approve gate
+            # refuses — the R4 gap closure: unmapped is BLOCKING, not a note.
+            with pytest.raises(boq_service.BoqServiceError,
+                                match="unmapped_measurement"):
+                await boq_service.approve_boq(session, project_id=project.id,
+                                             boq_id=boq_id, actor=user.id)
+            # The human resolves the unmapped blockers (mapping decisions are
+            # human-owned; the resolution marks them handled for this BOQ).
+            for b in blockers:
+                b.resolved_at = datetime.now(UTC)
+            await session.flush()
             approved = await boq_service.approve_boq(
                 session, project_id=project.id, boq_id=boq_id, actor=user.id)
             assert approved["status"] == "approved"
@@ -351,8 +399,19 @@ class TestBoqServiceGates:
             with pytest.raises(boq_service.BoqServiceError, match="adversarial probe blocker"):
                 await boq_service.approve_boq(session, project_id=project.id,
                                               boq_id=boq.id, actor=user.id)
-            # Resolve the blocker -> approval succeeds.
-            blocker.resolved_at = datetime.now(UTC)
+            # Resolve ALL blockers: the artificial probe AND the honest
+            # unmapped_measurement rows the Round 5 build now persists
+            # (the m2 collision blockers on this run).
+            all_blockers = (await session.execute(
+                select(ExceptionModel).where(
+                    ExceptionModel.run_id == run2.id,
+                    ExceptionModel.resolved_at.is_(None),
+                )
+            )).scalars().all()
+            assert any(b.code == "overlap_detected" for b in all_blockers)
+            assert any(b.code == "unmapped_measurement" for b in all_blockers)
+            for b in all_blockers:
+                b.resolved_at = datetime.now(UTC)
             await session.flush()
             ok = await boq_service.approve_boq(session, project_id=project.id,
                                                boq_id=boq.id, actor=user.id)

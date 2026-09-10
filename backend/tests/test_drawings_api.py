@@ -464,8 +464,9 @@ class TestParseExecution:
             async with make_sessionmaker(engine)() as session:
                 user, project = await _make_user_and_project(session)
                 storage = MemoryStorage()
-                # A real PDF (magic bytes) passes upload validation as pdf;
-                # parsing must refuse it honestly (PDF arrives in a later round).
+                # Case 1: corrupt PDF bytes pass upload validation (magic
+                # bytes) but the Round 5 parser refuses structurally — an
+                # honest, machine-readable failure, never a faked success.
                 pdf = b"%PDF-1.7\n%" + b"\x00\x01\x02" * 10
                 up = await _upload(
                     session, project, user, pdf, "plan.pdf", storage, mime="application/pdf"
@@ -474,14 +475,41 @@ class TestParseExecution:
                     session, drawing_file_id=up["drawing_file_id"], storage=storage
                 )
                 assert result["ok"] is False
-                assert "only DXF parsing exists in V1" in result["error"]
-                row = (
+                assert "PdfParseError" in result["error"]
+                failed_row = (
                     await session.execute(
-                        select(DrawingFile).where(DrawingFile.id == up["drawing_file_id"])
+                        select(DrawingFile).where(
+                            DrawingFile.id == up["drawing_file_id"])
                     )
                 ).scalar_one()
-                assert row.parse_status == "failed"
+                assert any("parse_failed" in w for w in failed_row.parse_warnings or [])
                 await session.rollback()
+
+                # Case 2: raster parsing is NOT implemented in Round 5
+                # (AI-dependent, deferred) — the upload is stored but parsing
+                # is refused loudly with the format named.
+                async with make_sessionmaker(engine)() as session2:
+                    user2, project2 = await _make_user_and_project(session2)
+                    raster = b"\x89PNG\r\n\x1a\n" + b"\x00\x01\x02" * 10
+                    up2 = await _upload(
+                        session2, project2, user2, raster, "plan.png", storage,
+                        mime="image/png",
+                    )
+                    result2 = await parse_service.execute_parse(
+                        session2, drawing_file_id=up2["drawing_file_id"],
+                        storage=storage,
+                    )
+                    assert result2["ok"] is False
+                    assert "not implemented" in result2["error"]
+                    assert "raster" in result2["error"]
+                    row2 = (
+                        await session2.execute(
+                            select(DrawingFile).where(
+                                DrawingFile.id == up2["drawing_file_id"])
+                        )
+                    ).scalar_one()
+                    assert row2.parse_status == "failed"
+                    await session2.rollback()
         finally:
             await engine.dispose()
 

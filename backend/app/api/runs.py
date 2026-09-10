@@ -102,7 +102,16 @@ async def create_run(
 async def _owned_run(
     session: AsyncSession, run_id: str, user: User
 ) -> MeasurementRun:
-    """Run readable only through its project's creator (contract: /runs/{id})."""
+    """Run readable only through its project's creator (contract: /runs/{id}).
+
+    A malformed run_id is an honest 404, never a 500: the Uuid column cast
+    would raise asyncpg's data error on non-UUID input before the not-found
+    check can answer.
+    """
+    try:
+        uuid.UUID(run_id)
+    except ValueError as exc:
+        raise problem_error(404, "not_found", "run not found") from exc
     run = (await session.execute(
         select(MeasurementRun).where(MeasurementRun.id == run_id)
     )).scalar_one_or_none()

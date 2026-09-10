@@ -75,17 +75,27 @@ async def execute_parse(
             session, drawing, f"stored bytes missing for key {drawing.storage_key}: {exc}"
         )
 
-    if drawing.format != "dxf":
-        # Honest failure: PDF/raster parsing arrives in a later round. The
+    if drawing.format == "dxf":
+        try:
+            result = parse_dxf(data)
+        except DxfParseError as exc:
+            return await _fail(session, drawing, f"DxfParseError: {exc}")
+    elif drawing.format == "pdf":
+        # Round 5 (T032 core): the PDF parser produces the same ParseResult
+        # contract; sheets + text tokens + honest warnings; units are always
+        # "unknown" (never guessed) so the human scale gate governs.
+        from ingestion.pdf import PdfParseError, parse_pdf
+
+        try:
+            result = parse_pdf(data)
+        except PdfParseError as exc:
+            return await _fail(session, drawing, f"PdfParseError: {exc}")
+    else:
+        # Honest failure: raster parsing arrives in a later round. The
         # upload was validated and stored; parsing is refused loudly.
         return await _fail(
-            session, drawing, f"only DXF parsing exists in V1 (format={drawing.format!r})"
+            session, drawing, f"parsing for format {drawing.format!r} not implemented"
         )
-
-    try:
-        result = parse_dxf(data)
-    except DxfParseError as exc:
-        return await _fail(session, drawing, f"DxfParseError: {exc}")
 
     # A re-parse replaces sheets: the old sheet rows (and their calibrations)
     # are invalidated by the new parse identity. Delete before inserting.

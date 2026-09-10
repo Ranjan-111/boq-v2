@@ -140,12 +140,26 @@ async def build_boq_from_run(
 
     unmapped: list[str] = []
     item_count = 0
-    # Group measurements by quantity unit; map each unit group to catalogue
-    # items whose unit matches. One item per catalogue item.
-    candidates: dict[str, list[MeasurementModel]] = {}
+    # Round 5 mapping rule (deterministic, honest): group measurements by
+    # (rule_id, unit) — NOT bare unit. Room m² and wall m² are different
+    # quantities and must map to different catalogue items; a bare-unit
+    # grouping would merge them into one line (a believable but wrong BOQ).
+    # Within a group, MORE THAN ONE candidate catalogue item is a blocker
+    # (ambiguous_catalog_mapping) — never first-by-order.
+    candidates_by_group: dict[tuple[str, str], list[MeasurementModel]] = {}
     for m in measured:
-        candidates.setdefault(str(m.unit), []).append(m)
-    for unit, group in sorted(candidates.items()):
+        candidates_by_group.setdefault((str(m.rule_id), str(m.unit)), []).append(m)
+    # Pass 1 (resolve): every group picks its would-be item, then collisions
+    # are settled SYMMETRICALLY — one catalogue item claimed by 2+ rule groups
+    # (e.g. wall footprint m2 AND wall net m2 finding the same m2 item) is
+    # ambiguous for ALL claimants: auto-mapping cannot decide who bills and
+    # who does not, so every claimant becomes a blocker for the human mapping
+    # UI (post-V1, T084). An inline "first group wins" guard would be exactly
+    # the first-by-order pick the doctrine forbids — footprint bills only
+    # because 'f' sorts before 'n'.
+    claim_map: dict[tuple[str, str], tuple[CatalogueItem, RateModel]] = {}
+    blocked_groups: dict[tuple[str, str], str] = {}  # group -> reason
+    for (rule_id, unit) in sorted(candidates_by_group):
         items = (await session.execute(
             select(CatalogueItem, RateModel)
             .join(RateModel, RateModel.catalogue_item_id == CatalogueItem.id)
@@ -154,9 +168,50 @@ async def build_boq_from_run(
             .order_by(RateModel.scope.desc())  # project beats default
         )).all()
         if not items:
-            unmapped.extend(f"{m.label or m.measurement_id} ({unit})" for m in group)
+            blocked_groups[(rule_id, unit)] = "no candidate"
             continue
-        catalogue_item, rate_row = items[0]  # deterministic: first by scope order
+        # Distinct catalogue items with rates for this unit group: a tie at
+        # the top scope is ambiguous (the deterministic order cannot choose).
+        distinct_items: list[tuple[CatalogueItem, RateModel]] = []
+        seen_items: set[str] = set()
+        for catalogue_item, rate_row in items:
+            if str(catalogue_item.id) not in seen_items:
+                seen_items.add(str(catalogue_item.id))
+                distinct_items.append((catalogue_item, rate_row))
+        top_scope = distinct_items[0][1].scope
+        top_scope_items = [pair for pair in distinct_items
+                           if pair[1].scope == top_scope]
+        if len(top_scope_items) > 1:
+            blocked_groups[(rule_id, unit)] = (
+                "ambiguous catalog mapping: " + " vs ".join(
+                    pair[0].code for pair in top_scope_items[:4]))
+            continue
+        candidate = top_scope_items[0]
+        # Cross-group collision: track every claimant of this item.
+        claim_map.setdefault((rule_id, unit), candidate)
+    # Symmetric collision settle: an item with 2+ claimants is ambiguous for
+    # ALL of them — no claimant bills, all surface as blockers.
+    item_claimants: dict[str, list[tuple[str, str]]] = {}
+    for group_key, (catalogue_item, _rate) in claim_map.items():
+        item_claimants.setdefault(str(catalogue_item.id), []).append(group_key)
+    for claimant_groups in item_claimants.values():
+        if len(claimant_groups) > 1:
+            item = claim_map[claimant_groups[0]][0]
+            for group_key in claimant_groups:
+                blocked_groups[group_key] = (
+                    f"ambiguous catalog mapping: item {item.code} claimed by "
+                    + " and ".join(f"{g[0]} ({g[1]})" for g in sorted(claimant_groups))
+                )
+            claim_map.pop(group_key, None)
+    # Pass 2 (assemble): assemble the surviving, unambiguous groups.
+    for (rule_id, unit), group in sorted(candidates_by_group.items()):
+        if (rule_id, unit) in blocked_groups:
+            unmapped.extend(f"{m.label or m.measurement_id} ({rule_id} {unit})"
+                            for m in group)
+            continue
+        if (rule_id, unit) not in claim_map:
+            continue
+        catalogue_item, rate_row = claim_map[(rule_id, unit)]
         # Evidence for the protocol adapter, grouped by measurement row id.
         from backend.app.db.models import EvidenceLinkModel
         ev_rows = (await session.execute(
@@ -193,6 +248,30 @@ async def build_boq_from_run(
         ))
         item_count += 1
         await session.flush()
+
+    # Round 5 trust closure: unmapped measurements are not a response-only
+    # note — they persist as BLOCKING exception rows on the run, so the
+    # server-side approve/export gate refuses until they are resolved (the
+    # R4 gap: unmapped surfaced in the build response but never blocked
+    # approval). One row per unmapped measurement, message carries the
+    # label + rule + unit for the review queue.
+    if unmapped:
+        from backend.app.db.models import ExceptionModel
+
+        for label in unmapped:
+            # One row per unmapped measurement, message carries the
+            # label + rule + unit for the review queue. Flush per row
+            # (codebase idiom): a batched insertmanyvalues flush would
+            # sentinel-match str id params against asyncpg UUID returns.
+            session.add(ExceptionModel(
+                id=str(uuid.uuid4()), run_id=run.id, sheet_id=None,
+                measurement_id=None, element_id=None,
+                code="unmapped_measurement",
+                severity=ExceptionSeverity.BLOCKING.value,
+                message=f"measurement not mapped to any catalogue item: {label}",
+                evidence=None,
+            ))
+            await session.flush()
 
     session.add(AuditEntry(
         id=str(uuid.uuid4()), actor=actor, action=AuditAction.CREATE.value,
