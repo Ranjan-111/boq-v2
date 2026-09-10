@@ -1,17 +1,15 @@
 """Migration tests — Alembic is the only schema authority.
 
-Requires a reachable Postgres. Uses a scratch database (boq_test_mig) that it
+Requires a reachable Postgres. Uses a unique scratch database that it
 creates and drops, so it never touches dev data.
 """
 from __future__ import annotations
 
-import asyncio
 import os
-from collections.abc import AsyncGenerator, Generator
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 
 pytestmark = pytest.mark.integration
 
@@ -22,63 +20,6 @@ EXPECTED_TABLES = {
     "rates", "boqs", "boq_sections", "boq_items", "export_artifacts",
     "audit_log", "ai_suggestions", "jobs",
 }
-
-BASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://boq:boq@localhost:5432/boq"
-).rsplit("/", 1)[0]
-TEST_DB = os.environ.get("MIGRATION_TEST_DB", "boq_test_mig")
-
-
-async def _admin_engine() -> AsyncGenerator[AsyncEngine]:
-    engine = create_async_engine(BASE_URL, isolation_level="AUTOCOMMIT")
-    try:
-        yield engine
-    finally:
-        await engine.dispose()
-
-
-@pytest.fixture(scope="module")
-def migrated_db() -> Generator[str]:
-    """Create scratch DB, run upgrade head via subprocess, yield, drop."""
-    import subprocess
-    import sys
-
-    async def setup() -> str | None:
-        engine = create_async_engine(BASE_URL, isolation_level="AUTOCOMMIT")
-        try:
-            async with engine.connect() as conn:
-                await conn.execute(text(f'DROP DATABASE IF EXISTS "{TEST_DB}"'))
-                await conn.execute(text(f'CREATE DATABASE "{TEST_DB}"'))
-            return None
-        except Exception as exc:
-            return str(exc)
-        finally:
-            await engine.dispose()
-
-    err = asyncio.run(setup())
-    if err is not None:
-        pytest.skip(f"Postgres not reachable: {err}")
-
-    env = dict(os.environ)
-    env["DATABASE_URL"] = f"{BASE_URL}/{TEST_DB}"
-    up = subprocess.run(
-        [sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"],
-        capture_output=True, text=True, env=env, check=False,
-    )
-    assert up.returncode == 0, f"upgrade failed:\n{up.stdout}\n{up.stderr}"
-
-    yield f"{BASE_URL}/{TEST_DB}"
-
-    async def teardown() -> None:
-        engine = create_async_engine(BASE_URL, isolation_level="AUTOCOMMIT")
-        try:
-            async with engine.connect() as conn:
-                await conn.execute(text(f'DROP DATABASE IF EXISTS "{TEST_DB}"'))
-        finally:
-            await engine.dispose()
-
-    asyncio.run(teardown())
-
 
 async def test_all_domain_tables_exist(migrated_db: str) -> None:
     engine = create_async_engine(migrated_db)

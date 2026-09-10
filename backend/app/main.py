@@ -15,9 +15,10 @@ from typing import Any
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from backend.app.config import Settings, get_settings
+from backend.app.db.dependencies import session_dependency as session_dependency
 
 log = structlog.get_logger()
 
@@ -75,31 +76,23 @@ def make_engine(settings: Settings) -> AsyncEngine:
     return make_async_engine(settings.database_url)
 
 
-async def session_dependency(
-    request: Request,
-) -> AsyncIterator[AsyncSession]:
-    sessionmaker = getattr(request.app.state, "sessionmaker", None)
-    if sessionmaker is None:  # lazy init: lifespan may not have run (tests)
-        from backend.app.db.base import make_sessionmaker
-
-        if not hasattr(request.app.state, "engine"):
-            request.app.state.engine = make_engine(request.app.state.settings)
-        request.app.state.sessionmaker = make_sessionmaker(request.app.state.engine)
-        sessionmaker = request.app.state.sessionmaker
-    session: AsyncSession = sessionmaker()
-    try:
-        yield session
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        raise
-    finally:
-        await session.close()
-
-
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        from backend.app.db.base import make_sessionmaker
+
+        app.state.engine = make_engine(settings)
+        app.state.sessionmaker = make_sessionmaker(app.state.engine)
+        log.info("app.start", env=settings.env)
+        try:
+            yield
+        finally:
+            await app.state.engine.dispose()
+            log.info("app.stop")
+
     app = FastAPI(
+        lifespan=lifespan,
         title=settings.app_name,
         version="0.1.0",
         docs_url="/api/docs",
@@ -114,19 +107,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ],
     )
     app.state.settings = settings
-
-    @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        from backend.app.db.base import make_sessionmaker
-
-        app.state.engine = make_engine(settings)
-        app.state.sessionmaker = make_sessionmaker(app.state.engine)
-        log.info("app.start", env=settings.env)
-        try:
-            yield
-        finally:
-            await app.state.engine.dispose()
-            log.info("app.stop")
 
     app.middleware("http")(request_context)
 

@@ -1,5 +1,6 @@
 .DEFAULT_GOAL := help
 PYTHON := .venv/bin/python
+TEST_PATHS := core/tests backend/tests tests
 
 help: ## Show help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
@@ -12,7 +13,7 @@ install: ## Install all deps incl. dev
 	uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
 
 lint: ## ruff + mypy
-	.venv/bin/ruff check . && .venv/bin/ruff format --check . || true
+	.venv/bin/ruff check .
 	.venv/bin/mypy core ingestion takeoff classification provenance review boq catalog pricing exports backend
 
 arch: ## import-linter boundary check
@@ -21,14 +22,14 @@ arch: ## import-linter boundary check
 guards: ## license + reference-leak guards
 	$(PYTHON) tools/guards/reference_leak.py
 
-test: ## Run unit tests
-	.venv/bin/pytest tests -m unit
+test: ## Run all non-integration Python tests
+	.venv/bin/pytest $(TEST_PATHS) -m "not integration"
 
 test-integration: ## Run integration tests (needs Postgres)
-	.venv/bin/pytest tests -m integration
+	.venv/bin/pytest $(TEST_PATHS) -m integration
 
 test-all: ## Everything
-	.venv/bin/pytest tests
+	.venv/bin/pytest $(TEST_PATHS)
 
 db-up: ## Start dev Postgres + MinIO via Docker
 	docker compose up -d postgres minio

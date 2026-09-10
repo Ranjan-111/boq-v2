@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
+from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import Project, User
-from backend.app.main import session_dependency
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -69,7 +69,12 @@ async def list_projects(
     limit: int = 50,
     cursor: str | None = None,
 ) -> dict[str, Any]:
-    q = select(Project).where(Project.deleted_at.is_(None)).order_by(Project.created_at, Project.id)
+    # V1 has no membership table: the creator is the only authorized principal.
+    q = (
+        select(Project)
+        .where(Project.deleted_at.is_(None), Project.created_by == user.id)
+        .order_by(Project.created_at, Project.id)
+    )
     if cursor:
         q = q.where(Project.id > cursor)
     q = q.limit(min(limit, 100))
@@ -97,7 +102,13 @@ async def get_project(
     session: AsyncSession = Depends(session_dependency),
 ) -> Project:
     project = (
-        await session.execute(select(Project).where(Project.id == project_id))
+        await session.execute(
+            select(Project).where(
+                Project.id == project_id,
+                Project.created_by == user.id,
+                Project.deleted_at.is_(None),
+            )
+        )
     ).scalar_one_or_none()
     if project is None or project.deleted_at is not None:
         raise HTTPException(
