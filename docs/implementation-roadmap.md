@@ -96,6 +96,46 @@ waste factors · vendor rate quotes · GAEB X83/X84 export (from public spec) ·
 IFC input (read-only) · team collaboration · more regional datasets (each with
 original-source license check) · waste/markup templates per region.
 
+### Post-V1 capability detail (Round 3 reconciliation pass, 2026-09-10)
+
+Verified against the current OCErp reference snapshot; the per-capability
+evidence summary is recorded in `docs/reports/latest-status.md`
+(reconciliation note, 2026-09-10):
+
+1. **DWG input (V2, deferred — confirmed).** DWG→DXF via OSS converter
+   (ODA File Converter-class) or a documented user export step; the pipeline
+   then reuses the DXF parser unchanged (T037). Evidence: even OCErp's DWG
+   path shells out to proprietary, x86-64-only DDC converters with
+   auto-download — a licensing path we rejected in reuse-matrix #2/#5.
+   Conversion-to-DXF is the only clean route; no direct DWG SDK in V1/V2.
+2. **3D/BIM model viewer (post-V1/V2 candidate — newly planned, T130).**
+   Render 3D elements (OSS renderer), selection/inspection, click BOQ row →
+   highlight linked 3D element; extends the 2D evidence doctrine to 3D.
+   Gated on IFC/BIM input existing first. Evidence: OCErp ships a Three.js
+   BIM viewer with per-element COLLADA geometry and BOQ↔element linking
+   (plus Cesium geospatial, which stays out of scope — reuse-matrix #51) —
+   proving the pattern is buildable with permissively-licensed OSS
+   components (no code copied; pattern reference only). Not a Round 4
+   blocker; 2D viewer (T112/T113) remains the V1 path.
+3. **Regional rate snapshots (post-V1, T094).** More regional datasets,
+   hand-authored or user-imported, each with original-source license
+   recorded. Honest labels: STATIC (bundled snapshot with source + date) or
+   IMPORTED (user upload). Evidence: OCErp's rate datasets are static
+   GitHub-hosted parquet/CSV files — no live market feed exists to emulate;
+   a bundled dataset is not "live market data" and must never be labeled so.
+4. **Price provenance chain (post-V1, T095).** rate → source (catalogue
+   snapshot / vendor quote / manual) → quote/reference timestamp → optional
+   external price-source API (DYNAMIC: on-demand fetch recorded per use).
+   Ordering is deliberate: STATIC → IMPORTED → DYNAMIC; each layer lands
+   only when the previous one has provenance. Real-time vendor pricing is
+   NOT planned — the OCErp reference has file-upload vendor price lists and
+   watched-folder connectors, and its only genuinely dynamic external feed is
+   an ECB FX daily API; no reference system provides real-time vendor
+   pricing, and we will not claim it either.
+
+Nothing in this list changes V1 scope; these are future-work tickets so the
+capability is planned honestly rather than surfacing ad hoc.
+
 ## Risk register (top items)
 
 | Risk | Likelihood | Impact | Mitigation |

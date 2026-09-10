@@ -45,6 +45,7 @@ additive-only; changes are PR'd against the docs first.
 | T034 ◐R3 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies. R3: DXF proposal + confirmed-scale validation done; PDF later |
 | T035 | OOM-isolated extraction worker (RLIMIT_AS child process) | P1 | 2 | T032 | |
 | T036 ◐R3 | Corruption/adversarial file handling + format sniffing + fixtures | P0 | 2 | T030, T032, T033 | with H1. R3: DXF adversarial fixtures + refusals done |
+| T037 | DWG input via external conversion (post-V1/V2): DWG→DXF via OSS converter (ODA File Converter-class) or documented user export step; downstream pipeline reuses the DXF parser unchanged — entity extraction, INSERT/block handling, measurement, evidence all identical. No proprietary converter dependency (DDC binary chain rejected, reuse-matrix #2/#5) | P2 | 2–3 | T030 | OCErp's own DWG path also shells out to proprietary x86-only converters; conversion-to-DXF is the only licensing-clean route |
 
 ## EPIC 3 — Deterministic takeoff engine (Round C, parallel)
 
@@ -106,6 +107,8 @@ additive-only; changes are PR'd against the docs first.
 | T091 ◐R3 | Pricing engine: qty×rate, markup stack (percentage/fixed, cumulative), section+BOQ totals, banker's rounding | P0 | 3 | T085, T090 | R3: bp-markup slice w/ recompute invariant done |
 | T092 | Approval: submit/approve/reject with audit; lock-as-approval (CAS); stale invalidation on mutation | P0 | 3 | T085 |
 | T093 | Validation report (blockers: unresolved exceptions, unmapped, unpriced) — server-side, export gate | P0 | 2 | T092 |
+| T094 | Regional rate snapshots (post-V1): additional hand-authored/user-imported regional datasets, each with original-source license recorded (reuse-matrix #29–#32 policy). A snapshot is **static bundled/imported data with source + date** — never labeled live market data (OCErp's rate datasets are likewise static GitHub-hosted files; no live feed exists to emulate) | P2 | 3–4 | T081, T082 |
+| T095 | Price provenance chain (post-V1): rate → source (catalogue snapshot / vendor quote / manual) → quote/reference timestamp → optional external price-source API (DYNAMIC: on-demand fetch, recorded per use) with per-rate provenance. Real-time vendor price feeds are NOT planned — no evidence any reference system provides one, and claiming it would violate the trust doctrine. STATIC → IMPORTED → DYNAMIC in that order; user-imported price lists (CSV/XLSX) are the V1 path | P2 | 3–4 | T090, T094 |
 
 ## EPIC 8 — Exports (Round D)
 
@@ -131,6 +134,24 @@ additive-only; changes are PR'd against the docs first.
 | T117 | Approval + export UX (validation report, blocker gating, downloads) | P0 | 2 | T093, T100 |
 | T118 | Manual takeoff tools (raster drawings): on-screen length/area/count with provenance | P1 | 4 | T112, T074 |
 | T119 | Keyboard shortcuts, empty states, onboarding tour | P1 | 2 | T110 |
+| T130 | 3D/BIM model viewer (post-V1): render 3D elements (OSS renderer, e.g. three.js-class), selection + inspection, click BOQ row → highlight linked 3D element — the 2D evidence doctrine extended to 3D; requires deferred IFC/BIM input (roadmap Post-V1) to exist first | P2 | 5–8 | IFC input (deferred), T113 |
+
+**Viewer interaction contract (T112/T113 detail — Round 3 reconciliation
+pass, 2026-09-10):** the drawing viewer is a *review instrument*, not an
+image preview. Acceptance for T112/T113 explicitly requires: drawing display
+of parsed normalized geometry (SVG overlay over raster tiles), pan/zoom,
+sheet navigation across every sheet of a drawing, layer/entity visibility
+control, geometry highlighting (hover + select), measurement overlays on
+their source geometry, evidence highlighting per measurement, click a BOQ
+row → highlight and zoom to its source geometry, click geometry → inspect
+its measurements and provenance, review annotations, and on-viewer scale
+confirmation (two-point calibration, T074/T115) plus manual takeoff region
+interaction (T118). Every highlight round-trips the full provenance chain:
+**BOQ row → measurement → source geometry → drawing sheet/location → evidence
+refs (handles + source version)**. A viewer that cannot navigate this chain
+fails acceptance. The OCErp reference viewer (Canvas2D pan/zoom/select +
+annotations — pattern only, see reuse-matrix #38) sets the bar, not the
+ceiling.
 
 ## EPIC 10 — Hardening & QA (Round E)
 
@@ -149,5 +170,7 @@ additive-only; changes are PR'd against the docs first.
 
 ## Totals
 
-~110–135 pd ideal effort (matches reuse-matrix.md estimate §E).
+~110–135 pd ideal effort for the V1 tickets (matches reuse-matrix.md estimate
+§E; the reconciliation pass of 2026-09-10 added only post-V1 P2 tickets —
+T037/T094/T095/T130, ~13–19 pd — which are outside this figure).
 Critical path: T010→T014→T030/T032→T042→T043→T049→T084→T085→T091→T092→T101.

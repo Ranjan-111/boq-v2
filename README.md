@@ -45,9 +45,21 @@ reference/     LOCAL-ONLY OCErp copy (gitignored, never modified)
 6. Never silently guess scale, units, dimensions or geometry.
 7. Dramatically simpler than OCErp. Production quality, not a demo.
 
-## Round 1 status (current)
+## Current status (2026-09-10)
 
-Discovery + architecture + extraction plan only. See `docs/`:
+**Round 3 — trust-hardening gate COMPLETE, pushed, remote CI green.**
+A working DXF → wall measurements → BOQ → approval-gated CSV library slice
+whose trust boundary is adversarially regression-tested end to end: disjoint/
+ambiguous walls refused, evidence enforced on every measurement, content-bound
+replay identity, unsupported geometry explicitly refused (never faked), scale
+human-gated, BOQ from evidenced MEASURED records only, export approval-gated
+with fail-closed severity checks, and 9 architecture import contracts proven
+to bite by violation-injection guard tests. 300 Python tests (incl. live
+PostgreSQL), mypy strict, ruff, import-linter, license guards, frontend build
+all green. Round 4 = persistence + API wiring + viewer + browser E2E
+(the trust boundary becomes a product). See `docs/reports/`.
+
+Key documents:
 
 - `docs/product-vision.md` — what we are building and for whom
 - `docs/architecture.md` — executive architecture decision
@@ -55,6 +67,6 @@ Discovery + architecture + extraction plan only. See `docs/`:
 - `docs/api-contract.md` — the only API the frontend may see
 - `docs/reuse-matrix.md` — OCErp audit: keep / adapt / rewrite / reject
 - `docs/license-analysis.md` — AGPL constraints and safe-path decision
-- `docs/implementation-roadmap.md` — timeline to V1
+- `docs/implementation-roadmap.md` — timeline to V1 (+ post-V1 capability detail)
 - `docs/ticket-backlog.md` — prioritized tickets
 - `docs/non-goals.md` — what we will deliberately never build

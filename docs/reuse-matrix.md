@@ -133,6 +133,23 @@ Explicitly avoided: PyMuPDF (AGPL cascade), Celery/Redis (Postgres queue),
 qdrant/lancedb/fastembed (rapidfuzz + LLM re-rank first), pandas/pyarrow
 (not needed), DDC binaries, trimesh/pyproj (3D/geo — later).
 
+## A-addendum. Round 3 reconciliation evidence (2026-09-10)
+
+Rows added when five product capabilities were re-checked against the current
+reference snapshot (read-only) during the Round 3→4 documentation
+reconciliation pass. Same verdict semantics as section A; no code copied.
+
+| # | OCErp component (current snapshot) | What it actually is | Verdict | Where it feeds |
+|---|---|---|---|---|
+| 50 | `dwg_takeoff` module suite (backend + frontend) | 2D drawing viewer: Canvas2D DXF renderer with pan/zoom/select, layers, measurement/annotation overlay, drawing-version entities API, `PATCH /drawings/{id}/scale/`, BOQ link endpoints, SVG thumbnails | **REUSE-PATTERN** | Confirms the T112 viewer shape; interaction checklist + provenance chain formalized in ticket-backlog (viewer contract note) |
+| 51 | BIM 3D viewer (`BIMViewer` frontend suite + `bim_hub` backend) | Three.js-based 3D BIM viewer: per-element COLLADA/GLB geometry, click/hover selection, properties panel, measure/section/clip tools; elements ingest via DDC cad2data CSV/Excel or IFC/RVT; RVT ElementId ↔ DAE node `mesh_ref` pairing; Cesium + PointCloudViewer also present (geospatial — out of scope for us) | **REUSE-PATTERN** (post-V1, T130 only) | Newly planned capability: 3D/BIM model viewer deferred post-V1, gated on IFC/BIM input; pattern proves buildability with OSS renderer + geometry files, no code copied |
+| 52 | `costs` rate datasets (base_registry + catalogue snapshots) | Cost bases are *static, GitHub-hosted parquet/CSV files* (nine families, localized markets); downloaded then queried locally — **not live market feeds** | **REJECT** (data); **REUSE-PATTERN** (import pipeline) | Grounds T094's honesty label: regional rate *snapshots* are static bundled/imported data with source + date — never "live market data" |
+| 53 | `supplier_catalogs` price lists | Vendor price lists arrive as **user-uploaded files** (`POST /price-lists/{vendor_id}/import`, CSV/XLSX UploadFile); no scheduled/vendor API sync exists anywhere in the reference | **REUSE-PATTERN** (IMPORTED semantics) | Grounds T095/labels: user-imported price lists are the V1 vendor path; DYNAMIC (API price sources) is post-V1; real-time vendor pricing is NOT PLANNED |
+| 54 | Dynamic external feeds (fx module) | The only genuinely dynamic external data in the reference: ECB daily FX XML fetched via httpx + World Bank PPP API | **REJECT** (multi-currency FX out of scope; non-goals) | Confirms "dynamic" ≠ "real-time"; even their dynamic feed is a daily-pull, and theirs is FX — a capability we explicitly do not build |
+
+Addendum verdicts do not alter the V1 minimum dependency set above — #51 is
+post-V1, #52–54 are data/pattern references only.
+
 ## B2. OCErp dependency graph (Audit A facts)
 
 Hub modules by inbound dependents (of 190): `projects` **148**, `users`
