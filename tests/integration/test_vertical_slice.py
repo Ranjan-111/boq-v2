@@ -77,9 +77,15 @@ class TestVerticalSlice:
         assert sorted(m.value for m in lengths) == [Decimal("4"), Decimal("6")]
         assert out.exceptions == ()
         for m in out.measurements:
-            assert m.state is MeasurementState.MEASURED
+            # Round 5: walls carry an honest MEASURED_ZERO opening-count row
+            # when no openings are drawn; every other row is MEASURED.
+            assert m.state in (MeasurementState.MEASURED,
+                               MeasurementState.MEASURED_ZERO)
             assert m.evidence, "invariant 1: no measurement without evidence"
             assert m.evidence[0].kind == "geometry"
+        counts = [m for m in out.measurements if m.quantity_type.value == "count"]
+        assert len(counts) == 2  # one per wall, both zero
+        assert all(m.value == Decimal("0") for m in counts)
 
         # 4. BOQ — map wall lengths to a catalogue rate (integer minor units)
         rate = CatalogueRate(

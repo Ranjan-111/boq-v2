@@ -17,7 +17,10 @@ from typing import Protocol
 
 from core.geometry import NormalizedGeometry
 
-ENGINE_VERSION = "0.3.1"
+# Round 5: rooms/floors/openings/deductions join the measured vocabulary;
+# every new rule version-stamps its own replay, and the engine version bumps
+# because the set of rules a run may emit changed.
+ENGINE_VERSION = "0.4.0"
 
 
 class RuleFn(Protocol):
@@ -148,4 +151,118 @@ def _polygon_area(inputs: list[NormalizedGeometry]) -> float:
 
 @register("count.v1", quantity_type="count", description="Count of geometries")
 def _count(inputs: list[NormalizedGeometry]) -> float:
+    return float(len(inputs))
+
+
+# ---------------------------------------------------------------------------
+# Round 5 rules — rooms, floors, openings, deductions (T043-T046)
+# ---------------------------------------------------------------------------
+
+
+@register(
+    "room.gross.area.v1",
+    quantity_type="area",
+    description="Gross room area to wall centerlines (drawing units squared)",
+)
+def _room_gross_area(inputs: list[NormalizedGeometry]) -> float:
+    """Room gross area: the centerline-bounded region of one enclosed room."""
+    if len(inputs) != 1:
+        raise ValueError("room.gross.area.v1 takes exactly one room ring geometry")
+    from takeoff.kernel import area_of
+
+    return area_of(inputs[0])
+
+
+@register(
+    "room.net.area.v1",
+    quantity_type="area",
+    description="Net room area (gross minus wall footprints, drawing units squared)",
+)
+def _room_net_area(inputs: list[NormalizedGeometry]) -> float:
+    """Net room area: the clear interior region of one enclosed room."""
+    if len(inputs) != 1:
+        raise ValueError("room.net.area.v1 takes exactly one net-ring geometry")
+    from takeoff.kernel import area_of
+
+    return area_of(inputs[0])
+
+
+@register(
+    "floor.gross.area.v1",
+    quantity_type="area",
+    description="Floor gross area (sum of room gross areas on one storey)",
+)
+def _floor_gross_area(inputs: list[NormalizedGeometry]) -> float:
+    """Sum of room gross rings — the floor roll-up rule (T044)."""
+    if not inputs:
+        raise ValueError("floor.gross.area.v1 takes at least one room ring")
+    from takeoff.kernel import area_of
+
+    return float(sum(area_of(g) for g in inputs))
+
+
+@register(
+    "floor.net.area.v1",
+    quantity_type="area",
+    description="Floor net area (sum of room net rings on one storey)",
+)
+def _floor_net_area(inputs: list[NormalizedGeometry]) -> float:
+    """Sum of room net rings — the floor roll-up rule (T044)."""
+    if not inputs:
+        raise ValueError("floor.net.area.v1 takes at least one net ring")
+    from takeoff.kernel import area_of
+
+    return float(sum(area_of(g) for g in inputs))
+
+
+@register(
+    "wall.net.area.v1",
+    quantity_type="area",
+    description="Wall footprint area net of opening deductions (drawing units squared)",
+)
+def _wall_net_area(inputs: list[NormalizedGeometry]) -> float:
+    """Net wall area: footprint minus the opening slot geometries.
+
+    inputs[0] = the wall footprint; inputs[1:] = one slot geometry per
+    detected opening (takeoff.openings builds them from the drawn geometry).
+    The subtraction is GEOMETRIC (shapely difference of the slot union from
+    the footprint), so a slot outside the footprint — a face-gap opening,
+    whose host wall's drawn faces already exclude the gap — deducts nothing:
+    no double-subtraction, no special-casing, fully replayable from geometry.
+    """
+    if not inputs:
+        raise ValueError("wall.net.area.v1 takes the footprint plus opening slots")
+    from typing import cast
+
+    from takeoff.kernel import area_of
+
+    net = area_of(inputs[0])
+    if len(inputs) > 1:
+        from shapely.geometry import Polygon as ShapelyPolygon
+        from shapely.ops import unary_union
+
+        fp_coords = cast("list[tuple[float, float]]", inputs[0].coordinates)
+        footprint = ShapelyPolygon([(float(x), float(y)) for x, y in fp_coords])
+        slots = []
+        for s in inputs[1:]:
+            s_coords = cast("list[tuple[float, float]]", s.coordinates)
+            slots.append(ShapelyPolygon([(float(x), float(y)) for x, y in s_coords]))
+        deducted = footprint.intersection(unary_union(slots)).area
+        net -= deducted
+    if net < -1e-9:
+        raise ValueError("opening deductions exceed the wall footprint")
+    return max(net, 0.0)
+
+
+@register(
+    "opening.count.v1",
+    quantity_type="count",
+    description="Count of openings in one wall (one slot geometry per opening)",
+)
+def _opening_count(inputs: list[NormalizedGeometry]) -> float:
+    """Count opening slot geometries — one slot per detected opening (T045).
+
+    Zero openings is an EMPTY input list: an honest 0.0 (MEASURED_ZERO),
+    never a count of the wall faces or members.
+    """
     return float(len(inputs))

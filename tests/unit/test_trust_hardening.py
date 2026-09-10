@@ -218,7 +218,14 @@ def test_measure_parsed_clean_run_measures_with_source_bound_replay():
     assert out.exceptions == ()
     assert out.measurements
     for m in out.measurements:
-        assert m.state is MeasurementState.MEASURED
+        # Round 5: a wall with no openings carries an honest MEASURED_ZERO
+        # opening-count row; every other row is MEASURED. Both states are
+        # legitimate measured outputs (domain-model measurement states).
+        assert m.state in (MeasurementState.MEASURED,
+                           MeasurementState.MEASURED_ZERO)
+        if m.quantity_type.value == 'count':
+            assert m.state is MeasurementState.MEASURED_ZERO
+            assert m.value == Decimal('0')
         # replay identity is bound to the raw source version, not a label
         assert 'sha256:deadbeef' in m.evidence[0].ref
         assert m.measurement_id  # durable identity exists

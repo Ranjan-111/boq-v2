@@ -110,8 +110,16 @@ class TestWallMeasurements:
         assert not out.exceptions
         lengths = [m for m in out.measurements if m.quantity_type is QuantityType.LENGTH]
         areas = [m for m in out.measurements if m.quantity_type is QuantityType.AREA]
+        counts = [m for m in out.measurements if m.quantity_type is QuantityType.COUNT]
+        # Round 5 contract: 4 rows per wall — length, gross footprint,
+        # opening count, net-of-openings area. A wall with no openings gets
+        # an honest MEASURED_ZERO count (never silently omitted).
         assert len(lengths) == 1
-        assert len(areas) == 1
+        assert len(areas) == 2
+        assert len(counts) == 1
+        assert counts[0].state is MeasurementState.MEASURED_ZERO
+        assert counts[0].value == Decimal("0.000000")
+        assert counts[0].unit is MeasurementUnit.COUNT
 
         length = lengths[0]
         # 1000 mm → 1.000000 m, banker's-rounded to 6 places
@@ -128,7 +136,14 @@ class TestWallMeasurements:
         assert all(e.kind == "geometry" for e in length.evidence)
         # wall-specific derived data for the evidence panel
         assert length.thickness == pytest.approx(200.0)
+        assert length.centerline is not None
         assert length.label == "Wall 1"
+        # net-of-openings with no slots equals the gross footprint exactly
+        assert {m.rule_id for m in areas} == {
+            "wall.footprint.area.v1", "wall.net.area.v1"}
+        net = next(m for m in areas if m.rule_id == "wall.net.area.v1")
+        gross = next(m for m in areas if m.rule_id == "wall.footprint.area.v1")
+        assert net.value == gross.value == Decimal("0.200000")
 
     def test_footprint_area_derived(self) -> None:
         out = measure_sheet(
@@ -138,7 +153,8 @@ class TestWallMeasurements:
             drawing_units="mm",
             max_wall_thickness=250,
         )
-        areas = [m for m in out.measurements if m.quantity_type is QuantityType.AREA]
+        areas = [m for m in out.measurements
+                 if m.rule_id == "wall.footprint.area.v1"]
         area = areas[0]
         # 1000mm x 200mm = 200,000 mm² = 0.2 m²
         assert area.value == Decimal("0.200000")

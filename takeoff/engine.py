@@ -2,15 +2,22 @@
 
 Pure: geometries in → measurements + exceptions out. No DB, no AI, no clock.
 
-Pipeline per measurable sheet:
+Pipeline per measurable sheet (Round 5 — the full takeoff engine):
   1. SCALE GATE: core.units.ScaleCalibration.require_confirmed() — a sheet
      without CONFIRMED scale produces ZERO measurements and one BLOCKING
      SCALE_UNCONFIRMED exception per sheet (never guesses).
   2. WALL DETECTION (T042): parallel-pair pairing → WallCandidates.
-  3. PER WALL: length measurement (rule wall.centerline.length.v1) with
-     evidence = both edge geometries' source handles; footprint area derived.
-  4. EXCEPTIONS: kernel refusals (SELF_INTERSECTING, OPEN_POLYLINE) become
-     NOT_MEASURABLE/BLOCKED rows + ExceptionRecords — surfaced, never swallowed.
+  3. ROOMS (T043): polygonize wall centerlines → enclosed faces; gross
+     (to centerline) + net (minus footprints) areas; labels from text
+     tokens (label evidence), never guessed.
+  4. OPENINGS (T045): named door/window blocks spanning walls + aligned
+     face gaps; ambiguous/partial spans surface for review.
+  5. DEDUCTIONS (T046): opening areas subtract from wall footprint areas;
+     net wall areas; MEASURED_ZERO carries its own evidence.
+  6. FLOORS (T044): room gross/net roll-up per storey (storey grouping is
+     a labeling concern in V1 — one plan = one floor).
+  7. EXCEPTIONS: kernel refusals become NOT_MEASURABLE/BLOCKED rows +
+     ExceptionRecords — surfaced, never swallowed.
 
 Every measurement carries the full replay contract (rule_id, engine_version,
 inputs_digest) and >=1 evidence link (invariant 1) or it is BLOCKED.
@@ -19,7 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
@@ -33,7 +40,12 @@ from core.domain.enums import (
     MeasurementUnit,
     QuantityType,
 )
-from core.geometry import NormalizedGeometry, ParseResult
+from core.geometry import (
+    NormalizedGeometry,
+    ParseResult,
+    SourceHandleRef,
+    TextToken,
+)
 from core.provenance.records import (
     EvidenceLink,
     ExceptionRecord,
@@ -60,6 +72,12 @@ SEVERITY_POLICY: dict[str, ExceptionSeverity] = {
     "missing_evidence": ExceptionSeverity.BLOCKING,
     "parse_incomplete": ExceptionSeverity.BLOCKING,
     "ambiguous_sheet": ExceptionSeverity.BLOCKING,
+    # Round 5 (full takeoff engine) — rooms/openings refusals.
+    "room_not_enclosed": ExceptionSeverity.REVIEW,
+    "room_topology": ExceptionSeverity.BLOCKING,
+    "opening_ambiguous": ExceptionSeverity.REVIEW,
+    "opening_partial_span": ExceptionSeverity.REVIEW,
+    "pdf_path_unclassified": ExceptionSeverity.REVIEW,
 }
 
 
@@ -125,9 +143,23 @@ def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
+def _convert_count(
+    value: Decimal, drawing_unit: str, calibration: ScaleCalibration,
+    target: MeasurementUnit,
+) -> Decimal:
+    """Counts are unit-free: the conversion is the identity (scale and drawing
+    units do not apply — counting doors is not a length). Validated strictly
+    so a misuse cannot silently pass a scaled count through."""
+    if target is not MeasurementUnit.COUNT:
+        raise ValueError(f"{target} is not a count unit")
+    _ = drawing_unit, calibration  # counts ignore scale by definition
+    return value
+
+
 def measure_parsed(
     parsed: ParseResult, *, sheet_id: str, calibration: ScaleCalibration,
     max_wall_thickness: float | None = None,
+    block_names: dict[str, str] | None = None,
 ) -> RunOutput:
     """Consume the entire parser result, including refusals and raw-file identity."""
     sheet = next((s for s in parsed.sheets if s.sheet_ref == sheet_id), None)
@@ -140,7 +172,8 @@ def measure_parsed(
         sheet_id=sheet_id, geometries=list(parsed.geometries), calibration=calibration,
         drawing_units=parsed.drawing_units, max_wall_thickness=max_wall_thickness,
         source_id=parsed.source_sha256, source_version=parsed.source_sha256,
-        parse_warnings=warnings,
+        parse_warnings=warnings, text_tokens=parsed.text_tokens,
+        block_names=block_names,
     )
 
 
@@ -151,10 +184,16 @@ def measure_sheet(
     max_wall_thickness: float | None = None,
     source_id: str | None = None, source_version: str | None = None,
     parse_warnings: tuple[str, ...] = (),
+    text_tokens: tuple[TextToken, ...] = (),
+    block_names: dict[str, str] | None = None,
 ) -> RunOutput:
     """Pure geometry entrypoint; caller must supply complete warnings/source context.
 
     File callers should use measure_parsed so extraction refusals cannot be lost.
+    text_tokens: drawing text labels (room labels — label evidence, never
+    geometry). block_names: INSERT handle -> block name (opening blocks, T045).
+    Both are optional; their absence disables room labels / named-block
+    openings honestly (face-gap detection still runs).
     """
     try:
         factor = calibration.require_confirmed()
@@ -201,6 +240,38 @@ def measure_sheet(
     for h in detection.unmatched_edges:
         exceptions.append(_exc("overlap_detected", f"wall edge {h} has no unique supported pair",
                                sheet_id=sheet_id))
+
+    # --- Rooms (T043) -------------------------------------------------------
+    from takeoff.room_detection import (
+        RoomDetectionResult,
+        assign_room_labels,
+        detect_rooms,
+        room_geometry,
+    )
+
+    room_result: RoomDetectionResult = detect_rooms(detection.walls)
+    room_records = list(room_result.rooms)
+    assign_room_labels(room_records, text_tokens)
+    for msg in room_result.topology_refusals:
+        exceptions.append(_exc("room_topology", msg, sheet_id=sheet_id))
+    if room_result.not_enclosed:
+        exceptions.append(_exc(
+            "room_not_enclosed",
+            f"{room_result.wall_count} walls but no enclosed room on this sheet",
+            sheet_id=sheet_id,
+        ))
+
+    # --- Openings (T045) + deductions (T046) --------------------------------
+    from takeoff.openings import detect_openings
+
+    opening_result = detect_openings(
+        detection.walls, geometries, block_names=block_names
+    )
+    for msg in opening_result.ambiguous:
+        exceptions.append(_exc("opening_ambiguous", msg, sheet_id=sheet_id))
+    for msg in opening_result.partial_span:
+        exceptions.append(_exc("opening_partial_span", msg, sheet_id=sheet_id))
+
     elements: list[ElementRecord] = [
         ElementRecord(
             element_type=ElementType.WALL,
@@ -210,48 +281,265 @@ def measure_sheet(
         )
         for i, wall in enumerate(detection.walls, start=1)
     ]
+    wall_element_geoms = {i: elements[i].geometry for i in range(len(elements))}
+
+    # Room elements (gross ring is the element geometry; the net ring is a
+    # derived geometry consumed by the net-area rule).
+    room_element_index: dict[int, int] = {}
+    for ri, room in enumerate(room_records):
+        gross_geom = room_geometry(
+            room.gross_ring, room.source_handles,
+            source_format_value=(room.source_handles[0].format.value
+                                 if room.source_handles else "dxf_entity"),
+            sheet_ref=sheet_id,
+            derived_from=room.derived_from,
+        )
+        room_element_index[ri] = len(elements)
+        elements.append(ElementRecord(
+            element_type=ElementType.ROOM,
+            type_source=ElementTypeSource.GEOMETRY_DETERMINISTIC,
+            geometry=gross_geom,
+            label=room.label or f"Room {ri + 1}",
+        ))
+    # Opening elements (one per opening; kind in the label).
+    opening_element_index: dict[int, int] = {}
+    for oi, opening in enumerate(opening_result.openings):
+        # Evidence geometry: the contributing member geometries are already
+        # in the input list; the opening element points at its wall.
+        wall_geom = wall_element_geoms.get(opening.wall_index)
+        if wall_geom is None:  # pragma: no cover - openings always bind a wall
+            continue
+        opening_element_index[oi] = len(elements)
+        elements.append(ElementRecord(
+            element_type=(ElementType.DOOR if opening.kind == "door"
+                          else ElementType.WINDOW if opening.kind == "window"
+                          else ElementType.OPENING),
+            type_source=ElementTypeSource.GEOMETRY_DETERMINISTIC,
+            geometry=wall_geom,
+            label=f"{opening.kind.capitalize()} in Wall {opening.wall_index + 1}",
+        ))
+
+    def _emit(
+        *,
+        rule_id: str,
+        quantity_type: QuantityType,
+        target: MeasurementUnit,
+        rule_inputs: list[NormalizedGeometry],
+        raw: Decimal,
+        element_index: int,
+        evidence_refs: tuple[SourceHandleRef, ...],
+        label: str,
+        extra_constants: dict[str, Any],
+        element_type: ElementType = ElementType.WALL,
+    ) -> None:
+        """One measurement through the registered rule (single emit discipline)."""
+        rule = get_rule(rule_id)
+        value = round_quantity(
+            (convert_length if quantity_type is QuantityType.LENGTH else
+             convert_area if quantity_type is QuantityType.AREA else
+             _convert_count)(Decimal(raw), drawing_units, calibration, target)
+        )
+        inputs = MeasurementInputs(
+            refs=tuple(h.entity_ref for h in evidence_refs),
+            constants={
+                "schema": "measurement-replay-v2", "sheet": sheet_id,
+                "source_id": source_id or snapshot,
+                "source_version": source_version or snapshot,
+                "sheet_geometry": snapshots,
+                "rule_inputs": [g.to_json() for g in rule_inputs],
+                "scale": str(factor.normalize()), "scale_method": calibration.method,
+                "scale_status": calibration.status.value,
+                "drawing_units": drawing_units, "target_units": target.value,
+                "rule_id": rule_id, "rule_version": rule.version,
+                "engine_version": ENGINE_VERSION, "max_wall_thickness": max_wall_thickness,
+                "parallel_eps": PARALLEL_EPS, "offset_eps": OFFSET_EPS,
+                "wall_layers_only": True,
+                **extra_constants,
+            },
+        )
+        evidence = tuple(EvidenceLink(
+            kind="geometry", ref=_canonical({"source": source_id or snapshot,
+                "version": source_version or snapshot, "handle": h.to_json()}),
+            note=label,
+        ) for h in evidence_refs)
+        measurements.append(MeasurementRecord(
+            quantity_type=quantity_type, value=value, unit=target,
+            rule_id=rule_id, engine_version=ENGINE_VERSION,
+            inputs_digest=inputs.digest(),
+            state=measurement_state_for(value, has_evidence=bool(evidence)),
+            element_type=element_type, evidence=evidence,
+            inputs=inputs.refs, label=label, element_index=element_index,
+        ))
+
+
+    def _refs(
+        *geoms: NormalizedGeometry,
+    ) -> tuple[SourceHandleRef, ...]:
+        """All source handles of the given geometries, order-stable."""
+        return tuple(h for g in geoms for h in g.source_handles)
+
+    # --- Wall measurements (T042): length + footprint + count + net --------
     for wall_no, wall in enumerate(detection.walls, 1):
-        footprint = elements[wall_no - 1].geometry
-        for rule_id, quantity_type, target, rule_inputs, label in (
-            ("wall.centerline.length.v1", QuantityType.LENGTH, target_length_unit,
-             list(wall.edge_geometries), f"Wall {wall_no}"),
-            ("wall.footprint.area.v1", QuantityType.AREA, target_area_unit,
-             [footprint], f"Wall {wall_no} footprint"),
-        ):
-            rule = get_rule(rule_id)
-            raw = Decimal(str(run_rule(rule_id, rule_inputs)))
-            conversion = convert_length if quantity_type is QuantityType.LENGTH else convert_area
-            value = round_quantity(conversion(raw, drawing_units, calibration, target))
-            inputs = MeasurementInputs(
-                refs=tuple(h.entity_ref for h in wall.source_handles),
-                constants={
-                    "schema": "measurement-replay-v2", "sheet": sheet_id,
-                    "source_id": source_id or snapshot,
-                    "source_version": source_version or snapshot,
-                    "sheet_geometry": snapshots,
-                    "rule_inputs": [g.to_json() for g in rule_inputs],
-                    "scale": str(factor.normalize()), "scale_method": calibration.method,
-                    "scale_status": calibration.status.value,
-                    "drawing_units": drawing_units, "target_units": target.value,
-                    "rule_id": rule_id, "rule_version": rule.version,
-                    "engine_version": ENGINE_VERSION, "max_wall_thickness": max_wall_thickness,
-                    "parallel_eps": PARALLEL_EPS, "offset_eps": OFFSET_EPS,
-                    "wall_layers_only": True,
-                },
+        footprint = wall_element_geoms[wall_no - 1]
+        # Slots of THIS wall, in the detection's opening order (the replay
+        # inputs for the count and the net-of-openings rules).
+        wall_slots: list[NormalizedGeometry] = [
+            slot for slot, o in zip(opening_result.slots,
+                                   opening_result.openings,
+                                   strict=True)
+            if o.wall_index == wall_no - 1
+        ]
+        # Length (centerline) — unchanged R3 behavior; keeps the wall-specific
+        # derived data the R4 evidence viewer highlights.
+        _emit(
+            rule_id="wall.centerline.length.v1",
+            quantity_type=QuantityType.LENGTH,
+            target=target_length_unit,
+            rule_inputs=list(wall.edge_geometries),
+            raw=Decimal(str(run_rule("wall.centerline.length.v1",
+                                     list(wall.edge_geometries)))),
+            element_index=wall_no - 1,
+            evidence_refs=_refs(*wall.edge_geometries),
+            label=f"Wall {wall_no}",
+            extra_constants={},
+        )
+        length_record = measurements[-1]
+        measurements[-1] = replace(
+            length_record, centerline=wall.centerline, thickness=wall.thickness
+        )
+        # Gross footprint area (deductions NOT applied) — unchanged R3 behavior.
+        _emit(
+            rule_id="wall.footprint.area.v1",
+            quantity_type=QuantityType.AREA,
+            target=target_area_unit,
+            rule_inputs=[footprint],
+            raw=Decimal(str(run_rule("wall.footprint.area.v1", [footprint]))),
+            element_index=wall_no - 1,
+            evidence_refs=_refs(footprint),
+            label=f"Wall {wall_no} footprint",
+            extra_constants={},
+        )
+        # Opening count (T045): one slot geometry per opening; zero openings
+        # is an EMPTY slot list — an honest MEASURED_ZERO, never a face count.
+        refs = (tuple(h for s in wall_slots for h in s.source_handles)
+                or _refs(*wall.edge_geometries))
+        _emit(
+            rule_id="opening.count.v1",
+            quantity_type=QuantityType.COUNT,
+            target=MeasurementUnit.COUNT,
+            rule_inputs=wall_slots,
+            raw=Decimal(str(run_rule("opening.count.v1", wall_slots))),
+            element_index=wall_no - 1,
+            evidence_refs=refs,
+            label=(f"Wall {wall_no} openings ({len(wall_slots)})"
+                   if wall_slots else f"Wall {wall_no} openings (none detected)"),
+            extra_constants={},
+        )
+        # Net wall area (T046): footprint minus the slot geometries — the
+        # rule subtracts from geometry alone; replay is self-contained.
+        _emit(
+            rule_id="wall.net.area.v1",
+            quantity_type=QuantityType.AREA,
+            target=target_area_unit,
+            rule_inputs=[footprint, *wall_slots],
+            raw=Decimal(str(run_rule("wall.net.area.v1",
+                                     [footprint, *wall_slots]))),
+            element_index=wall_no - 1,
+            evidence_refs=_refs(footprint, *wall.edge_geometries,
+                                *wall_slots),
+            label=f"Wall {wall_no} net of openings",
+            extra_constants={},
+        )
+
+    # --- Room measurements (T043/T044) --------------------------------------
+    room_gross_geoms: list[NormalizedGeometry] = []
+    room_net_geoms: list[NormalizedGeometry] = []
+    for ri, room in enumerate(room_records):
+        gross_geom = elements[room_element_index[ri]].geometry
+        net_geom = room_geometry(
+            room.net_ring, room.source_handles,
+            source_format_value=(room.source_handles[0].format.value
+                                 if room.source_handles else "dxf_entity"),
+            sheet_ref=sheet_id,
+            derived_from=room.derived_from,
+        )
+        room_gross_geoms.append(gross_geom)
+        room_net_geoms.append(net_geom)
+        label = room.label or f"Room {ri + 1}"
+        _emit(
+            rule_id="room.gross.area.v1",
+            quantity_type=QuantityType.AREA,
+            target=target_area_unit,
+            rule_inputs=[gross_geom],
+            raw=Decimal(str(run_rule("room.gross.area.v1", [gross_geom]))),
+            element_index=room_element_index[ri],
+            evidence_refs=room.source_handles,
+            label=f"{label} gross area",
+            extra_constants={"bounding_walls": list(room.bounding_walls)},
+            element_type=ElementType.ROOM,
+        )
+        _emit(
+            rule_id="room.net.area.v1",
+            quantity_type=QuantityType.AREA,
+            target=target_area_unit,
+            rule_inputs=[net_geom],
+            raw=Decimal(str(run_rule("room.net.area.v1", [net_geom]))),
+            element_index=room_element_index[ri],
+            evidence_refs=room.source_handles,
+            label=f"{label} net area",
+            extra_constants={"bounding_walls": list(room.bounding_walls)},
+            element_type=ElementType.ROOM,
+        )
+        if room.label_token is not None:
+            # Label evidence rides as its own evidence link on the room
+            # measurements (text_token kind) — the label is never guessed.
+            label_ref = EvidenceLink(
+                kind="text_token",
+                ref=_canonical({"source": source_id or snapshot,
+                                "token": room.label_token.to_json()}),
+                note=f"room label {room.label_token.text!r}",
             )
-            evidence = tuple(EvidenceLink(
-                kind="geometry", ref=_canonical({"source": source_id or snapshot,
-                    "version": source_version or snapshot, "handle": h.to_json()}),
-                note="wall source face",
-            ) for h in wall.source_handles)
-            measurements.append(MeasurementRecord(
-                quantity_type=quantity_type, value=value, unit=target,
-                rule_id=rule_id, engine_version=ENGINE_VERSION, inputs_digest=inputs.digest(),
-                state=measurement_state_for(value, has_evidence=bool(evidence)),
-                element_type=ElementType.WALL, evidence=evidence, inputs=inputs.refs,
-                label=label, element_index=wall_no - 1,
-                centerline=wall.centerline, thickness=wall.thickness,
-            ))
+            for m in measurements[-2:]:
+                measurements[measurements.index(m)] = replace(
+                    m, evidence=(*m.evidence, label_ref)
+                )
+
+    # --- Floor roll-up (T044) — one floor element per sheet in V1 -----------
+    if room_gross_geoms:
+        floor_element_index = len(elements)
+        elements.append(ElementRecord(
+            element_type=ElementType.FLOOR_FINISH,
+            type_source=ElementTypeSource.GEOMETRY_DETERMINISTIC,
+            geometry=room_gross_geoms[0],
+            label="Floor (all rooms)",
+        ))
+        floor_refs = tuple(h for g in (*room_gross_geoms, *room_net_geoms)
+                           for h in g.source_handles)
+        _emit(
+            rule_id="floor.gross.area.v1",
+            quantity_type=QuantityType.AREA,
+            target=target_area_unit,
+            rule_inputs=list(room_gross_geoms),
+            raw=Decimal(str(run_rule("floor.gross.area.v1", list(room_gross_geoms)))),
+            element_index=floor_element_index,
+            evidence_refs=floor_refs,
+            label="Floor gross area (room roll-up)",
+            extra_constants={"room_count": len(room_gross_geoms)},
+            element_type=ElementType.FLOOR_FINISH,
+        )
+        _emit(
+            rule_id="floor.net.area.v1",
+            quantity_type=QuantityType.AREA,
+            target=target_area_unit,
+            rule_inputs=list(room_net_geoms),
+            raw=Decimal(str(run_rule("floor.net.area.v1", list(room_net_geoms)))),
+            element_index=floor_element_index,
+            evidence_refs=floor_refs,
+            label="Floor net area (room roll-up)",
+            extra_constants={"room_count": len(room_gross_geoms)},
+            element_type=ElementType.FLOOR_FINISH,
+        )
+
     for geom in geometries:
         if geom.geom_type is GeomType.POLYGON:
             try:
