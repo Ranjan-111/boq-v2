@@ -78,6 +78,10 @@ class MeasurementRecord:
     evidence: tuple[EvidenceLink, ...]
     inputs: tuple[str, ...]  # geometry ids / source handles consumed
     label: str | None = None
+    # Index into RunOutput.elements for the element this measurement belongs
+    # to (Round 4 persistence: measurement rows carry element_id). Additive —
+    # the replay identity binds inputs_digest only, which this never feeds.
+    element_index: int | None = None
     # Wall-specific derived data for the evidence panel (drawing units):
     centerline: tuple[tuple[float, float], tuple[float, float]] | None = None
     thickness: float | None = None
@@ -96,6 +100,10 @@ class RunOutput:
     measurements: tuple[MeasurementRecord, ...]
     exceptions: tuple[ExceptionRecord, ...]
     engine_version: str = ENGINE_VERSION
+    # Element records the measurements belong to (Round 4 persistence).
+    # Ordering is the contract: MeasurementRecord.element_index indexes this
+    # tuple. Additive — callers that ignore it are unaffected.
+    elements: tuple[ElementRecord, ...] = ()
 
 
 def _exc(code: str, message: str, **kw: object) -> ExceptionRecord:
@@ -193,8 +201,17 @@ def measure_sheet(
     for h in detection.unmatched_edges:
         exceptions.append(_exc("overlap_detected", f"wall edge {h} has no unique supported pair",
                                sheet_id=sheet_id))
+    elements: list[ElementRecord] = [
+        ElementRecord(
+            element_type=ElementType.WALL,
+            type_source=ElementTypeSource.GEOMETRY_DETERMINISTIC,
+            geometry=wall_footprint(wall),
+            label=f"Wall {i}",
+        )
+        for i, wall in enumerate(detection.walls, start=1)
+    ]
     for wall_no, wall in enumerate(detection.walls, 1):
-        footprint = wall_footprint(wall)
+        footprint = elements[wall_no - 1].geometry
         for rule_id, quantity_type, target, rule_inputs, label in (
             ("wall.centerline.length.v1", QuantityType.LENGTH, target_length_unit,
              list(wall.edge_geometries), f"Wall {wall_no}"),
@@ -232,7 +249,8 @@ def measure_sheet(
                 rule_id=rule_id, engine_version=ENGINE_VERSION, inputs_digest=inputs.digest(),
                 state=measurement_state_for(value, has_evidence=bool(evidence)),
                 element_type=ElementType.WALL, evidence=evidence, inputs=inputs.refs,
-                label=label, centerline=wall.centerline, thickness=wall.thickness,
+                label=label, element_index=wall_no - 1,
+                centerline=wall.centerline, thickness=wall.thickness,
             ))
     for geom in geometries:
         if geom.geom_type is GeomType.POLYGON:
@@ -241,7 +259,7 @@ def measure_sheet(
             except NotMeasurable as exc:
                 code = "self_intersecting" if "self-inter" in str(exc) else "open_polyline"
                 exceptions.append(_exc(code, f"polygon refused: {exc}", sheet_id=sheet_id))
-    return RunOutput(tuple(measurements), tuple(exceptions))
+    return RunOutput(tuple(measurements), tuple(exceptions), elements=tuple(elements))
 
 
 # ---------------------------------------------------------------------------

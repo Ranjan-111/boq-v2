@@ -112,6 +112,9 @@ class DrawingFile(Base):
     parse_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )  # pending|parsing|parsed|failed
+    # Parse-time warnings (per-handle refusals, paperspace notes) persisted so
+    # the run boundary can block on them (measure_parsed consumes full result).
+    parse_warnings: Mapped[list[str] | None] = mapped_column(JSONB)
 
 
 class DrawingSheet(Base):
@@ -122,11 +125,18 @@ class DrawingSheet(Base):
         Uuid, ForeignKey("drawing_files.id"), nullable=False, index=True
     )
     page_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Parser sheet identity (e.g. "modelspace", "paperspace:Layout1") — the
+    # stable ref used by calibration/engine/geometry source handles. Distinct
+    # sheets of one file can share page_number=0 only if refs differ; unique
+    # together with drawing_file_id.
+    sheet_ref: Mapped[str] = mapped_column(String(80), nullable=False, default="")
     title: Mapped[str | None] = mapped_column(String(512))
     sheet_type: Mapped[str | None] = mapped_column(String(20))
     ai_confidence: Mapped[float | None] = mapped_column(Numeric(4, 3))
 
-    __table_args__ = (UniqueConstraint("drawing_file_id", "page_number"),)
+    __table_args__ = (
+        UniqueConstraint("drawing_file_id", "page_number", "sheet_ref"),
+    )
 
 
 class ScaleCalibrationModel(Base):
@@ -213,6 +223,9 @@ class MeasurementModel(Base):
     element_id: Mapped[str] = mapped_column(
         Uuid, ForeignKey("elements.id"), nullable=False, index=True
     )
+    # Durable identity from the replay digest (engine: uuid5(inputs_digest)),
+    # unique per run — duplicates are a trust violation, never silently kept.
+    measurement_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     quantity_type: Mapped[str] = mapped_column(String(12), nullable=False)
     value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     unit: Mapped[str | None] = mapped_column(String(8))
@@ -221,6 +234,7 @@ class MeasurementModel(Base):
     inputs: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     inputs_digest: Mapped[str | None] = mapped_column(String(64))
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="blocked")
+    label: Mapped[str | None] = mapped_column(String(512))
     correction_of: Mapped[str | None] = mapped_column(Uuid, ForeignKey("measurements.id"))
     corrected_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     created_at: Mapped[datetime] = mapped_column(
@@ -232,6 +246,7 @@ class MeasurementModel(Base):
             "state IN ('measured','measured_zero','needs_review','not_measurable','blocked')",
             name="meas_state_ck",
         ),
+        UniqueConstraint("run_id", "measurement_id", name="uq_measurements_run_identity"),
     )
 
 
@@ -413,8 +428,11 @@ class ExportArtifact(Base):
     id: Mapped[str] = mapped_column(Uuid, primary_key=True)
     boq_id: Mapped[str] = mapped_column(Uuid, ForeignKey("boqs.id"), nullable=False, index=True)
     format: Mapped[str] = mapped_column(String(12), nullable=False)
-    storage_key: Mapped[str] = mapped_column(String(1024), nullable=False)
-    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    # pending|succeeded|failed — export jobs run async; artifact fields below
+    # are written only on success.
+    storage_key: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     manifest: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_by: Mapped[str] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

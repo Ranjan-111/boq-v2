@@ -229,3 +229,53 @@ class TestDeterminism:
         d1 = [m.inputs_digest for m in outs[0].measurements]
         d2 = [m.inputs_digest for m in outs[1].measurements]
         assert d1 == d2
+
+
+class TestRunOutputElements:
+    """Round 4 persistence contract: measurements bind to element records.
+
+    RunOutput.elements carries one ElementRecord per detected wall and each
+    measurement's element_index points into it. The binding is additive —
+    the replay identity (inputs_digest -> uuid5 measurement_id) never includes
+    element_index, so Round 3 determinism pins are unaffected.
+    """
+
+    def test_elements_present_and_bound(self) -> None:
+        out = measure_sheet(
+            sheet_id="modelspace",
+            geometries=[F_A, F_B],
+            calibration=CONFIRMED,
+            drawing_units="mm",
+            max_wall_thickness=250,
+        )
+        assert len(out.elements) == 1
+        assert out.measurements, "a wall must be measured"
+        for m in out.measurements:
+            assert m.element_index == 0
+            assert out.elements[m.element_index].element_type.value == "wall"
+
+    def test_blocked_sheet_has_no_elements(self) -> None:
+        out = measure_sheet(
+            sheet_id="modelspace",
+            geometries=[F_A, F_B],
+            calibration=UNCONFIRMED,
+            drawing_units="mm",
+        )
+        assert out.elements == ()
+        assert out.measurements == ()
+        assert out.exceptions[0].code == "scale_unconfirmed"  # StrEnum compares equal
+
+    def test_element_binding_never_feeds_replay_digest(self) -> None:
+        outs = [
+            measure_sheet(
+                sheet_id="modelspace",
+                geometries=[F_A, F_B],
+                calibration=CONFIRMED,
+                drawing_units="mm",
+                max_wall_thickness=250,
+            )
+            for _ in range(2)
+        ]
+        ids0 = [m.measurement_id for m in outs[0].measurements]
+        ids1 = [m.measurement_id for m in outs[1].measurements]
+        assert ids0 == ids1, "identity must stay content-bound without element_index"
