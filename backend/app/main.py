@@ -132,10 +132,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 request_id=getattr(request.state, "request_id", None),
             )
 
-    from backend.app.api import auth, projects
+    from backend.app.api import auth, boqs, projects, review, runs
 
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(projects.router, prefix="/api/v1")
+    app.include_router(runs.router, prefix="/api/v1")
+    app.include_router(review.router, prefix="/api/v1")
+    app.include_router(boqs.router, prefix="/api/v1")
 
     app.state.SessionLocal = None  # legacy name guard
     return app

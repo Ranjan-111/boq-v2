@@ -81,6 +81,7 @@ async def process_one(session: AsyncSession) -> bool:
 
 async def run_worker(*, poll_seconds: float | None = None, once: bool = False) -> None:
     """The worker loop. once=True processes until the queue is empty then exits (tests)."""
+    import backend.app.jobs.handlers  # noqa: F401 — registers parse/run/export kinds
     from backend.app.db.base import make_async_engine, make_sessionmaker
 
     settings = get_settings()
