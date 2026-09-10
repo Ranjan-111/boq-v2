@@ -17,6 +17,7 @@ dependencies = [
     "bcrypt>=4.2",
     "structlog>=24.4",
     "python-multipart>=0.0.17",
+    "rapidfuzz>=3.9",
 ]
 
 [project.optional-dependencies]

@@ -46,4 +46,7 @@ api: ## Run API dev server
 worker: ## Run background worker
 	$(PYTHON) -m backend.app.jobs.worker
 
-.PHONY: help venv install lint arch guards test test-integration test-all db-up db-migrate db-revision api worker
+e2e: ## Browser E2E (needs api :8099 + worker + npm dev :5173 + Postgres)
+	cd frontend && npm run e2e
+
+.PHONY: help venv install lint arch guards test test-integration test-all db-up db-migrate db-revision api worker e2e
