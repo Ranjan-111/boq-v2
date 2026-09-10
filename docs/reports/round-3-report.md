@@ -202,7 +202,7 @@ for the first time against real Postgres 16:
 | Strict mypy (CI package list) | **66 files clean** |
 | ruff check . | clean |
 | lint-imports | **9 kept, 0 broken** (was 6; contracts strengthened, not just added) |
-| Reference-leak guard | clean, 112 tracked files |
+| Reference-leak guard | clean, 142 tracked files (R3 sources now tracked) |
 | git diff --check | clean |
 | Frontend `npm run test` | 5 passed |
 | Frontend `npm run build` | TypeScript + Vite passed |
@@ -251,7 +251,7 @@ API server run, no MinIO/storage integration, no performance suite.
 Not implemented; explicitly out of the Round 3 trust-gate scope per the
 round instructions. No browser workflow claim is made.
 
-## Files changed (Round 3 cumulative, uncommitted unless noted)
+## Files changed (Round 3 cumulative — committed in 11 ticket-sized commits, pushed as 79a2181..902c161)
 
 - Parser/geometry: `ingestion/dxf/__init__.py`, `core/geometry/__init__.py`,
   `core/units/geometry_units.py`, `pyproject.toml` (types-shapely dep,
@@ -266,7 +266,7 @@ round instructions. No browser workflow claim is made.
   `backend/tests/test_project_authorization.py` (new),
   `backend/tests/test_router_imports.py` (new), `backend/tests/test_migrations.py`,
   `Makefile`
-- Tests: `tests/unit/test_trust_hardening.py` (new, 28 tests),
+- Tests: `tests/unit/test_trust_hardening.py` (new, 34 tests),
   `tests/unit/test_architecture_guards.py` (new, 8 tests),
   `tests/unit/test_dxf_parser.py`, `test_kernel.py`, `test_wall_detection.py`,
   `test_engine.py`, `test_assembly.py`, `test_reference_leak_guard.py`,
@@ -289,19 +289,24 @@ round instructions. No browser workflow claim is made.
 4. import-linter's `include_external_packages = true` now scans external
    imports; if a future allowed dependency is added to core, the forbidden
    list must be updated deliberately (that is the point).
-5. The reference-leak guard scans tracked files only (112); untracked files
-   are outside its scope.
-6. Remote CI has not seen the Round 3 work yet; last green run 34273889351
-   covers Round 2. Clean-worktree CI reproduction is mandatory before push
-   (Round 2 lesson).
+5. The reference-leak guard scans tracked files only (142); untracked files
+   are outside its scope — commit nothing without re-running it (the
+   context.md near-miss proves it).
+6. Round 3 is pushed (HEAD 902c161) and **remote CI run 34422918941 is
+   green — all five jobs (lint, architecture, tests, license-scan,
+   frontend)**. The clean-worktree reproduction run BEFORE pushing caught two
+   would-be-CI failures: context.md containing the banned OCErp/CWICR names
+   (reference guard scans tracked files only; untracked, so local runs
+   passed) and a venv-path assumption in the architecture guard test.
 
 ## NEXT ROUND HANDOFF (Round 4)
 
 **Objective:** make the verified trust boundary a product: persist and serve
 the pipeline through the approved API contracts.
 
-1. **Commit & push Round 3** in ticket-sized commits; reproduce CI in a clean
-   `git worktree` before pushing (R2 lesson: local green ≠ CI green).
+1. Round 3 is committed, pushed and CI-green (11 commits 281973c..902c161;
+   remote run 34422918941: lint/architecture/tests/license-scan/frontend all
+   success). Branch forward from 902c161.
 2. Upload/drawing/sheet routes → storage port + magic-byte validation
    (T019 router wiring), parse jobs via the SKIP-LOCKED queue, worker
    handlers beyond ping.
