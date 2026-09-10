@@ -46,3 +46,7 @@ reference/chat-plan.md
 
 # frontend build output (already covered by dist/; keep explicit)
 frontend/dist/
+
+# Playwright E2E artifacts
+frontend/test-results/
+frontend/playwright-report/
