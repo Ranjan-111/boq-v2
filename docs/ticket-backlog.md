@@ -79,13 +79,13 @@ additive-only; changes are PR'd against the docs first.
 
 | ID | Ticket | Pri | Eff | Depends |
 |---|---|---|---|---|
-| T070 | Evidence assembly: highlight rects/paths per measurement (all formats), evidence API | P0 | 3 | T013, T030–T033 |
-| T071 | Exceptions UI queue: severity, filter, resolve actions | P0 | 3 | T049, F-epic |
+| T070 ◐R4 | Evidence assembly: highlight rects/paths per measurement (all formats), evidence API | P0 | 3 | T013, T030–T033 | R4: per-measurement evidence API + viewer highlight (selected measurement red, prior blue); all-formats + tiles later |
+| T071 ◐R4 | Exceptions UI queue: severity, filter, resolve actions | P0 | 3 | T049, F-epic | R4: run-scoped list + severity badges + inline resolve (audited) done; cross-run queue later |
 | T072 | Correction workflow: audited quantity corrections (original preserved, provenance=human_correction) | P0 | 3 | T012, T014 |
 | T073 | Classification overrides (element_type human > AI, recorded) | P0 | 2 | T062 |
 | T074 | Scale confirmation UI (two-point calibration + confirm gate) | P0 | 2 | T034 |
 | T075 | Audit trail API + viewer (who/what/when/before/after) | P0 | 2 | T013, T014 |
-| T076 | Blocker queue: unresolved BLOCKING items list, export gate | P0 | 2 | T049 |
+| T076 ◐R4 | Blocker queue: unresolved BLOCKING items list, export gate | P0 | 2 | T049 | R4: server-side unresolved-blocker check refuses approve + export (tested incl. adversarial blocker); a dedicated queue view later |
 
 ## EPIC 6 — Catalogue & BOQ (Round D)
 
@@ -95,8 +95,8 @@ additive-only; changes are PR'd against the docs first.
 | T081 | India starter dataset: hand-authored ~500–1,000 CPWD-aligned items from public DSR structure + terms recorded | P0 | 4 | T080, license policy |
 | T082 | Bulk import (CSV/XLSX with column mapping + preview) — users bring their own DSR/SoR | P0 | 3 | T080 |
 | T083 | Search: rapidfuzz lexical + categories (+AI re-rank via T063) | P0 | 2 | T080 |
-| T084 | Mapping: measurement → catalogue item, unit compatibility validation, unmapped = BLOCKING | P0 | 3 | T080, T049 |
-| T085 ◐R3 | BOQ assembly: sections (CPWD sub-head informed), items from mappings, manual/PC-sum lines | P0 | 4 | T084 | R3: single-item slice done (state/evidence/identity gates); sections/mappings later |
+| T084 ◐R4 | Mapping: measurement → catalogue item, unit compatibility validation, unmapped = BLOCKING | P0 | 3 | T080, T049 | R4: unit-group mapping w/ project>default rate scope, unmapped reported honestly as blockers; manual mapping UI later |
+| T085 ◐R4 | BOQ assembly: sections (CPWD sub-head informed), items from mappings, manual/PC-sum lines | P0 | 4 | T084 | R4: persisted multi-item draft from a run (single section), unmapped honest; manual/PC-sum lines + CPWD structure later |
 | T086 | Recompute + diff on upstream change; duplicate detection | P0 | 3 | T085 |
 
 ## EPIC 7 — Pricing & approval (Round D)
@@ -105,7 +105,7 @@ additive-only; changes are PR'd against the docs first.
 |---|---|---|---|---|
 | T090 ◐R3 | Rates: DEFAULT/PROJECT/VENDOR scopes, integer minor units, provenance | P0 | 2 | T080 | R3: CatalogueRate minor-unit slice done |
 | T091 ◐R3 | Pricing engine: qty×rate, markup stack (percentage/fixed, cumulative), section+BOQ totals, banker's rounding | P0 | 3 | T085, T090 | R3: bp-markup slice w/ recompute invariant done |
-| T092 | Approval: submit/approve/reject with audit; lock-as-approval (CAS); stale invalidation on mutation | P0 | 3 | T085 |
+| T092 ◐R4 | Approval: submit/approve/reject with audit; lock-as-approval (CAS); stale invalidation on mutation | P0 | 3 | T085 | R4: submit/review/approve/reject via state machine, audited, REVIEWED-only approve, stale transition exists; CAS lock later |
 | T093 | Validation report (blockers: unresolved exceptions, unmapped, unpriced) — server-side, export gate | P0 | 2 | T092 |
 | T094 | Regional rate snapshots (post-V1): additional hand-authored/user-imported regional datasets, each with original-source license recorded (reuse-matrix #29–#32 policy). A snapshot is **static bundled/imported data with source + date** — never labeled live market data (OCErp's rate datasets are likewise static GitHub-hosted files; no live feed exists to emulate) | P2 | 3–4 | T081, T082 |
 | T095 | Price provenance chain (post-V1): rate → source (catalogue snapshot / vendor quote / manual) → quote/reference timestamp → optional external price-source API (DYNAMIC: on-demand fetch, recorded per use) with per-rate provenance. Real-time vendor price feeds are NOT planned — no evidence any reference system provides one, and claiming it would violate the trust doctrine. STATIC → IMPORTED → DYNAMIC in that order; user-imported price lists (CSV/XLSX) are the V1 path | P2 | 3–4 | T090, T094 |
@@ -118,7 +118,7 @@ additive-only; changes are PR'd against the docs first.
 | T101 | XLSX export (openpyxl, styled, subtotals) | P0 | 2 | T091 |
 | T102 | PDF export (reportlab, branded, markup cascade) | P0 | 3 | T091 |
 | T103 | Provenance sidecar (JSON: every row's chain) + export manifest + reproducibility check | P0 | 2 | T093, T100–T102 |
-| T104 | Export artifact immutability (sha256, storage) | P0 | 1 | T103 |
+| T104 ◐R4 | Export artifact immutability (sha256, storage) | P0 | 1 | T103 | R4: sha256 + storage key + manifest + status persisted; byte-identical re-export proven |
 
 ## EPIC 9 — Frontend (Rounds C/D/E)
 
@@ -127,7 +127,7 @@ additive-only; changes are PR'd against the docs first.
 | T110 | App shell, routing, design system, auth screens, project CRUD | ◐PARTIAL | done R2 | T016 |
 | T111 | Upload flow + job progress (SSE) | P0 | 2 | T017 |
 | T112 | Drawing viewer: tiles + normalized-geometry SVG overlay, pan/zoom, layer control | P0 | 6 | T018, T030–T033 |
-| T113 | Evidence highlighting: measurement↔drawing bidirectional | P0 | 4 | T070, T112 |
+| T113 ◐R4 | Evidence highlighting: measurement↔drawing bidirectional | P0 | 4 | T070, T112 | R4: measurement→evidence click-highlight in the viewer (pan/zoom SVG, centerlines dashed); drawing-side + tiles later |
 | T114 | Review workspace: exceptions, evidence panel, corrections, overrides, audit view | P0 | 5 | T071–T076 |
 | T115 | Scale confirmation UX | P0 | 1 | T074 |
 | T116 | BOQ workspace: sections/items grid, mapping picker w/ suggestions, rate editing, markups, totals | P0 | 6 | T085–T093 |
@@ -163,7 +163,7 @@ ceiling.
 | T123 ◐R3 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2. R3: evidence enforcement + digest binding tested; persisted chain later |
 | T124 | Security review: authz matrix, upload hardening, rate limits, secrets audit | P0 | 2 |
 | T125 | Performance: 50k-entity DXF < 60s parse, viewer < 3s, BOQ 5k recompute < 2s; profiling + indexes | P1 | 3 |
-| T126 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 |
+| T126 ◐R4 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 | | R4: the gated DXF→wall→BOQ→CSV journey green incl. pre-gate refusal; CI wiring of the service composition later |
 | T127 | Accessibility pass (WCAG AA on review/BOQ screens) | P1 | 2 |
 | T128 | Deploy: Docker Compose (app/worker/db/minio/caddy) + GH Actions pipeline + prod config + backup | P0 | 3 |
 | T129 | Docs: user guide, API reference, runbook | P1 | 2 |

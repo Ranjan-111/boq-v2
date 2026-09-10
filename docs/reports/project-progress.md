@@ -1,65 +1,55 @@
 # Project Progress
 
-**Project:** boq-v2 · **Verified:** 2026-09-10 (Round 3 trust gate)
+**Project:** boq-v2 · **Verified:** 2026-09-10 (Round 4 product slice)
 **Roadmap:** ../implementation-roadmap.md (retained)
 
 | Round | Phase | Status | Evidence / remaining gate |
 |---|---|---|---|
 | 1 | Discovery + architecture | COMPLETE (historical) | Decision documents + git history; dedicated round-1-report.md absent |
 | 2 | Foundation | COMPLETE (historical) | Round 2 report and recorded remote CI 34273889351; deferred items retained |
-| 3 | Vertical slice + trust-hardening gate | TRUST GATE COMPLETE · pushed · CI green | Library DXF→walls→BOQ→CSV with adversarial refusal/evidence/replay/export-approval gates; persistence/API/viewer/browser E2E remain |
-| 4 | Full takeoff engine | NOT COMPLETE | Rooms/floors/openings/deductions, PDF/raster candidates |
-| 5 | AI + review workspace | NOT COMPLETE | Advisory provider gateway, classification, review, audit/corrections |
-| 6 | BOQ + pricing + approval | NOT COMPLETE | Catalog/mappings, persistent rates, recompute/diff, approval services; pure row/pricing/approval-context slice exists |
-| 7 | Exports + hardening | NOT COMPLETE | XLSX/PDF/sidecar, immutable artifacts, perf/security/E2E/deploy; deterministic approval-gated CSV exists |
+| 3 | Vertical slice + trust-hardening gate | COMPLETE (historical) | All nine defect areas closed with regressions; pushed, CI green |
+| 4 | Product slice (persistence, API, UI, E2E) | COMPLETE locally — push/CI next | Upload→parse→scale gate→run→BOQ gates→export through the real UI; browser E2E green; all gates verified again in a clean worktree with fresh install |
+| 5 | Full takeoff engine | NOT COMPLETE | Rooms/floors/openings/deductions, PDF/raster candidates |
+| 6 | AI + review workspace | NOT COMPLETE | Advisory provider gateway, classification, review, audit/corrections |
+| 7 | BOQ + pricing + approval | NOT COMPLETE | Catalog/mappings, persistent rates, recompute/diff, approval services; core row/pricing/approval-context + BOQ gates + export exist |
+| 8 | Exports + hardening | NOT COMPLETE | XLSX/PDF/sidecar, perf/security/E2E-in-CI/deploy; deterministic approval-gated CSV + artifacts exist |
 
-## Current checkpoint (trust-hardening gate)
+## Current checkpoint (Round 4 — the product slice)
 
-- **Python: 300 passed, 0 skipped** — including live-PostgreSQL migration and
-  project-authorization tests (Docker started this session; the
-  previously-always-skipped DB tests now actually run and one latent defect
-  was found and fixed: batched string-UUID inserts fail asyncpg insertmanyvalues
-  sentinel matching — see round-3-report).
-- **mypy strict:** 66 files clean; **ruff:** clean; **import-linter:** 9 kept
-  (2 new Protocol-boundary contracts + core third-party forbiddance; guard
-  tests prove each contract bites by injecting real violations into isolated
-  tree copies); **reference guard:** clean.
-- **Frontend:** 5 Vitest tests passed; production build passed.
-- **Commits:** Round 3 pushed as 12 ticket-sized commits (281973c..5826387);
-  remote CI runs 34422918941 + 34423132950 green (5/5 jobs each).
-- **Browser E2E:** does not exist (out of Round 3 trust-gate scope by instruction).
+- **Python: 344 passed, 0 skipped** (live PostgreSQL) — Round 3 trust suites
+  all still green (determinism pins, trust-hardening, wall detection,
+  assembly, DXF parser).
+- **Browser E2E: 1 passed (8.6s)** — register → project → upload DXF → parse
+  → pre-gate refusal (Start run disabled) → human scale confirmation → run
+  → measurements with state badges → BOQ build → submit → complete review →
+  approve → export CSV (sha + download link).
+- **mypy strict:** 84 files clean; **ruff:** clean; **import-linter:** 9
+  kept, 0 broken; **reference guard:** clean (151 files); banned-package
+  check clean.
+- **Frontend:** 46 vitest passed; tsc strict + Vite build clean.
+- **Clean-worktree CI reproduction:** fresh venv + `uv pip install
+  -e .[dev,ingest,geo]`, all gates green (this is how the undeclared
+  `rapidfuzz` dependency was caught and fixed before it could break CI).
+- **Six latent defects closed with regressions during integration** (queue
+  param bug, `-m` worker registry split, honest browser mimes rejected,
+  asyncpg UUID/str crashes, store-mirror render loop, reviewed-state dead
+  end) — full detail in [round-4-report.md](round-4-report.md).
+- **Commits:** 8 ticket-sized commits for Round 4 (foundation, lead slice,
+  upstream slice, frontend slice, integration, E2E, gitignore) on top of the
+  docs reconciliation commit.
 
-## Trust maturity (Round 3 gate scope)
+## Round 3 trust maturity (unchanged, regression-enforced)
 
-Round 3's 9 confirmed defects are addressed with regression tests:
+All nine defect areas remain closed with regression tests: wall pairing
+(finite congruent support, reciprocal unique, order-independent), evidence
+enforcement at the measurement boundary, content-bound replay identity,
+per-handle refusal of unsupported DXF, parser-warning blocking, scale/sheet
+validation with the mandatory human gate, evidenced-MEASURED-only BOQ
+assembly with approval-bound deterministic export, and 9 architecture
+contracts with violation-proving guard tests. Round 4 built the product on
+top of these invariants without weakening any of them.
 
-1. Disjoint walls can no longer pair (finite congruent longitudinal support
-   required; infinite-line offset alone is insufficient).
-2. Ambiguous pairings are refused (unique reciprocal partner required);
-   ordering cannot change the outcome.
-3. Evidence is enforced — empty/malformed handles on any contributing face
-   produce BLOCKING missing_evidence, never MEASURED.
-4. Replay identity is content-bound — geometry snapshots, source
-   identity/version, scale, units, rule/engine version, selection parameters
-   and tolerances all feed the digest; ordering stays deterministic; durable
-   uuid5 measurement ids derive from it.
-5. Unsupported DXF (circles/arcs/bulges/OCS/3D/elevation/widths, nested
-   INSERT, MINSERT, clipping, partial transforms) is explicitly refused with
-   per-handle warnings — never reinterpreted as lines.
-6. Parser warnings propagate: measure_parsed blocks any sheet whose parse
-   produced warnings, missing sheets or missing source version.
-7. Scale/sheet validation: missing/zero/negative/NaN/Infinity factors,
-   cross-sheet calibrations, unknown drawing units all block; human
-   confirmation remains mandatory.
-8. BOQ accepts only evidenced MEASURED records with durable UUID identity;
-   duplicate references rejected; CSV export requires an approval context
-   bound to the current rows digest, exportable status and zero unresolved
-   blocking/review exceptions; any row mutation invalidates the approval.
-9. Architecture: 9 enforced contracts + violation-proving guard tests; the
-   engine measures through the registered rule callable; services consume
-   engines via structural Protocols only.
-
-Next: persist the run/measurements/evidence through the API, wire the
-drawing viewer + review/approval workflow, then browser E2E per the Round 3
-product milestone and Round 4 scope. Full detail in
-[round-3-report.md](round-3-report.md). No speculative V1 percentage or ETA.
+Next: push + remote CI for the Round 4 series, then Round 5 candidates
+(review workspace depth, BOQ editing endpoints, xlsx/pdf export,
+list-runs/list-exports, catalog UI, sheet tiles, deploy). No speculative
+percentage or ETA.
