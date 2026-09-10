@@ -1,25 +1,62 @@
 # Latest Status
 
-**Updated:** 2026-09-08 (end of Round 2) · **Round:** 2 — Foundation ✅ COMPLETE
-**Next:** Round 3 — Vertical Slice (DXF → wall quantity → evidence → BOQ row → CSV export)
+**Verified:** 2026-09-10 · **HEAD:** `79a2181` (Round 3 still uncommitted)
+**Current:** Round 3 — **trust-hardening gate verified**; product slice continues.
 
-## Live state
+Rounds 1 and 2 remain completed historical milestones. Round 3 now contains a
+working DXF → wall measurements → BOQ → approval-gated CSV library slice whose
+trust boundary is adversarially regression-tested end to end.
 
-- Backend runs (`make api`, port 8000; dev smoke on 8099) with JWT auth + projects API.
-- Postgres 16 in docker compose; Alembic baseline applied (21 tables).
-- Job queue + worker operational (SKIP LOCKED, idempotency, retries).
-- Frontend shell builds, tests pass, talks to the live API.
-- All checks green: 90 tests (91 unit + 3 live-DB integration, merge counting) — see note; ruff, mypy strict, import-linter 6/6, reference-leak guard.
-- **CI green on GitHub**: run 34273889351 — all 5 jobs (lint, architecture, tests, license-scan, frontend) after fixing a .gitignore rule that had silently excluded `backend/app/storage/` from the repo.
+## This checkpoint (trust gate)
 
-## Round 2 quick facts
+All nine reproduced/inspected defects from the previous checkpoint are closed
+with regression tests (see round-3-report.md "Trust gate verification"):
 
-- 19/19 attempted tickets DONE or DONE-partial (3 partials with explicit defers).
-- 5 substantive commits. Reports in `docs/reports/round-2-report.md`.
+- Wall pairing: finite congruent support, reciprocal unique pairs, ambiguity
+  refused, order independence.
+- Evidence: any missing/malformed face evidence → BLOCKING; malformed refs
+  (`0`, `None`, blank) refused.
+- Replay: digest binds geometry content, source identity/version, scale,
+  units, rule/engine versions, selection parameters; ordering deterministic;
+  uuid5 measurement identity derived from it.
+- Unsupported DXF geometry refused per-handle (never fake lines); parser
+  warnings block measurement via `measure_parsed`.
+- Scale/sheet: invalid factors, cross-sheet calibration, unknown units all
+  block; human confirmation preserved.
+- BOQ/export: evidenced MEASURED-only assembly, durable identity, duplicate
+  rejection, approval-gated deterministic CSV with stale detection.
+- Architecture: 9 import-linter contracts (including new boq/exports
+  Protocol-boundary and core-third-party forbiddance), each proven to bite by
+  guard tests injecting real violations into isolated tree copies.
+- Foundation: creator-scoped project queries and app-owned DB lifespan
+  verified against live PostgreSQL this session (Docker up; previously these
+  tests always skipped). One latent test-only defect fixed (batched
+  string-UUID ORM inserts vs asyncpg sentinel matching).
 
-## What starts Round 3
+## Verified checks (exact)
 
-T030 DXF parser (ezdxf + dxf.handle capture — the provenance differentiator),
-T031 sheets, T032 PDF, T034 scale detection (PROPOSED-only), T040–T042
-geometry kernel + wall detection, T049 exceptions engine, T070 evidence,
-T111 upload UI. Exit: vertical slice E2E green.
+```
+.venv/bin/pytest core/tests backend/tests tests   → 300 passed, 0 skipped (live Postgres)
+.venv/bin/mypy (CI package list)                  → 66 files clean
+.venv/bin/ruff check .                           → clean
+.venv/bin/lint-imports                           → 9 kept, 0 broken
+.venv/bin/python tools/guards/reference_leak.py  → clean (112 tracked files)
+git diff --check                                  → clean
+frontend npm run test                             → 5 passed
+frontend npm run build                            → passed
+```
+
+## Not done / not claimed
+
+Browser E2E (does not exist), full API/browser integration, persistence of
+runs/measurements/BOQ, remote CI for the current uncommitted work (last green
+remote run covers Round 2), pip-audit/npm audit, performance suite.
+
+## Next step
+
+Commit Round 3 in ticket-sized commits and push (clean-worktree CI
+reproduction first, per the Round 2 lesson), then Round 4: wire the approved
+API contracts through storage/parse/run jobs, persisted
+measurements/exceptions/evidence and BOQ, server-side approval/export
+blockers, upload/viewer UI and a real browser journey. See
+[round-3-report.md](round-3-report.md) for the full risk register and handoff.

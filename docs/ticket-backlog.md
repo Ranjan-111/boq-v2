@@ -38,29 +38,29 @@ additive-only; changes are PR'd against the docs first.
 
 | ID | Ticket | Pri | Eff | Depends | Notes |
 |---|---|---|---|---|---|
-| T030 | DXF parser (ezdxf): entities→normalized Geometry, **capture dxf.handle for stable identity**, layers, blocks-emitted-once, INSUNITS reading | P0 | 5–8 | T011, T013 | OCErp pattern #4/#7 |
-| T031 | DXF sheet/layout detection + measurability rules (modelspace-first, refuse ambiguous) | P0 | 2 | T030 | |
+| T030 ◐R3 | DXF parser (ezdxf): entities→normalized Geometry, **capture dxf.handle for stable identity**, layers, blocks-emitted-once, INSUNITS reading | P0 | 5–8 | T011, T013 | OCErp pattern #4/#7. R3: core+INSERT+refusals done; paperspace viewports later |
+| T031 ◐R3 | DXF sheet/layout detection + measurability rules (modelspace-first, refuse ambiguous) | P0 | 2 | T030 | R3: modelspace-first + paperspace refusal done |
 | T032 | PDF parser: pdfplumber vector paths + text tokens (dimension candidates), pypdfium2 page tiles | P0 | 5–7 | T011 | PyMuPDF banned |
 | T033 | Raster ingestion: storage + AI-vision text/region pass; NO auto-measurement | P0 | 3 | T030 (interfaces) | |
-| T034 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies |
+| T034 ◐R3 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies. R3: DXF proposal + confirmed-scale validation done; PDF later |
 | T035 | OOM-isolated extraction worker (RLIMIT_AS child process) | P1 | 2 | T032 | |
-| T036 | Corruption/adversarial file handling + format sniffing + fixtures | P0 | 2 | T030, T032, T033 | with H1 |
+| T036 ◐R3 | Corruption/adversarial file handling + format sniffing + fixtures | P0 | 2 | T030, T032, T033 | with H1. R3: DXF adversarial fixtures + refusals done |
 
 ## EPIC 3 — Deterministic takeoff engine (Round C, parallel)
 
 | ID | Ticket | Pri | Eff | Depends | Notes |
 |---|---|---|---|---|---|
-| T040 | Geometry kernel: Shapely-based primitives, unit-safe area/length/count, self-intersection refusal | P0 | 3 | T011 | |
-| T041 | Measurement rules registry (rule_id, versioned, replayable) | P0 | 2 | T040 | |
-| T042 | Wall detection from parallel line pairs → centerlines, lengths, footprint areas | P0 | 5 | T030, T040 | **OCErp has nothing — our build** |
+| T040 ✅R3 | Geometry kernel: Shapely-based primitives, unit-safe area/length/count, self-intersection refusal | P0 | 3 | T011 | R3: done (takeoff/kernel.py) |
+| T041 ✅R3 | Measurement rules registry (rule_id, versioned, replayable) | P0 | 2 | T040 | R3: done (takeoff/rules, run_rule discipline guard-tested) |
+| T042 ◐R3 | Wall detection from parallel line pairs → centerlines, lengths, footprint areas | P0 | 5 | T030, T040 | **OCErp has nothing — our build**. R3: straight-wall trust policy done (finite congruent support, reciprocal unique pairing, ambiguity refused, explicit max thickness) |
 | T043 | Room/space polygonization from wall lines (polygonize, fill, label-by-text-proximity) | P0 | 5 | T042 | **our build** |
 | T044 | Floor area rules (Gross/Net per room aggregation, storey roll-up) | P0 | 2 | T043 | |
 | T045 | Opening detection: door/window blocks by name/geometry + counts (DXF); text+vector candidates (PDF) | P0 | 4 | T030, T032 | |
 | T046 | Deduction rules (openings subtracted from wall areas; MEASURED_ZERO states) | P0 | 2 | T042, T045 | |
 | T047 | PDF vector candidate detectors (areas/lengths/counts + seeded count-by-example) | P1 | 3 | T032 | |
 | T048 | Raster candidate detectors (OpenCV rooms/walls, honest confidences, "(verify)") | P1 | 3 | T033 | |
-| T049 | Measurement states + exceptions engine (BLOCKING vs REVIEW; scale-unconfirmed guard) | P0 | 3 | T041, T034 | |
-| T050 | Determinism test harness: golden-run replay (same inputs → identical outputs, engine_version-stamped) | P0 | 2 | T041 | with H1 |
+| T049 ◐R3 | Measurement states + exceptions engine (BLOCKING vs REVIEW; scale-unconfirmed guard) | P0 | 3 | T041, T034 | R3: measure_sheet/measure_parsed with scale gate, evidence enforcement, warning propagation, content-bound replay done |
+| T050 ◐R3 | Determinism test harness: golden-run replay (same inputs → identical outputs, engine_version-stamped) | P0 | 2 | T041 | with H1. R3: digest binding + ordering determinism tested; persisted golden runs later |
 
 ## EPIC 4 — AI layer (Round C/D, parallel)
 
@@ -95,15 +95,15 @@ additive-only; changes are PR'd against the docs first.
 | T082 | Bulk import (CSV/XLSX with column mapping + preview) — users bring their own DSR/SoR | P0 | 3 | T080 |
 | T083 | Search: rapidfuzz lexical + categories (+AI re-rank via T063) | P0 | 2 | T080 |
 | T084 | Mapping: measurement → catalogue item, unit compatibility validation, unmapped = BLOCKING | P0 | 3 | T080, T049 |
-| T085 | BOQ assembly: sections (CPWD sub-head informed), items from mappings, manual/PC-sum lines | P0 | 4 | T084 |
+| T085 ◐R3 | BOQ assembly: sections (CPWD sub-head informed), items from mappings, manual/PC-sum lines | P0 | 4 | T084 | R3: single-item slice done (state/evidence/identity gates); sections/mappings later |
 | T086 | Recompute + diff on upstream change; duplicate detection | P0 | 3 | T085 |
 
 ## EPIC 7 — Pricing & approval (Round D)
 
 | ID | Ticket | Pri | Eff | Depends |
 |---|---|---|---|---|
-| T090 | Rates: DEFAULT/PROJECT/VENDOR scopes, integer minor units, provenance | P0 | 2 | T080 |
-| T091 | Pricing engine: qty×rate, markup stack (percentage/fixed, cumulative), section+BOQ totals, banker's rounding | P0 | 3 | T085, T090 |
+| T090 ◐R3 | Rates: DEFAULT/PROJECT/VENDOR scopes, integer minor units, provenance | P0 | 2 | T080 | R3: CatalogueRate minor-unit slice done |
+| T091 ◐R3 | Pricing engine: qty×rate, markup stack (percentage/fixed, cumulative), section+BOQ totals, banker's rounding | P0 | 3 | T085, T090 | R3: bp-markup slice w/ recompute invariant done |
 | T092 | Approval: submit/approve/reject with audit; lock-as-approval (CAS); stale invalidation on mutation | P0 | 3 | T085 |
 | T093 | Validation report (blockers: unresolved exceptions, unmapped, unpriced) — server-side, export gate | P0 | 2 | T092 |
 
@@ -111,7 +111,7 @@ additive-only; changes are PR'd against the docs first.
 
 | ID | Ticket | Pri | Eff | Depends |
 |---|---|---|---|---|
-| T100 | CSV export | P0 | 1 | T091 |
+| T100 ◐R3 | CSV export | P0 | 1 | T091 | R3: deterministic serializer + approval gate done |
 | T101 | XLSX export (openpyxl, styled, subtotals) | P0 | 2 | T091 |
 | T102 | PDF export (reportlab, branded, markup cascade) | P0 | 3 | T091 |
 | T103 | Provenance sidecar (JSON: every row's chain) + export manifest + reproducibility check | P0 | 2 | T093, T100–T102 |
@@ -136,10 +136,10 @@ additive-only; changes are PR'd against the docs first.
 
 | ID | Ticket | Pri | Eff |
 |---|---|---|---|
-| T120 | Adversarial fixtures: corrupt DXF/PDF, missing scale, rotated sheets, multi-storey, overlapping walls, bowtie polygons | P0 | 3 |
+| T120 ◐R3 | Adversarial fixtures: corrupt DXF/PDF, missing scale, rotated sheets, multi-storey, overlapping walls, bowtie polygons | P0 | 3. R3: DXF adversarial suite done (test_trust_hardening + parser refusals) |
 | T121 | Golden-run regression suite (determinism) + property-based tests (hypothesis) on geometry/rounding | P0 | 2 |
 | T122 | AI-hallucination tests: model returns numbers → engine must ignore | P0 | 1 |
-| T123 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2 |
+| T123 ◐R3 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2. R3: evidence enforcement + digest binding tested; persisted chain later |
 | T124 | Security review: authz matrix, upload hardening, rate limits, secrets audit | P0 | 2 |
 | T125 | Performance: 50k-entity DXF < 60s parse, viewer < 3s, BOQ 5k recompute < 2s; profiling + indexes | P1 | 3 |
 | T126 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 |

@@ -203,3 +203,41 @@ corrected values with provenance `human_correction` — original always visible.
 5. Every BoqItem total is recomputable from (quantity, rate, markup) — no cached
    totals without a recompute check in tests.
 6. Every run's outputs reference `engine_version` — old runs replayable.
+
+## Round 3 trust-hardening semantics (2026-09-10)
+
+The straight-wall slice supports finite coplanar 2D straight faces only. A pair
+must have matching longitudinal endpoints (either orientation), congruent
+lengths and constant positive perpendicular separation within explicit numeric
+tolerances. Partial overlaps and disjoint extents are refused; no extrapolation
+or invented connectors. The caller supplies a positive finite maximum wall
+thickness in drawing units, as a recorded selection parameter; absent policy
+produces review/refusal, not a guessed construction thickness. A candidate
+edge must have exactly one eligible partner and that partner must reciprocate.
+Ambiguous connected candidates are refused together, independent of ordering.
+Unmatched wall-layer edges are reported for review. A layer hint is a candidate
+selector, not a universal guarantee that arbitrary CAD geometry is a wall.
+
+Every contributing face needs nonempty valid source handles in the requested
+sheet. Missing evidence blocks measurement. Invalid scale (missing/nonfinite/
+nonpositive), mismatched sheet, unknown units or unsupported parse warnings
+block the sheet without producing authoritative quantities. Parser warnings
+are propagated by the pure parse-result measurement entry point; low-level
+geometry callers must supply their full source context and warnings.
+
+Replay identity binds canonical input geometry and handle chains, sheet,
+source identity/version (raw SHA-256 for parsed files), confirmed scale,
+drawing/target units, rule id/version, engine version, selection parameters
+and numeric tolerances. Pure geometry callers use a content-addressed geometry
+snapshot if no external source identity is supplied. A deterministic UUID
+from that digest identifies the immutable measurement result, never a display
+label. Database run/version ownership is attached later by orchestration.
+
+BOQ assembly accepts only evidenced MEASURED/MEASURED_ZERO records with durable
+identity and rejects duplicate measurement references. Human acceptance remains
+unavailable until audited review exists. Public CSV export requires a trusted
+approval context bound to the current complete row snapshot, exportable state
+and no unresolved blocking/review exceptions. Pure validation is implemented
+now; loading trusted approval/exception scope, transactional stale detection,
+artifact storage and audit remain application responsibilities for the later
+API phase. Re-export after any upstream mutation must become STALE_APPROVED.

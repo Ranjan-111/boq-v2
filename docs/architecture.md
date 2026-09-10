@@ -121,14 +121,29 @@ backend  → may import: core, ingestion, takeoff, classification, provenance,
 takeoff  → may import: core ONLY            (determinism boundary)
 ingestion→ may import: core ONLY
 classification → may import: core ONLY      (AI boundary; also cannot import takeoff)
-boq      → may import: core
-pricing  → may import: core, boq
-exports  → may import: core, boq, pricing
+boq      → may import: core ONLY            (domain services are mutually independent)
+pricing  → may import: core ONLY             (consumes boq via structural Protocol)
+exports  → may import: core ONLY             (consumes boq via structural Protocol)
 core     → imports nothing (except stdlib + typing)
 ```
 
 `import-linter` in CI fails any PR violating the graph. This makes
 "AI can never invent quantities" a *build-time property*, not a code-review hope.
+
+Round 3 enforcement notes (2026-09-10): the contracts in `pyproject.toml`
+now also enforce the edges the old six contracts left implicit, and
+`tests/unit/test_architecture_guards.py` proves each one bites by injecting a
+real violation into an isolated tree copy:
+* domain services (`boq`, `pricing`, `exports`, ...) are mutually
+  independent — `boq`/`exports` may not reach `takeoff`, `ingestion`,
+  `backend`, or each other; the "Domain service layering" contract forbids
+  sibling imports within the service layer, so cross-service shapes are
+  structural Protocols (duck-typed), not imports;
+* `core` may not import third-party packages at all (a forbidden contract;
+  the old "independence" contract only checked core's subpackages against
+  each other);
+* `classification`'s forbidden list covers `takeoff`, `ingestion`, `boq`,
+  `pricing` (AI can never touch measurement or pricing).
 
 ## F. Key flows through the states (see domain-model.md for full machines)
 
