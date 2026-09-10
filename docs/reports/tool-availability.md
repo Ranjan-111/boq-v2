@@ -15,7 +15,7 @@ must not be treated as current tool status.
 | Architecture | import-linter **9 contracts** kept, 0 broken (6 → 9 this session; each new contract proven to bite via violation-injection tests) |
 | Subagents | **2 worker agents ran** (limit 3 per orchestration constraint) — Worker 1 (DXF refusals/warning paths), Worker 2 (BOQ/export + foundation audit); findings folded into round-3-report.md |
 | Frontend | 5 Vitest tests passed; TypeScript/Vite build passed |
-| Remote CI / vulnerability scans | Not run this checkpoint; historical Round 2 CI green does not cover Round 3 work |
+| Remote CI | **Two green runs on the Round 3 push** (34422918941 code 5/5 jobs; 34423132950 docs-only) after a clean-worktree reproduction that caught 2 pre-push failures; vulnerability scans still not run |
 | Browser E2E | Not run; product path not wired (Round 4 scope) |
 
 Installed versions checked this round: ezdxf 1.4.4, Shapely 2.1.2,

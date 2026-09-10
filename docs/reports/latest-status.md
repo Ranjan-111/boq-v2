@@ -1,7 +1,8 @@
 # Latest Status
 
-**Verified:** 2026-09-10 · **HEAD:** `79a2181` (Round 3 still uncommitted)
-**Current:** Round 3 — **trust-hardening gate verified**; product slice continues.
+**Verified:** 2026-09-10 · **HEAD:** `5826387` (pushed; remote CI green)
+**Current:** Round 3 — **trust-hardening gate COMPLETE and CI-green**; product
+slice (persistence/API/viewer/E2E) is the Round 4 scope.
 
 Rounds 1 and 2 remain completed historical milestones. Round 3 now contains a
 working DXF → wall measurements → BOQ → approval-gated CSV library slice whose
@@ -46,17 +47,25 @@ frontend npm run test                             → 5 passed
 frontend npm run build                            → passed
 ```
 
-## Not done / not claimed
+## Not done / not claimed (Round 4 scope)
 
 Browser E2E (does not exist), full API/browser integration, persistence of
-runs/measurements/BOQ, remote CI for the current uncommitted work (last green
-remote run covers Round 2), pip-audit/npm audit, performance suite.
+runs/measurements/BOQ, pip-audit/npm audit, performance suite, live job-queue
+concurrency tests.
 
-## Next step
+## Push + CI record
 
-Commit Round 3 in ticket-sized commits and push (clean-worktree CI
-reproduction first, per the Round 2 lesson), then Round 4: wire the approved
-API contracts through storage/parse/run jobs, persisted
+Round 3 committed in 12 ticket-sized commits (281973c..5826387) and pushed.
+All five CI jobs were reproduced green in a clean `git worktree` BEFORE
+pushing — that reproduction caught two would-be failures (context.md with
+banned OCErp/CWICR names; a venv-path assumption in the architecture guard
+test). Remote runs: 34422918941 (code, 5/5 success) and 34423132950
+(docs-only follow-up, success).
+
+## Next step (Round 4)
+
+Wire the approved API contracts through storage/parse/run jobs, persisted
 measurements/exceptions/evidence and BOQ, server-side approval/export
-blockers, upload/viewer UI and a real browser journey. See
-[round-3-report.md](round-3-report.md) for the full risk register and handoff.
+blockers (load trusted approval scope — never client input), upload/viewer
+UI and a real browser journey. See [round-3-report.md](round-3-report.md)
+NEXT ROUND HANDOFF for the ordered list.

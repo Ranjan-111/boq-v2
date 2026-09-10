@@ -7,7 +7,7 @@
 |---|---|---|---|
 | 1 | Discovery + architecture | COMPLETE (historical) | Decision documents + git history; dedicated round-1-report.md absent |
 | 2 | Foundation | COMPLETE (historical) | Round 2 report and recorded remote CI 34273889351; deferred items retained |
-| 3 | Vertical slice + trust-hardening gate | TRUST GATE VERIFIED · product slice continues | Library DXF→walls→BOQ→CSV with adversarial refusal/evidence/replay/export-approval gates; persistence/API/viewer/browser E2E remain |
+| 3 | Vertical slice + trust-hardening gate | TRUST GATE COMPLETE · pushed · CI green | Library DXF→walls→BOQ→CSV with adversarial refusal/evidence/replay/export-approval gates; persistence/API/viewer/browser E2E remain |
 | 4 | Full takeoff engine | NOT COMPLETE | Rooms/floors/openings/deductions, PDF/raster candidates |
 | 5 | AI + review workspace | NOT COMPLETE | Advisory provider gateway, classification, review, audit/corrections |
 | 6 | BOQ + pricing + approval | NOT COMPLETE | Catalog/mappings, persistent rates, recompute/diff, approval services; pure row/pricing/approval-context slice exists |
@@ -25,7 +25,8 @@
   tests prove each contract bites by injecting real violations into isolated
   tree copies); **reference guard:** clean.
 - **Frontend:** 5 Vitest tests passed; production build passed.
-- **Commits:** Round 3 work still uncommitted pending final report; HEAD 79a2181.
+- **Commits:** Round 3 pushed as 12 ticket-sized commits (281973c..5826387);
+  remote CI runs 34422918941 + 34423132950 green (5/5 jobs each).
 - **Browser E2E:** does not exist (out of Round 3 trust-gate scope by instruction).
 
 ## Trust maturity (Round 3 gate scope)
