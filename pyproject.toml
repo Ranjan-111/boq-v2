@@ -32,6 +32,7 @@ cv = [
 ]
 geo = [
     "shapely>=2.0",
+    "types-shapely>=1.0",
 ]
 dev = [
     "pytest>=8.3",
@@ -92,9 +93,16 @@ ignore_missing_imports = true
 
 [tool.importlinter]
 root_packages = ["core", "ingestion", "takeoff", "classification", "provenance", "review", "boq", "catalog", "pricing", "exports", "backend"]
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Core imports nothing beyond stdlib"
+name = "Core imports no third-party packages"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["sqlalchemy", "fastapi", "pydantic", "ezdxf", "shapely", "structlog", "jwt", "bcrypt", "alembic", "uvicorn", "httpx", "pytest"]
+
+[[tool.importlinter.contracts]]
+name = "Core subpackages are mutually independent"
 type = "independence"
 modules = ["core"]
 include_external_dependencies = false
@@ -124,3 +132,15 @@ name = "Forbidden AI-to-measurement imports"
 type = "forbidden"
 source_modules = ["classification"]
 forbidden_modules = ["takeoff", "ingestion", "boq", "pricing"]
+
+[[tool.importlinter.contracts]]
+name = "BOQ never reaches takeoff (Protocol boundary)"
+type = "forbidden"
+source_modules = ["boq"]
+forbidden_modules = ["takeoff", "ingestion", "backend"]
+
+[[tool.importlinter.contracts]]
+name = "Exports never reach engines (Protocol boundary)"
+type = "forbidden"
+source_modules = ["exports"]
+forbidden_modules = ["takeoff", "ingestion", "backend"]
