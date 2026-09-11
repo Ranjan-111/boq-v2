@@ -7,7 +7,11 @@
  * show BOTH — never replace the original with the corrected number.
  */
 
-import type { AuditEntryRow, Measurement } from "./apiClient";
+import type {
+  AiSuggestionRow,
+  AuditEntryRow,
+  Measurement,
+} from "./apiClient";
 
 /** The number a row currently bills: the correction when present, else the engine value. */
 export function effectiveValue(m: Pick<Measurement, "value" | "corrected_value">): string {
@@ -124,3 +128,108 @@ export function groupElementsByMeasurements(
   }
   return [...byId.values()];
 }
+
+// ---------------------------------------------------------------------------
+// Mapping + AI-insights helpers (Round 7). Pure functions — unit-tested in
+// tests/mappingHelpers.test.ts.
+// ---------------------------------------------------------------------------
+
+/** The exact blocker message the backend's build writes for an unmapped
+ * measurement (boq_service: "measurement not mapped to any catalogue item:
+ * {label or durable id} ({rule_id} {unit})"). Matching is EXACT, never
+ * substring — "Wall 1" must not resolve "Wall 1 footprint". */
+export function unmappedExceptionMessage(
+  m: Pick<Measurement, "label" | "measurement_id" | "rule_id" | "unit">,
+): string {
+  return `measurement not mapped to any catalogue item: ${m.label || m.measurement_id} (${m.rule_id} ${m.unit})`;
+}
+
+/** Pair each unresolved unmapped_measurement exception with the measurement
+ * row that produced it. Unmatched exceptions surface with measurement=null
+ * (never silently dropped); unmatched measurements are simply not blockers. */
+export interface UnmappedPair {
+  exceptionMessage: string;
+  measurement: Measurement | null;
+}
+
+export function pairUnmappedBlockers(
+  exceptions: Pick<MeasurementBlocker, "code" | "message" | "resolved_at">[],
+  measurements: Measurement[],
+): UnmappedPair[] {
+  const byMessage = new Map<string, Measurement>();
+  for (const m of measurements) {
+    byMessage.set(unmappedExceptionMessage(m), m);
+  }
+  const pairs: UnmappedPair[] = [];
+  for (const ex of exceptions) {
+    if (ex.code !== "unmapped_measurement" || ex.resolved_at) continue;
+    pairs.push({
+      exceptionMessage: ex.message,
+      measurement: byMessage.get(ex.message) ?? null,
+    });
+  }
+  return pairs;
+}
+
+/** Shape of the exception rows the pairing consumes (a subset of the
+ * endpoint's row — structurally typed so both sources fit). */
+export interface MeasurementBlocker {
+  code: string;
+  message: string;
+  resolved_at: string | null;
+}
+
+/**
+ * Major-unit decimal (what a human types, e.g. "850.00") → integer minor
+ * units (what the rates API speaks). The API speaks minor units; the UI
+ * takes human major input and converts with round — never float-truncate.
+ * Returns null for anything that is not a finite non-negative amount.
+ */
+export function majorToMinor(input: string): number | null {
+  const trimmed = input.trim();
+  if (trimmed === "") return null;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value < 0) return null;
+  return Math.round(value * 100);
+}
+
+/**
+ * Confidence as an honest percentage: 0.05 → "5%". Weak stub values stay
+ * visible as the small numbers they are — never rounded into competence.
+ */
+export function confidencePercent(confidence: number): string {
+  return `${Math.round(confidence * 100)}%`;
+}
+
+/** The closed set of suggestion kinds the apply endpoint acts on — mirrors
+ * the backend's APPLYABLE_SUGGESTION_KINDS (the quantity guard). */
+export const APPLYABLE_SUGGESTION_TYPES: readonly string[] = [
+  "element_classification",
+];
+
+/** Only element_classification may apply; exception_explanation is
+ * informational; anything else is refused by the server too. */
+export function isApplyableSuggestion(suggestionType: string): boolean {
+  return APPLYABLE_SUGGESTION_TYPES.includes(suggestionType);
+}
+
+/** One-line payload summary for the insights list (pure transform of the
+ * advisory row — unknown kinds say so, never invent content). */
+export function suggestionSummary(
+  s: Pick<AiSuggestionRow, "suggestion_type" | "payload">,
+): string {
+  const p = s.payload ?? {};
+  if (s.suggestion_type === "element_classification") {
+    const t = typeof p.element_type === "string" ? p.element_type : "?";
+    const r = typeof p.rationale === "string" ? p.rationale : "";
+    return r ? `suggests ${t} — ${r}` : `suggests ${t}`;
+  }
+  if (s.suggestion_type === "exception_explanation") {
+    const e = typeof p.explanation === "string" ? p.explanation : "";
+    return e || "exception explanation";
+  }
+  return "advisory suggestion";
+}
+
+/** The catalogue's known units — mirrors core.domain.enums.MeasurementUnit. */
+export const CATALOG_UNITS: readonly string[] = ["mm", "m", "m2", "m3", "count"];

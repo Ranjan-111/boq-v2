@@ -8,13 +8,15 @@ import RunsTab from "../components/RunsTab";
 import BoqTab from "../components/BoqTab";
 import ExportsTab from "../components/ExportsTab";
 import AuditTab from "../components/AuditTab";
+import CatalogTab from "../components/CatalogTab";
 
-type Tab = "drawings" | "runs" | "boq" | "exports" | "audit";
+type Tab = "drawings" | "runs" | "boq" | "catalog" | "exports" | "audit";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "drawings", label: "Drawings" },
   { id: "runs", label: "Runs" },
   { id: "boq", label: "BOQ" },
+  { id: "catalog", label: "Catalogue" },
   { id: "exports", label: "Exports" },
   { id: "audit", label: "Audit" },
 ];
@@ -79,11 +81,16 @@ export default function ProjectWorkspacePage() {
               <RunsTab projectId={projectId} />
             ) : projectId && tab === "boq" ? (
               <BoqTab projectId={projectId} />
+            ) : projectId && tab === "catalog" && project.data ? (
+              <CatalogTab
+                regionCode={project.data.region_code}
+                currency={project.data.currency}
+              />
             ) : projectId && tab === "audit" ? (
               <AuditTab projectId={projectId} />
-            ) : (
-              <ExportsTab />
-            )}
+            ) : projectId ? (
+              <ExportsTab projectId={projectId} />
+            ) : null}
           </>
         ) : null}
       </main>

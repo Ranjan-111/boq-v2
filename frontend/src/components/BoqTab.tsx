@@ -1,16 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError, formatMoney, type Boq } from "../lib/apiClient";
-import { boqStatusBadge } from "../lib/statusBadges";
+import {
+  api,
+  ApiError,
+  formatMoney,
+  type Boq,
+  type CatalogItem,
+  type ExceptionRow,
+  type Measurement,
+} from "../lib/apiClient";
+import { boqStatusBadge, severityBadge } from "../lib/statusBadges";
 import StatusBadge from "./StatusBadge";
-import { useRunStore } from "../stores/runs";
-import { useExportStore } from "../stores/exports";
+import { unmappedExceptionMessage } from "../lib/reviewHelpers";
 
-/** Build-from-run card when the project has no BOQ yet. */
+/** Build-from-run card when the project has no BOQ yet. The picker offers
+ * the project's FULL run history (list-runs) — completed ones selectable. */
 function BuildBoqCard({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
-  const runs = useRunStore((s) => s.runs);
-  const completed = runs.filter(
+  const runs = useQuery({
+    queryKey: ["runs", projectId],
+    queryFn: () => api.listRuns(projectId),
+  });
+  const completed = (runs.data?.items ?? []).filter(
     (r) => r.status === "completed" || r.status === "completed_with_exceptions",
   );
   const [runId, setRunId] = useState("");
@@ -21,6 +32,11 @@ function BuildBoqCard({ projectId }: { projectId: string }) {
     onSuccess: () => {
       setError(null);
       qc.invalidateQueries({ queryKey: ["boqs", projectId] });
+      // The build PERSISTS unmapped blockers for the run's unmapped groups —
+      // any cached exceptions list for this run (e.g. the Runs tab's, fetched
+      // while the run had none) is now stale. Invalidate by the list's
+      // leading key so every ["exceptions", runId] entry refetches.
+      qc.invalidateQueries({ queryKey: ["exceptions", runId] });
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : "Could not build BOQ."),
   });
@@ -29,12 +45,18 @@ function BuildBoqCard({ projectId }: { projectId: string }) {
     <div className="card p-5">
       <h2 className="mb-1 text-sm font-semibold text-ink-900">Build BOQ from a run</h2>
       <p className="mb-3 text-xs text-ink-500">
-        Only MEASURED, evidenced quantities enter a BOQ. Runs from this session
-        only — the runs list endpoint arrives later.
+        Only MEASURED, evidenced quantities enter a BOQ. Any completed run of
+        this project is eligible.
       </p>
-      {completed.length === 0 ? (
+      {runs.isPending ? (
+        <div className="h-8 w-64 animate-pulse rounded bg-ink-100" />
+      ) : runs.isError ? (
+        <p className="text-xs text-red-700">
+          {runs.error instanceof ApiError ? runs.error.message : "Could not load runs."}
+        </p>
+      ) : completed.length === 0 ? (
         <p className="text-xs text-ink-500">
-          No completed runs this session yet — run a measurement first (Runs tab).
+          No completed runs yet — run a measurement first (Runs tab).
         </p>
       ) : (
         <div className="flex flex-wrap items-end gap-3">
@@ -67,6 +89,230 @@ function BuildBoqCard({ projectId }: { projectId: string }) {
         </div>
       )}
       {error ? <p className="mt-2 text-xs text-red-700">{error}</p> : null}
+    </div>
+  );
+}
+
+/** Catalogue search + pick for one unmapped measurement (the mapping is the
+ * human's decision; the server prices + audits it). */
+function MapUnmappedRow({
+  exception,
+  measurement,
+  regionCode,
+  onMapped,
+}: {
+  exception: ExceptionRow;
+  measurement: Measurement | null;
+  regionCode: string;
+  onMapped: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<CatalogItem | null>(null);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const results = useQuery({
+    queryKey: ["catalog", "search", query, regionCode],
+    queryFn: () => api.searchCatalog(query, regionCode),
+    enabled: query.trim().length >= 2,
+  });
+
+  const map = useMutation({
+    mutationFn: () =>
+      // Row id — the durable identity is unique PER RUN; a project with two
+      // runs of the same drawing would be ambiguous (409, never a guess).
+      api.mapMeasurement(measurement!.id, {
+        catalogue_item_id: picked!.id,
+        reason: reason.trim(),
+      }),
+    onSuccess: () => {
+      setError(null);
+      onMapped();
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : "Could not map."),
+  });
+  const fieldId = `map-${exception.id.slice(0, 8)}`;
+  const valid = picked !== null && reason.trim() !== "";
+
+  return (
+    <li className="rounded-md border border-ink-200 p-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge badge={severityBadge(exception.severity)} />
+        <span className="text-xs font-medium text-ink-800">unmapped</span>
+        {measurement ? (
+          <span className="text-xs text-ink-600">
+            {measurement.label} ({measurement.value} {measurement.unit})
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-1 text-[11px] text-ink-500">{exception.message}</p>
+      {measurement ? (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div>
+            <label className="label !mb-0.5 !text-[11px]" htmlFor={`${fieldId}-search`}>
+              Catalogue item
+            </label>
+            <input
+              id={`${fieldId}-search`}
+              className="input !w-56 !py-1.5 !text-xs"
+              placeholder="Search code or description…"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPicked(null);
+              }}
+            />
+            {picked ? (
+              <span className="text-[11px] text-emerald-700">
+                picked {picked.code} — {picked.description} ({picked.unit})
+              </span>
+            ) : null}
+          </div>
+          {query.trim().length >= 2 && !picked ? (
+            <div className="w-full">
+              {results.isPending ? (
+                <p className="text-[11px] text-ink-400">Searching…</p>
+              ) : results.isError ? (
+                <p className="text-[11px] text-red-700">
+                  {results.error instanceof ApiError
+                    ? results.error.message
+                    : "Search failed."}
+                </p>
+              ) : (
+                <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto">
+                  {(results.data?.items ?? []).map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className="w-full rounded px-2 py-1 text-left text-xs hover:bg-ink-50"
+                        onClick={() => setPicked(item)}
+                      >
+                        <span className="font-mono text-[10px] text-ink-500">
+                          {item.code}
+                        </span>{" "}
+                        {item.description}{" "}
+                        <span className="text-ink-400">({item.unit})</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
+          <div className="grow">
+            <label className="label !mb-0.5 !text-[11px]" htmlFor={`${fieldId}-reason`}>
+              Reason (required, audited)
+            </label>
+            <input
+              id={`${fieldId}-reason`}
+              className="input !w-64 !py-1.5 !text-xs"
+              placeholder="e.g. gross area bills the footprint line"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-primary !px-3 !py-1.5 !text-xs"
+            disabled={!valid || map.isPending}
+            onClick={() => map.mutate()}
+          >
+            {map.isPending ? "Mapping…" : "Map"}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-1 text-[11px] text-ink-400">
+          The measurement row could not be paired — resolve this exception
+          directly.
+        </p>
+      )}
+      {error ? <p className="mt-1 text-xs text-red-700">{error}</p> : null}
+    </li>
+  );
+}
+
+/** "Map unmapped" panel: the selected BOQ's source-run blockers, each with a
+ * catalogue search + reason + Map. The mapped line appears in the BOQ on
+ * success and the blocker clears. */
+function MapUnmappedPanel({
+  boq,
+  projectId,
+  regionCode,
+}: {
+  boq: Boq;
+  projectId: string;
+  regionCode: string;
+}) {
+  const qc = useQueryClient();
+  const runId = boq.from_run_id;
+  // The blocker set is APPROVAL-GATE state: a stale list here would render
+  // "no unmapped" while the run's blockers still refuse approval — the
+  // believable-but-wrong surface the doctrine forbids. staleTime 0 makes
+  // every mount refetch (the global 15s freshness must not apply here;
+  // the Runs tab's exceptions cache may predate the BOQ build that
+  // persisted these blockers).
+  const exceptions = useQuery({
+    queryKey: ["exceptions", runId],
+    queryFn: () => api.listExceptions(runId!),
+    enabled: runId !== null,
+    staleTime: 0,
+  });
+  const measurements = useQuery({
+    queryKey: ["measurements", runId],
+    queryFn: () => api.listMeasurements(runId!),
+    enabled: runId !== null,
+    staleTime: 0,
+  });
+
+  const pairs = useMemo(() => {
+    const exs = exceptions.data?.items ?? [];
+    const byMessage = new Map<string, Measurement>();
+    for (const m of measurements.data?.items ?? []) {
+      byMessage.set(unmappedExceptionMessage(m), m);
+    }
+    return exs
+      .filter((e) => e.code === "unmapped_measurement" && !e.resolved_at)
+      .map((e) => ({ exception: e, measurement: byMessage.get(e.message) ?? null }));
+  }, [exceptions.data, measurements.data]);
+
+  if (runId === null) return null;
+  if (exceptions.isPending || measurements.isPending)
+    return <div className="h-16 animate-pulse rounded bg-ink-100" />;
+  if (exceptions.isError)
+    return (
+      <p className="text-xs text-red-700">
+        {exceptions.error instanceof ApiError
+          ? exceptions.error.message
+          : "Could not load blockers."}
+      </p>
+    );
+  if (pairs.length === 0) return null;
+
+  const onMapped = () => {
+    void qc.invalidateQueries({ queryKey: ["exceptions", runId] });
+    void qc.invalidateQueries({ queryKey: ["boq", boq.id] });
+    void qc.invalidateQueries({ queryKey: ["boqs", projectId] });
+  };
+  return (
+    <div className="card p-5">
+      <h3 className="mb-1 text-sm font-semibold text-ink-900">Map unmapped</h3>
+      <p className="mb-3 text-xs text-ink-500">
+        These measured quantities have no catalogue item — approval blocks
+        until a human maps them (each mapping is audited and appends the
+        priced line to this DRAFT BOQ).
+      </p>
+      <ul className="space-y-2">
+        {pairs.map(({ exception, measurement }) => (
+          <MapUnmappedRow
+            key={exception.id}
+            exception={exception}
+            measurement={measurement}
+            regionCode={regionCode}
+            onMapped={onMapped}
+          />
+        ))}
+      </ul>
     </div>
   );
 }
@@ -231,34 +477,27 @@ function BoqActions({ boq, projectId }: { boq: Boq; projectId: string }) {
   );
 }
 
-/** Export card for an approved BOQ (polls the export job). */
+/** Export card for an approved BOQ (polls the export job). Format is a
+ * human choice: csv | xlsx | pdf (the export job validates server-side). */
 function BoqExportCard({ boqId }: { boqId: string }) {
-  // Action selectors are stable identities — never the whole store object,
-  // which changes on every update and loops any effect that depends on it.
-  const addExport = useExportStore((s) => s.addExport);
-  const updateExport = useExportStore((s) => s.updateExport);
+  const qc = useQueryClient();
+  const [format, setFormat] = useState<"csv" | "xlsx" | "pdf">("csv");
   const [error, setError] = useState<string | null>(null);
   const [activeExportId, setActiveExportId] = useState<string | null>(null);
 
   const createExport = useMutation({
-    mutationFn: () => api.createExport(boqId, "csv"),
+    mutationFn: () => api.createExport(boqId, format),
     onSuccess: (res) => {
       setError(null);
       setActiveExportId(res.export_id);
-      addExport({
-        id: res.export_id,
-        boq_id: boqId,
-        status: "pending",
-        sha256: null,
-        download_url: null,
-        created_at: new Date().toISOString(),
-      });
+      // The Exports tab lists from the server now — refresh its data too.
+      void qc.invalidateQueries({ queryKey: ["exports", boqId] });
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : "Could not start export."),
   });
 
-  // Poll the active export (created here or pre-existing from this session).
+  // Poll the active export until its job reaches a terminal status.
   const activeExport = useQuery({
     queryKey: ["export", activeExportId],
     queryFn: () => api.getExport(activeExportId!),
@@ -266,34 +505,33 @@ function BoqExportCard({ boqId }: { boqId: string }) {
     refetchInterval: (query) =>
       query.state.data?.status === "pending" ? 1500 : false,
   });
-
-  // Mirror the polled export into the session store — only when a value
-  // actually changed (a new-objects-every-time patch would loop zustand
-  // subscribers into an infinite re-render).
   const rec = activeExport.data;
-  const recStatus = rec?.status;
-  const recSha = rec?.sha256;
-  const recUrl = rec?.download_url;
-  useEffect(() => {
-    if (rec && (recStatus || recSha || recUrl)) {
-      updateExport(rec.id, {
-        status: recStatus,
-        sha256: recSha,
-        download_url: recUrl,
-      });
-    }
-  }, [rec?.id, recStatus, recSha, recUrl, updateExport]);
 
   return (
     <div className="border-t border-ink-200 pt-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="label !mb-0.5 !text-[11px]" htmlFor={`export-format-${boqId.slice(0, 8)}`}>
+            Format
+          </label>
+          <select
+            id={`export-format-${boqId.slice(0, 8)}`}
+            className="input !w-28 !py-1.5 !text-xs"
+            value={format}
+            onChange={(e) => setFormat(e.target.value as "csv" | "xlsx" | "pdf")}
+          >
+            <option value="csv">CSV</option>
+            <option value="xlsx">XLSX</option>
+            <option value="pdf">PDF</option>
+          </select>
+        </div>
         <button
           type="button"
           className="btn-primary !px-3 !py-1.5 !text-xs"
           disabled={createExport.isPending}
           onClick={() => createExport.mutate()}
         >
-          {createExport.isPending ? "Starting…" : "Export CSV"}
+          {createExport.isPending ? "Starting…" : `Export ${format.toUpperCase()}`}
         </button>
         {rec ? (
           <span className="text-xs">
@@ -308,14 +546,26 @@ function BoqExportCard({ boqId }: { boqId: string }) {
                   sha256 {rec.sha256?.slice(0, 16)}…
                 </span>
                 {rec.download_url ? (
-                  <a
-                    className="font-medium text-accent-700 hover:underline"
-                    href={rec.download_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Download
-                  </a>
+                  <>
+                    <a
+                      className="font-medium text-accent-700 hover:underline"
+                      href={rec.download_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Download
+                    </a>
+                    {rec.provenance_download_url ? (
+                      <a
+                        className="font-medium text-accent-700 hover:underline"
+                        href={rec.provenance_download_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Provenance
+                      </a>
+                    ) : null}
+                  </>
                 ) : null}
               </span>
             )}
@@ -352,6 +602,7 @@ export default function BoqTab({ projectId }: { projectId: string }) {
   });
 
   const currency = project.data?.currency ?? "";
+  const regionCode = project.data?.region_code ?? "";
 
   return (
     <div className="space-y-4">
@@ -443,6 +694,16 @@ export default function BoqTab({ projectId }: { projectId: string }) {
       ) : (
         <BuildBoqCard projectId={projectId} />
       )}
+
+      {/* The mapping panel is DRAFT-only surface: a past-DRAFT BOQ refuses
+          edits server-side (reject first — that refusal surfaces honestly). */}
+      {boq.data && boq.data.status === "draft" ? (
+        <MapUnmappedPanel
+          boq={boq.data}
+          projectId={projectId}
+          regionCode={regionCode}
+        />
+      ) : null}
     </div>
   );
 }

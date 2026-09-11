@@ -149,6 +149,28 @@ async function request<T>(
   return body as T;
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { headers: { ...authHeader() } });
+  } catch {
+    throw new ApiError(0, "network_error", "Network error", "Could not reach the server.");
+  }
+  if (!response.ok) {
+    let body: unknown = null;
+    const text = await response.text();
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
+      }
+    }
+    throw parseError(response.status, body);
+  }
+  return response.blob();
+}
+
 /**
  * Multipart upload. Deliberately does NOT set Content-Type — the browser
  * must set it (with the correct multipart boundary) itself. Only Authorization
@@ -331,6 +353,20 @@ export interface Run {
   stats: RunStats | null;
   error: string | null;
 }
+/** One row of GET /projects/{pid}/runs — the project's full run history. */
+export interface RunListRow {
+  id: string;
+  status: RunStatus;
+  stats: RunStats | null;
+  error: string | null;
+  created_at: string | null;
+  /** What the run executed (from params, when the V1 client wrote them). */
+  drawing_file_id: string | null;
+  sheet_id: string | null;
+}
+export interface RunList {
+  items: RunListRow[];
+}
 
 // --- Measurements, evidence, exceptions ---------------------------------------
 
@@ -358,7 +394,8 @@ export interface Measurement {
   unit: MeasurementUnit;
   rule_id: string;
   state: MeasurementState;
-  label: string;
+  /** Null when the engine wrote no label (the column is nullable). */
+  label: string | null;
   element_label: string | null;
   element_type: string;
   type_source: string;
@@ -465,6 +502,64 @@ export interface ClassificationReviewed {
   audit_id: string;
   element: ElementRow;
 }
+/** POST /measurements/{ref}/map body — the human's mapping statement. */
+export interface MapCatalogueBody {
+  catalogue_item_id: string;
+  /** Audited verbatim on the map_catalogue row. */
+  reason: string;
+}
+/** POST /measurements/{ref}/map response */
+export interface MeasurementMapped {
+  ok: boolean;
+  audit_id: string;
+  item_id: string;
+  boq_id: string;
+  catalogue_item_id: string;
+  code: string;
+  quantity: string;
+  unit: string;
+  rate_minor: number;
+  rate_scope: string | null;
+  total_minor: number;
+  resolved_blockers: number;
+}
+/** POST /ai/suggestions/{id}/apply body */
+export interface ApplySuggestionBody {
+  /** Audited verbatim on the override_element_type row. */
+  reason: string;
+}
+/** POST /ai/suggestions/{id}/apply response — the applied element, T073 shape. */
+export interface SuggestionApplied {
+  ok: boolean;
+  audit_id: string;
+  suggestion_id: string;
+  element: ElementRow;
+}
+// --- AI suggestions (advisory rows; the apply is the human's decision) --------
+
+/** One row of GET /runs/{id}/ai/insights — advisory only. */
+export interface AiSuggestionRow {
+  id: string;
+  subject_type: string;
+  subject_id: string;
+  suggestion_type: string;
+  payload: Record<string, unknown>;
+  /** Honest provider confidence in [0, 1] — weak stub values stay visible. */
+  confidence: number;
+  model: string;
+  /** NULL = unreviewed; true = applied through the audited endpoint. */
+  accepted: boolean | null;
+  created_at: string | null;
+}
+export interface AiInsights {
+  run_id: string;
+  generated_note: string;
+  suggestions: AiSuggestionRow[];
+}
+/** POST /runs/{id}/analyze → 202 */
+export interface AnalyzeAccepted {
+  job_id: string;
+}
 /** One row of GET /projects/{pid}/audit */
 export interface AuditEntryRow {
   id: string;
@@ -527,6 +622,8 @@ export interface Boq {
   project_id: string;
   version: number;
   status: string;
+  /** The run this BOQ was built from (the mapping panel's context). */
+  from_run_id: string | null;
   sections: BoqSection[];
   totals: { grand_total_minor: number };
 }
@@ -550,15 +647,25 @@ export interface ExportRecord {
   sha256: string | null;
   manifest: unknown;
   download_url: string | null;
+  provenance_download_url: string | null;
+}
+/** One row of GET /boqs/{id}/exports — the BOQ's full export history. */
+export interface ExportListRow {
+  id: string;
+  format: string;
+  status: ExportStatus;
+  sha256: string | null;
+  /** Null while the export job is still pending. */
+  manifest: Record<string, unknown> | null;
+  provenance_download_url: string | null;
+  created_at: string | null;
+}
+export interface ExportList {
+  items: ExportListRow[];
 }
 
 // --- Catalogue -----------------------------------------------------------------
 
-export interface CatalogRateDefault {
-  amount_minor: number;
-  currency: string;
-  scope: string;
-}
 /** GET /catalog/search row (a score field may also be present — treated as unknown-extra). */
 export interface CatalogItem {
   id: string;
@@ -567,7 +674,8 @@ export interface CatalogItem {
   unit: string;
   region_code: string;
   category_path: string;
-  default_rate: CatalogRateDefault | null;
+  source: string;
+  source_attribution: string | null;
 }
 export interface CatalogList {
   items: CatalogItem[];
@@ -610,6 +718,7 @@ export const api = {
   listDrawings: (projectId: string) =>
     request<DrawingList>(`/projects/${projectId}/drawings`),
   getDrawing: (drawingId: string) => request<DrawingDetail>(`/drawings/${drawingId}`),
+  getDrawingPreview: (drawingId: string) => requestBlob(`/drawings/${drawingId}/preview`),
   confirmScale: (sheetId: string, body: ScaleConfirmBody) =>
     request<ScaleConfirmed>(`/sheets/${sheetId}/scale/confirm`, { method: "POST", body }),
 
@@ -623,6 +732,15 @@ export const api = {
     },
   ) => request<RunAccepted>(`/projects/${projectId}/runs`, { method: "POST", body }),
   getRun: (runId: string) => request<Run>(`/runs/${runId}`),
+  /** The project's full run history (newest-first) — replaces the
+   * session-local list in the BOQ tab's run picker. */
+  listRuns: (projectId: string) =>
+    request<RunList>(`/projects/${projectId}/runs`),
+  startAnalyze: (runId: string) =>
+    request<AnalyzeAccepted>(`/runs/${runId}/analyze`, { method: "POST" }),
+  /** The run's advisory rows — read-only relative to deterministic data. */
+  getAiInsights: (runId: string) =>
+    request<AiInsights>(`/runs/${runId}/ai/insights`),
   listMeasurements: (runId: string) =>
     request<MeasurementList>(`/runs/${runId}/measurements`),
   listExceptions: (runId: string) => request<ExceptionList>(`/runs/${runId}/exceptions`),
@@ -642,6 +760,20 @@ export const api = {
     }),
   overrideClassification: (elementId: string, body: ClassificationBody) =>
     request<ClassificationReviewed>(`/elements/${elementId}/classification`, {
+      method: "POST",
+      body,
+    }),
+  /** Map a measurement to a catalogue item — the unmapped blocker's human
+   * resolution (appends the priced line to the run's DRAFT BOQ). */
+  mapMeasurement: (ref: string, body: MapCatalogueBody) =>
+    request<MeasurementMapped>(`/measurements/${ref}/map`, {
+      method: "POST",
+      body,
+    }),
+  /** Apply an advisory suggestion as an audited human decision. The row id
+   * (globally unique) is the address; the durable identity is per-run. */
+  applySuggestion: (suggestionId: string, body: ApplySuggestionBody) =>
+    request<SuggestionApplied>(`/ai/suggestions/${suggestionId}/apply`, {
       method: "POST",
       body,
     }),
@@ -684,9 +816,11 @@ export const api = {
     request<BoqStatusChange>(`/boqs/${boqId}/reject`, { method: "POST", body: { note } }),
 
   // Exports & jobs
-  createExport: (boqId: string, format: "csv") =>
+  createExport: (boqId: string, format: "csv" | "xlsx" | "pdf") =>
     request<ExportCreated>(`/boqs/${boqId}/exports`, { method: "POST", body: { format } }),
   getExport: (exportId: string) => request<ExportRecord>(`/exports/${exportId}`),
+  /** The BOQ's export history, newest-first (the Exports tab's data). */
+  listExports: (boqId: string) => request<ExportList>(`/boqs/${boqId}/exports`),
   getJob: (jobId: string) => request<Job>(`/jobs/${jobId}`),
 
   // Catalogue
@@ -694,6 +828,14 @@ export const api = {
     request<CatalogList>(
       `/catalog/search?q=${encodeURIComponent(q)}&region_code=${encodeURIComponent(regionCode)}`,
     ),
+  createCatalogItem: (body: {
+    region_code: string;
+    code: string;
+    description: string;
+    unit: string;
+    category_path: string;
+    source_attribution?: string | null;
+  }) => request<CatalogItem>("/catalog/items", { method: "POST", body }),
   listCatalogRates: (itemId: string) =>
     request<CatalogRateList>(`/catalog/items/${itemId}/rates`),
   putCatalogRate: (

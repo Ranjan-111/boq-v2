@@ -2,12 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   isTerminalJobStatus,
   isTerminalRunStatus,
+  isJobActive,
   jobPollIntervalMs,
   runPollIntervalMs,
   JOB_POLL_INTERVAL_MS,
 } from "../src/lib/jobPolling";
 
 describe("job poll stop conditions", () => {
+  it("does not treat a disabled query without a job id as active", () => {
+    expect(isJobActive(null, true, undefined)).toBe(false);
+    expect(isJobActive("job-1", true, undefined)).toBe(true);
+    expect(isJobActive("job-1", false, "queued")).toBe(true);
+    expect(isJobActive("job-1", false, "running")).toBe(true);
+    expect(isJobActive("job-1", false, "succeeded")).toBe(false);
+  });
+
   it("stops on succeeded/failed/cancelled, continues on queued/running", () => {
     expect(isTerminalJobStatus("succeeded")).toBe(true);
     expect(isTerminalJobStatus("failed")).toBe(true);

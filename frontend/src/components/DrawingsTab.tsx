@@ -164,11 +164,40 @@ function ScaleConfirmForm({ sheet, onDone }: { sheet: Sheet; onDone: () => void 
 /** One drawing row: header + expandable sheet list. */
 function DrawingRow({ drawing }: { drawing: DrawingListItem }) {
   const [open, setOpen] = useState(drawing.parse_status === "parsed");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const qc = useQueryClient();
   // useSheets caches by drawing id; enabled only while expanded.
   const detail = useSheets(open ? drawing.id : null);
 
   const warnings = drawing.parse_warnings ?? [];
+
+  useEffect(() => {
+    if (!open || drawing.format !== "raster" || drawing.parse_status !== "parsed") {
+      setPreviewUrl(null);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setPreviewError(null);
+    void api
+      .getDrawingPreview(drawing.id)
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        if (!cancelled) setPreviewUrl(objectUrl);
+        else URL.revokeObjectURL(objectUrl);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setPreviewError(err instanceof ApiError ? err.message : "Could not load preview.");
+        }
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setPreviewUrl(null);
+    };
+  }, [drawing.format, drawing.id, drawing.parse_status, open]);
 
   return (
     <div className="card p-4">
@@ -204,7 +233,28 @@ function DrawingRow({ drawing }: { drawing: DrawingListItem }) {
       ) : null}
 
       {open ? (
-        detail.isPending ? (
+        drawing.format === "raster" ? (
+          <div className="mt-3 space-y-2">
+            <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-ink-700">
+              <p className="font-medium text-ink-900">Raster review surface</p>
+              <p className="mt-1">
+                Pixels are shown for human review only. Scale is unknown and no
+                deterministic quantities or geometry are inferred from this image.
+              </p>
+            </div>
+            {previewError ? (
+              <p className="text-xs text-red-700">{previewError}</p>
+            ) : previewUrl ? (
+              <img
+                src={previewUrl}
+                alt={`${drawing.filename} raster preview`}
+                className="max-h-[520px] w-full rounded-md border border-ink-200 bg-ink-50 object-contain"
+              />
+            ) : (
+              <div className="h-40 animate-pulse rounded bg-ink-100" />
+            )}
+          </div>
+        ) : detail.isPending ? (
           <div className="mt-3 h-20 animate-pulse rounded bg-ink-100" />
         ) : detail.isError ? (
           <p className="mt-3 text-xs text-red-700">

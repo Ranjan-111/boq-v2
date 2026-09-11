@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   api,
   ApiError,
+  type AiSuggestionRow,
   type ElementRow,
   type EvidenceResponse,
   type ExceptionRow,
@@ -18,15 +19,23 @@ import {
 } from "../lib/statusBadges";
 import {
   ELEMENT_TYPES,
+  confidencePercent,
   groupElementsByMeasurements,
+  isApplyableSuggestion,
   isReviewable,
   quantityDisplay,
+  suggestionSummary,
 } from "../lib/reviewHelpers";
 import type { ElementGroup } from "../lib/reviewHelpers";
 import StatusBadge from "./StatusBadge";
 import GeometryViewer, { type ViewerGeometry } from "./GeometryViewer";
-import { useRunPoll, isTerminalRunStatus } from "../lib/jobPolling";
-import { useRunStore } from "../stores/runs";
+import {
+  isJobActive,
+  isTerminalJobStatus,
+  isTerminalRunStatus,
+  useJobPoll,
+  useRunPoll,
+} from "../lib/jobPolling";
 
 export { useSheets } from "./useSheets";
 
@@ -103,7 +112,6 @@ function NewRunCard({
     }
   }, [sheetOptions, sheetId]);
 
-  const addRun = useRunStore((s) => s.addRun);
   const createRun = useMutation({
     mutationFn: () =>
       api.createRun(projectId, {
@@ -113,13 +121,8 @@ function NewRunCard({
       }),
     onSuccess: (res) => {
       setError(null);
-      addRun({
-        id: res.run_id,
-        status: "queued",
-        stats: null,
-        error: null,
-        created_at: new Date().toISOString(),
-      });
+      // The runs list is server-backed now — the new run appears on refetch.
+      void qc.invalidateQueries({ queryKey: ["runs", projectId] });
       qc.invalidateQueries({ queryKey: ["run", res.run_id] });
       onStarted(res.run_id);
     },
@@ -648,8 +651,203 @@ function ElementsPanel({ measurements }: { measurements: Measurement[] }) {
   );
 }
 
+/** Apply form for one element_classification suggestion (reason required —
+ * the apply is an audited human decision, never a one-click accept). */
+function ApplySuggestionForm({
+  suggestionId,
+  onApplied,
+}: {
+  suggestionId: string;
+  onApplied: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const apply = useMutation({
+    mutationFn: () => api.applySuggestion(suggestionId, { reason: reason.trim() }),
+    onSuccess: () => {
+      setError(null);
+      onApplied();
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : "Could not apply."),
+  });
+  const fieldId = `apply-${suggestionId.slice(0, 8)}`;
+  return (
+    <div className="mt-1.5 flex flex-wrap items-end gap-2">
+      <div className="grow">
+        <label className="label !mb-0.5 !text-[11px]" htmlFor={`${fieldId}-reason`}>
+          Reason (required, audited)
+        </label>
+        <input
+          id={`${fieldId}-reason`}
+          className="input !w-64 !py-1.5 !text-xs"
+          placeholder="e.g. the geometry reads as a room boundary"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn-primary !px-3 !py-1.5 !text-xs"
+        disabled={reason.trim() === "" || apply.isPending}
+        onClick={() => apply.mutate()}
+      >
+        {apply.isPending ? "Applying…" : "Apply"}
+      </button>
+      {error ? <p className="w-full text-xs text-red-700">{error}</p> : null}
+    </div>
+  );
+}
+
+/** One advisory suggestion row: type, honest confidence, payload summary —
+ * an Apply affordance only for the classification kind. */
+function SuggestionRow({
+  suggestion,
+  onApplied,
+}: {
+  suggestion: AiSuggestionRow;
+  onApplied: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
+          {suggestion.suggestion_type}
+        </span>
+        {/* The stub proposes at 5% — the UI shows that weakness, always. */}
+        <span className="text-xs font-medium text-ink-700">
+          {confidencePercent(suggestion.confidence)} confidence
+        </span>
+        <span className="text-[11px] text-ink-400">{suggestion.model}</span>
+        {suggestion.accepted ? (
+          <span className="text-[11px] text-emerald-700">applied</span>
+        ) : null}
+        {!suggestion.accepted && isApplyableSuggestion(suggestion.suggestion_type) ? (
+          <button
+            type="button"
+            className="text-xs font-medium text-accent-700 hover:underline"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? "Close" : "Apply…"}
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1 text-xs text-ink-600">{suggestionSummary(suggestion)}</p>
+      {open ? (
+        <ApplySuggestionForm suggestionId={suggestion.id} onApplied={onApplied} />
+      ) : null}
+    </li>
+  );
+}
+
+/** AI insights for the selected run: the advisory rows (read-only) with the
+ * audited apply for classification proposals. The analyze pass is a separate
+ * job — the button kicks it and polls the job id. */
+function AiInsightsPanel({ runId, projectId }: { runId: string; projectId: string }) {
+  const qc = useQueryClient();
+  const [analyzeJobId, setAnalyzeJobId] = useState<string | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const insights = useQuery({
+    queryKey: ["insights", runId],
+    queryFn: () => api.getAiInsights(runId),
+  });
+  const job = useJobPoll(analyzeJobId);
+
+  const analyze = useMutation({
+    mutationFn: () => api.startAnalyze(runId),
+    onSuccess: (res) => {
+      setAnalyzeError(null);
+      setAnalyzeJobId(res.job_id);
+    },
+    onError: (err) =>
+      setAnalyzeError(err instanceof ApiError ? err.message : "Could not analyze."),
+  });
+
+  useEffect(() => {
+    if (job.data && isTerminalJobStatus(job.data.status)) {
+      setAnalyzeJobId(null);
+      void qc.invalidateQueries({ queryKey: ["insights", runId] });
+    }
+  }, [job.data, qc, runId]);
+
+  const onApplied = () => {
+    // The apply changed an element's type — the elements panel derives from
+    // the measurements list, so both surfaces refetch.
+    void qc.invalidateQueries({ queryKey: ["insights", runId] });
+    void qc.invalidateQueries({ queryKey: ["measurements", runId] });
+    void qc.invalidateQueries({ queryKey: ["runs", projectId] });
+  };
+
+  return (
+    <div className="card p-5">
+      <h3 className="mb-1 text-sm font-semibold text-ink-900">AI insights</h3>
+      <p className="mb-2 text-[11px] text-ink-400">
+        {insights.data?.generated_note ??
+          "advisory only — nothing here changes a quantity"}
+      </p>
+      {insights.isPending ? (
+        <div className="h-16 animate-pulse rounded bg-ink-100" />
+      ) : insights.isError ? (
+        <p className="text-xs text-red-700">
+          {insights.error instanceof ApiError
+            ? insights.error.message
+            : "Could not load insights."}
+        </p>
+      ) : (insights.data?.suggestions.length ?? 0) === 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs text-ink-500">No suggestions yet for this run.</p>
+          <button
+            type="button"
+            className="btn-secondary !px-3 !py-1.5 !text-xs"
+            disabled={
+              analyze.isPending ||
+              isJobActive(analyzeJobId, job.isPending, job.data?.status)
+            }
+            onClick={() => analyze.mutate()}
+          >
+            {analyze.isPending || isJobActive(analyzeJobId, job.isPending, job.data?.status)
+              ? "Analyzing…"
+              : "Run AI analysis"}
+          </button>
+          {analyzeError ? (
+            <p className="w-full text-xs text-red-700">{analyzeError}</p>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <ul className="divide-y divide-ink-100">
+            {(insights.data?.suggestions ?? []).map((s) => (
+              <SuggestionRow key={s.id} suggestion={s} onApplied={onApplied} />
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="mt-2 text-xs font-medium text-accent-700 hover:underline"
+            disabled={
+              analyze.isPending ||
+              isJobActive(analyzeJobId, job.isPending, job.data?.status)
+            }
+            onClick={() => analyze.mutate()}
+          >
+            {analyze.isPending || isJobActive(analyzeJobId, job.isPending, job.data?.status)
+              ? "Analyzing…"
+              : "Re-run AI analysis"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Result panel: stats + measurements + exceptions + evidence viewer. */
-export function RunResultPanel({ runId }: { runId: string }) {
+export function RunResultPanel({
+  runId,
+  projectId,
+}: {
+  runId: string;
+  projectId?: string;
+}) {
   const qc = useQueryClient();
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const run = useRunPoll(runId);
@@ -671,6 +869,16 @@ export function RunResultPanel({ runId }: { runId: string }) {
   const refreshReview = () => {
     void qc.invalidateQueries({ queryKey: ["measurements", runId] });
   };
+
+  // The runs list is server-backed now: when this run reaches a terminal
+  // status, refresh the project's list so the new status shows.
+  const polledStatus = run.data?.status;
+  useEffect(() => {
+    if (projectId && polledStatus !== undefined
+        && isTerminalRunStatus(polledStatus)) {
+      void qc.invalidateQueries({ queryKey: ["runs", projectId] });
+    }
+  }, [polledStatus, projectId, qc]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -788,6 +996,10 @@ export function RunResultPanel({ runId }: { runId: string }) {
             <ElementsPanel measurements={measurements.data.items} />
           ) : null}
 
+          {projectId ? (
+            <AiInsightsPanel runId={runId} projectId={projectId} />
+          ) : null}
+
           <div className="card p-5">
             <h3 className="mb-3 text-sm font-semibold text-ink-900">Exceptions</h3>
             <ExceptionsPanel runId={runId} />
@@ -809,27 +1021,38 @@ export function RunResultPanel({ runId }: { runId: string }) {
 }
 
 export default function RunsTab({ projectId }: { projectId: string }) {
-  const runs = useRunStore((s) => s.runs);
-  const updateRun = useRunStore((s) => s.updateRun);
+  const runs = useQuery({
+    queryKey: ["runs", projectId],
+    queryFn: () => api.listRuns(projectId),
+  });
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
-  // Keep the session store fresh: mirror polled run state into it.
+  // Keep the list current while a run is executing: poll only while the
+  // active run is queued/running (the job-polling idiom).
   const activeRun = useRunPoll(activeRunId);
+  const activeStatus = activeRun.data?.status;
   useEffect(() => {
-    const r = activeRun.data;
-    if (r && isTerminalRunStatus(r.status)) {
-      updateRun(r.id, { status: r.status, stats: r.stats, error: r.error });
+    if (activeRunId === null && runs.data && runs.data.items.length > 0) {
+      setActiveRunId(runs.data.items[0].id);
     }
-  }, [activeRun.data, updateRun]);
+  }, [runs.data, activeRunId]);
 
   return (
     <div className="space-y-4">
       <NewRunCard projectId={projectId} onStarted={setActiveRunId} />
-      {runs.length > 0 ? (
-        <div className="card p-4">
-          <h2 className="mb-2 text-sm font-semibold text-ink-900">Runs this session</h2>
+      <div className="card p-4">
+        <h2 className="mb-2 text-sm font-semibold text-ink-900">Runs</h2>
+        {runs.isPending ? (
+          <div className="h-16 animate-pulse rounded bg-ink-100" />
+        ) : runs.isError ? (
+          <p className="text-xs text-red-700">
+            {runs.error instanceof ApiError
+              ? runs.error.message
+              : "Could not load runs."}
+          </p>
+        ) : runs.data && runs.data.items.length > 0 ? (
           <ul className="divide-y divide-ink-100">
-            {runs.map((r) => (
+            {runs.data.items.map((r) => (
               <li key={r.id} className="flex items-center justify-between py-2">
                 <button
                   type="button"
@@ -846,18 +1069,31 @@ export default function RunsTab({ projectId }: { projectId: string }) {
                     <span className="ml-2 text-ink-400">
                       {r.stats.measured} measured / {r.stats.exceptions} exceptions
                     </span>
+                  ) : r.created_at ? (
+                    <span className="ml-2 text-ink-400">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </span>
                   ) : null}
                 </button>
                 <StatusBadge badge={runStatusBadge(r.status)} />
               </li>
             ))}
           </ul>
+        ) : (
+          <p className="text-xs text-ink-500">No runs yet — start one above.</p>
+        )}
+        {/* The active run's status is polled live (above); when it turns
+            terminal the list refetches so the badge flips. */}
+        {activeRunId && activeStatus !== undefined
+          && !isTerminalRunStatus(activeStatus) ? (
           <p className="mt-2 text-[11px] text-ink-400">
-            Run history across sessions arrives with the runs list endpoint.
+            Run {activeRunId.slice(0, 8)} is {activeStatus}…
           </p>
-        </div>
+        ) : null}
+      </div>
+      {activeRunId ? (
+        <RunResultPanel runId={activeRunId} projectId={projectId} />
       ) : null}
-      {activeRunId ? <RunResultPanel runId={activeRunId} /> : null}
     </div>
   );
 }

@@ -13,6 +13,17 @@ export function isTerminalJobStatus(status: JobStatus | string): boolean {
   return status === "succeeded" || status === "failed" || status === "cancelled";
 }
 
+/** Whether a caller has an active job that should keep its action disabled.
+ * Disabled queries report `isPending` even before a job id is supplied, so
+ * the id is part of this guard rather than being inferred from query state. */
+export function isJobActive(
+  jobId: string | null,
+  pending: boolean,
+  status: JobStatus | string | undefined,
+): boolean {
+  return jobId !== null && (pending || status === "queued" || status === "running");
+}
+
 /** Terminal run statuses — polling stops once reached. */
 export function isTerminalRunStatus(status: RunStatus | string): boolean {
   return (
