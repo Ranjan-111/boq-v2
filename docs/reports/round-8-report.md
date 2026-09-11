@@ -91,7 +91,7 @@ drawings,auth}.py` (guards + honest is_modelspace + login str()),
 
 | Check | Result |
 |---|---|
-| Full Python suite (live PostgreSQL + live MinIO) | **700 passed, 0 failed, 0 skipped** |
+| Full Python suite (live PostgreSQL + live MinIO) | **700 passed, 0 failed, 0 skipped** (2 warnings, both the known JWT short-secret class) |
 | Backend suite alone | 194 passed (12 S3 tests incl.) |
 | Pure suites (core/tests + tests/unit + tests/integration) | 494 passed |
 | Frontend Vitest | **79 passed** |
@@ -99,14 +99,14 @@ drawings,auth}.py` (guards + honest is_modelspace + login str()),
 | Browser E2E (both journeys, full local stack) | **2 passed (19.5s)** |
 | Ruff / strict mypy | clean / clean (108 source files) |
 | Import contracts | 9 kept, 0 broken |
-| Reference-leak guard | clean (232 tracked files) |
+| Reference-leak guard | clean (243 tracked files) |
 | pip-audit | no known vulnerabilities |
 | Docker image build | succeeded (locally; CI `docker` job mirrors it) |
 | Prod compose smoke test | full stack up; register → project → upload → bytes in MinIO bucket |
 | Alembic | `a1f4c0d2e9b3 (head)` on the live dev DB; no migration this round |
 
-Remote CI execution remains the open gate — the push runs the same
-matrix in CI (including the new MinIO step and docker build job).
+Remote CI run **34652270146** on `ec99f33` is green across all seven jobs incl. the MinIO-backed tests job and the docker build job
+— the same matrix reproduced in a clean worktree before the push.
 
 ## Architectural decisions
 
@@ -122,7 +122,9 @@ point→mm ratio.
 
 ## Open work and deliberate deferrals
 
-- Remote CI run of this round's push (the standing round gate).
+- None from Round 8's own scope. (Remote CI run 34652270146 verified green;
+      the follow-on hardening remains: T125 perf targets, T121 golden runs,
+      registry push + TLS deployment.)
 - Count-by-example candidates need a human seed-picker UI (deferred).
 - DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap (T037 P2).
 - Raster takeoff remains refused (human scale + review contract first).

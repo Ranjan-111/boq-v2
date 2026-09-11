@@ -11,7 +11,7 @@
 | 5 | Full takeoff engine | COMPLETE | Rooms, floors, openings, deductions, corroboration and blocker rules |
 | 6 | AI + review workspace | COMPLETE | Advisory AI, raster primitives, audited corrections/overrides, audit trail, BOQ editing |
 | 7 | BOQ, pricing, approval and export hardening | COMPLETE | XLSX/PDF, provenance sidecars, list endpoints, catalogue UI/mapping, audited suggestion apply, raster parse/preview, CI E2E composition — pushed, remote CI green (run 34621027125) |
-| 8 | Vector-PDF depth, deterministic perimeter, S3 + deploy, authz matrix | COMPLETE LOCALLY | PDF scale proposal + candidate emission, `room.gross.perimeter.v1`, `S3Storage` + Dockerfile/prod compose + CI docker job, cross-user authz pinned + 3 latent defects fixed, second E2E journey — remote CI run of the R8 push outstanding |
+| 8 | Vector-PDF depth, deterministic perimeter, S3 + deploy, authz matrix | COMPLETE | PDF scale proposal + candidate emission, `room.gross.perimeter.v1`, `S3Storage` + Dockerfile/prod compose + CI docker job, cross-user authz pinned + 3 latent defects fixed, second E2E journey — pushed, remote CI green (run 34652270146) |
 
 ## Round 7 checkpoint (historical)
 
@@ -31,7 +31,7 @@
 - **Browser:** both Playwright journeys passed (DXF correction + PDF
   candidates) with API, worker, Vite, and PostgreSQL.
 - **Static/architecture:** ruff clean, strict mypy clean across 108 source
-  files, 9 import contracts kept, reference-leak guard clean (232 files),
+  files, 9 import contracts kept, reference-leak guard clean (243 files),
   pip-audit clean.
 - **Deploy:** Docker image builds; the prod composition smoke-tested
   end-to-end (register → project → upload → bytes in MinIO bucket);
@@ -46,9 +46,9 @@ pgproto UUID, DXF-only is_modelspace).
 
 ## Open roadmap
 
-The R8 push's remote CI run is the standing open gate (the R7 run
-34621027125 was green). After it: performance profiling against the
-documented targets (T125), the golden-run determinism suite (T121), and the
-deploy pipeline (registry push + TLS). DWG/IFC/RVT ingestion remain post-V1
-by the frozen roadmap. Raster takeoff remains refused until its human scale
-and review contract is extended.
+Round 8 is pushed and remotely green (run 34652270146 on `ec99f33`). Next in
+priority order: performance profiling against the documented targets (T125),
+the golden-run determinism suite (T121), and the deploy pipeline (registry
+push + TLS). DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap.
+Raster takeoff remains refused until its human scale and review contract is
+extended.
