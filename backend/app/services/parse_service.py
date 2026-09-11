@@ -90,9 +90,18 @@ async def execute_parse(
             result = parse_pdf(data)
         except PdfParseError as exc:
             return await _fail(session, drawing, f"PdfParseError: {exc}")
+    elif drawing.format == "raster":
+        # Raster parsing is intentionally limited to an honest sheet record:
+        # pixels never become deterministic geometry and carry no scale.
+        from ingestion.raster import RasterParseError, parse_raster
+
+        try:
+            result = parse_raster(data)
+        except RasterParseError as exc:
+            return await _fail(session, drawing, f"RasterParseError: {exc}")
     else:
-        # Honest failure: raster parsing arrives in a later round. The
-        # upload was validated and stored; parsing is refused loudly.
+        # Honest failure for a format outside the explicit parser registry.
+        # The upload remains stored, but no empty parse result is fabricated.
         return await _fail(
             session, drawing, f"parsing for format {drawing.format!r} not implemented"
         )
@@ -110,7 +119,7 @@ async def execute_parse(
 
     for page_number, summary in enumerate(result.sheets):
         await _persist_sheet(session, drawing_file_id=drawing.id, page_number=page_number,
-                             summary=summary)
+                             summary=summary, raster=drawing.format == "raster")
 
     drawing.parse_status = "parsed"
     drawing.parse_warnings = list(result.warnings)
@@ -124,7 +133,8 @@ async def execute_parse(
 
 
 async def _persist_sheet(
-    session: AsyncSession, *, drawing_file_id: str, page_number: int, summary: SheetSummary
+    session: AsyncSession, *, drawing_file_id: str, page_number: int,
+    summary: SheetSummary, raster: bool = False,
 ) -> None:
     sheet = DrawingSheet(
         id=str(uuid.uuid4()),
@@ -145,14 +155,15 @@ async def _persist_sheet(
     # units stay NULL until a human confirms. NEVER CONFIRMED here.
     proposal = (
         Decimal(1)
-        if summary.unit_code is not None and summary.unit_code in _KNOWN_UNIT_CODES
-        else None
+        if not raster and summary.unit_code is not None
+        and summary.unit_code in _KNOWN_UNIT_CODES else None
     )
     session.add(ScaleCalibrationModel(
         id=str(uuid.uuid4()),
         sheet_id=sheet.id,
-        status=ScaleCalibrationStatus.PROPOSED.value,
-        method=ScaleMethod.DETECTED_FROM_DXF_UNITS.value,
+        status=(ScaleCalibrationStatus.PROPOSED.value if not raster
+                else ScaleCalibrationStatus.UNKNOWN.value),
+        method=(ScaleMethod.DETECTED_FROM_DXF_UNITS.value if not raster else None),
         units_per_drawing_unit=proposal,
     ))
     await session.flush()

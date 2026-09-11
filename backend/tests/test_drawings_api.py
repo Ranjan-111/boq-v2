@@ -28,6 +28,7 @@ from backend.app.api.drawings import (
     do_upload,
     get_drawing,
     list_drawings,
+    preview_drawing,
 )
 from backend.app.api.projects import ProjectCreate, create_project
 from backend.app.db.base import make_async_engine, make_sessionmaker
@@ -46,6 +47,7 @@ from backend.app.storage.base import MemoryStorage
 pytestmark = pytest.mark.integration
 
 FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "dxf"
+RASTER_FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "raster"
 MAX_BYTES = 10 * 1024 * 1024
 
 
@@ -288,6 +290,75 @@ class TestUploadValidation:
 
 
 class TestParseExecution:
+    async def test_raster_preview_is_authenticated_pixel_evidence(
+        self, migrated_db: str
+    ) -> None:
+        engine = make_async_engine(migrated_db)
+        try:
+            async with make_sessionmaker(engine)() as session:
+                user, project = await _make_user_and_project(session)
+                storage = MemoryStorage()
+                data = (RASTER_FIXTURES / "blank.png").read_bytes()
+                up = await _upload(session, project, user, data, "plan.png", storage,
+                                    mime="image/png")
+                response = await preview_drawing(
+                    up["drawing_file_id"], user=user, session=session, storage=storage
+                )
+                assert response.media_type == "image/png"
+                assert response.body == data
+                assert response.headers["cache-control"] == "no-store"
+                assert response.headers["x-source-sha256"]
+                await session.rollback()
+        finally:
+            await engine.dispose()
+
+    async def test_raster_parse_persists_honest_unknown_scale_sheet(
+        self, migrated_db: str
+    ) -> None:
+        engine = make_async_engine(migrated_db)
+        try:
+            async with make_sessionmaker(engine)() as session:
+                user, project = await _make_user_and_project(session)
+                storage = MemoryStorage()
+                data = (RASTER_FIXTURES / "blank.png").read_bytes()
+                up = await _upload(session, project, user, data, "plan.png", storage,
+                                    mime="image/png")
+                result = await parse_service.execute_parse(
+                    session, drawing_file_id=up["drawing_file_id"], storage=storage
+                )
+                assert result == {
+                    "ok": True, "parse_status": "parsed", "sheet_count": 1, "warnings": 2,
+                }
+                sheet = (
+                    await session.execute(
+                        select(DrawingSheet).where(
+                            DrawingSheet.drawing_file_id == up["drawing_file_id"]
+                        )
+                    )
+                ).scalar_one()
+                assert sheet.sheet_ref == "image:1"
+                assert sheet.sheet_type is None
+                cal = (
+                    await session.execute(
+                        select(ScaleCalibrationModel).where(
+                            ScaleCalibrationModel.sheet_id == sheet.id
+                        )
+                    )
+                ).scalar_one()
+                assert cal.status == "unknown"
+                assert cal.units_per_drawing_unit is None
+                assert cal.method is None
+                row = (
+                    await session.execute(
+                        select(DrawingFile).where(DrawingFile.id == up["drawing_file_id"])
+                    )
+                ).scalar_one()
+                assert any("no deterministic geometry" in warning
+                           for warning in (row.parse_warnings or []))
+                await session.rollback()
+        finally:
+            await engine.dispose()
+
     async def test_execute_parse_persists_sheets_and_proposed_calibrations(
         self, migrated_db: str
     ) -> None:
@@ -485,9 +556,8 @@ class TestParseExecution:
                 assert any("parse_failed" in w for w in failed_row.parse_warnings or [])
                 await session.rollback()
 
-                # Case 2: raster parsing is NOT implemented in Round 5
-                # (AI-dependent, deferred) — the upload is stored but parsing
-                # is refused loudly with the format named.
+                # Case 2: malformed raster bytes are refused honestly by the
+                # Pillow parser; no empty sheet or guessed geometry appears.
                 async with make_sessionmaker(engine)() as session2:
                     user2, project2 = await _make_user_and_project(session2)
                     raster = b"\x89PNG\r\n\x1a\n" + b"\x00\x01\x02" * 10
@@ -500,8 +570,7 @@ class TestParseExecution:
                         storage=storage,
                     )
                     assert result2["ok"] is False
-                    assert "not implemented" in result2["error"]
-                    assert "raster" in result2["error"]
+                    assert "RasterParseError" in result2["error"]
                     row2 = (
                         await session2.execute(
                             select(DrawingFile).where(

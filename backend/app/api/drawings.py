@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import io
 import uuid
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,7 +35,7 @@ from backend.app.db.models import (
 )
 from backend.app.jobs import queue
 from backend.app.jobs.queue import DuplicateJob, JobSpec
-from backend.app.storage.base import Storage
+from backend.app.storage.base import KeyNotFound, Storage
 from backend.app.uploads.validation import UploadRejected, validate_upload
 
 router = APIRouter(prefix="/projects/{project_id}/drawings", tags=["drawings"])
@@ -339,3 +340,31 @@ async def download_drawing(
     """Signed URL — stored bytes are never served straight from a public path."""
     drawing, _project = await _owned_drawing(drawing_id, user, session)
     return {"url": storage.signed_url(drawing.storage_key)}
+
+
+@drawing_router.get("/{drawing_id}/preview")
+async def preview_drawing(
+    drawing_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+    storage: Storage = Depends(get_storage),
+) -> Response:
+    """Authenticated raster preview; pixels remain review evidence only.
+
+    This endpoint deliberately serves no normalized geometry or scale. The
+    frontend labels the image as a pixel preview and keeps the measurement
+    workflow behind the same human scale gate as every other drawing.
+    """
+    drawing, _project = await _owned_drawing(drawing_id, user, session)
+    if drawing.format != "raster":
+        raise problem_error(409, "preview_not_raster", "only raster drawings have pixel previews")
+    try:
+        data = storage.get(drawing.storage_key)
+    except KeyNotFound as exc:
+        raise problem_error(404, "not_found", "raster source is unavailable") from exc
+    media_type = {
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".webp": "image/webp", ".gif": "image/gif",
+    }.get(Path(drawing.filename).suffix.lower(), "application/octet-stream")
+    return Response(content=data, media_type=media_type,
+                    headers={"Cache-Control": "no-store", "X-Source-Sha256": drawing.sha256})
