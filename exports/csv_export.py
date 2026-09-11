@@ -90,7 +90,10 @@ def rows_digest(rows: Sequence[CsvExportRow]) -> str:
                                      ensure_ascii=False).encode()).hexdigest()
 
 
-def _validate_export(rows: Sequence[CsvExportRow], approval: ExportApproval | None) -> None:
+def validate_export(
+    rows: Sequence[CsvExportRow], approval: ExportApproval | None
+) -> None:
+    """The shared export gate (csv/xlsx/pdf writers all call this)."""
     if approval is None or not approval.boq_id.strip() or not approval.approval_id.strip():
         raise ValueError("export requires explicit approval context")
     if approval.status not in (BoqStatus.APPROVED, BoqStatus.EXPORTED):
@@ -138,20 +141,26 @@ def _validate_export(rows: Sequence[CsvExportRow], approval: ExportApproval | No
             raise ValueError("total not recomputable")
 
 
-def _fmt_quantity(q: Decimal) -> str:
+def fmt_quantity(q: Decimal) -> str:
     return str(q.quantize(_QUANTITY_QUANTUM))
 
 
-def _fmt_money_minor(minor: int) -> str:
+def fmt_money_minor(minor: int) -> str:
     """Minor units → major decimal string (2dp), via Decimal — never float."""
     return str((Decimal(minor) / Decimal(100)).quantize(Decimal("0.01")))
+
+
+# Private aliases kept for backward compatibility with pre-Round-7 imports.
+_validate_export = validate_export
+_fmt_quantity = fmt_quantity
+_fmt_money_minor = fmt_money_minor
 
 
 def rows_to_csv(
     rows: Sequence[CsvExportRow], *, approval: ExportApproval | None = None
 ) -> str:
     """Render BOQ rows as CSV text. Row order = input order (deterministic)."""
-    _validate_export(rows, approval)
+    validate_export(rows, approval)
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator="\n")
     writer.writerow(HEADER)
@@ -163,10 +172,10 @@ def rows_to_csv(
                 row.code,
                 row.description,
                 row.unit,
-                _fmt_quantity(row.quantity),
-                _fmt_money_minor(row.rate_minor),
+                fmt_quantity(row.quantity),
+                fmt_money_minor(row.rate_minor),
                 row.markup_bp,
-                _fmt_money_minor(row.total_minor),
+                fmt_money_minor(row.total_minor),
                 row.currency,
                 ";".join(row.measurement_ids),
             ]
@@ -174,7 +183,7 @@ def rows_to_csv(
         total_minor += row.total_minor
     if rows:
         writer.writerow(
-            ["", "TOTAL", "", "", "", "", "", _fmt_money_minor(total_minor), rows[0].currency, ""]
+            ["", "TOTAL", "", "", "", "", "", fmt_money_minor(total_minor), rows[0].currency, ""]
         )
     return buf.getvalue()
 

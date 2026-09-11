@@ -31,6 +31,10 @@ ingest = [
 cv = [
     "opencv-python-headless>=4.10",
 ]
+exportlibs = [
+    "openpyxl>=3.1",
+    "reportlab>=4.2",
+]
 geo = [
     "shapely>=2.0",
     "types-shapely>=1.0",

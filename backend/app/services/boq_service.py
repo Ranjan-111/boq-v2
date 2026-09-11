@@ -13,11 +13,13 @@ Layering: imports boq/exports via their public API only (Protocol boundary).
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +30,12 @@ from backend.app.db.models import (
     BoqModel,
     BoqSection,
     CatalogueItem,
+    DrawingFile,
+    Element,
+    EvidenceLinkModel,
     ExceptionModel,
     ExportArtifact,
+    GeometryModel,
     MeasurementModel,
     MeasurementRun,
     RateModel,
@@ -46,6 +52,7 @@ from core.domain.states import transition_boq
 from core.provenance.records import EvidenceLink
 from core.units.money import apply_markup, multiply_rate
 from exports.csv_export import ExportApproval, csv_bytes, rows_digest
+from exports.provenance_sidecar import provenance_sidecar_bytes
 
 BLOCKING_SEVERITIES = (ExceptionSeverity.BLOCKING.value, ExceptionSeverity.REVIEW.value)
 
@@ -921,6 +928,124 @@ async def _project_currency(session: AsyncSession, project_id: str) -> str:
     return row or "INR"
 
 
+async def _provenance_records_for_export(
+    session: AsyncSession,
+    boq: BoqModel,
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Load the durable chain required by the export sidecar.
+
+    Measurement identities are scoped to the BOQ's source run.  A missing
+    row or evidence link is a trust failure, even if the rendered row itself
+    otherwise passes the format writer's checks.
+    """
+    if not boq.from_run_id:
+        raise BoqServiceError("provenance_missing", "BOQ has no source run")
+    identities = [
+        identity
+        for row in rows
+        for identity in row["measurement_ids"]
+    ]
+    if not identities:
+        raise BoqServiceError("provenance_missing", "export rows have no measurements")
+    measurements = (await session.execute(
+        select(MeasurementModel).where(
+            MeasurementModel.run_id == boq.from_run_id,
+            MeasurementModel.measurement_id.in_(identities),
+        ).order_by(MeasurementModel.created_at, MeasurementModel.id)
+    )).scalars().all()
+    by_identity = {str(m.measurement_id): m for m in measurements}
+    if set(by_identity) != set(identities):
+        missing = sorted(set(identities) - set(by_identity))
+        raise BoqServiceError(
+            "provenance_missing",
+            "measurement provenance missing for: " + ", ".join(missing),
+        )
+    evidence_rows = (await session.execute(
+        select(EvidenceLinkModel).where(
+            EvidenceLinkModel.subject_type == "measurement",
+            EvidenceLinkModel.subject_id.in_([uuid.UUID(str(m.id)) for m in measurements]),
+        ).order_by(EvidenceLinkModel.subject_id, EvidenceLinkModel.id)
+    )).scalars().all()
+    evidence_by_measurement: dict[str, list[dict[str, Any]]] = {}
+    for evidence in evidence_rows:
+        evidence_by_measurement.setdefault(str(evidence.subject_id), []).append({
+            "kind": evidence.kind, "ref": evidence.ref, "note": evidence.note,
+        })
+    if any(not evidence_by_measurement.get(str(m.id)) for m in measurements):
+        missing = sorted(str(m.measurement_id) for m in measurements
+                         if not evidence_by_measurement.get(str(m.id)))
+        raise BoqServiceError(
+            "provenance_missing",
+            "measurement evidence missing for: " + ", ".join(missing),
+        )
+    element_ids = {m.element_id for m in measurements}
+    geometry_rows = (await session.execute(
+        select(GeometryModel).where(GeometryModel.element_id.in_(element_ids))
+        .order_by(GeometryModel.element_id, GeometryModel.id)
+    )).scalars().all()
+    handles_by_element: dict[str, list[dict[str, Any]]] = {}
+    for geometry in geometry_rows:
+        handles_by_element.setdefault(str(geometry.element_id), []).extend(
+            sorted((dict(handle) for handle in geometry.source_handles),
+                   key=lambda handle: json.dumps(handle, sort_keys=True))
+        )
+    if any(not handles_by_element.get(str(m.element_id)) for m in measurements):
+        missing = sorted(str(m.measurement_id) for m in measurements
+                         if not handles_by_element.get(str(m.element_id)))
+        raise BoqServiceError(
+            "provenance_missing",
+            "source handles missing for: " + ", ".join(missing),
+        )
+    elements = (await session.execute(
+        select(Element).where(Element.id.in_(element_ids))
+    )).scalars().all()
+    labels = {str(element.id): element.label for element in elements}
+    drawing_id = (await session.execute(
+        select(MeasurementRun.params).where(MeasurementRun.id == boq.from_run_id)
+    )).scalar_one_or_none() or {}
+    drawing_file_id = drawing_id.get("drawing_file_id")
+    drawing = None
+    if drawing_file_id:
+        drawing = (await session.execute(
+            select(DrawingFile).where(DrawingFile.id == drawing_file_id)
+        )).scalar_one_or_none()
+    if not drawing_file_id or drawing is None:
+        raise BoqServiceError(
+            "provenance_missing", "source drawing identity is missing")
+    source = {
+        "drawing_file_id": str(drawing.id) if drawing else drawing_file_id,
+        "drawing_sha256": drawing.sha256 if drawing else None,
+        "drawing_format": drawing.format if drawing else None,
+    }
+    records: list[dict[str, Any]] = []
+    for identity in identities:
+        measurement = by_identity[identity]
+        records.append({
+            "measurement_id": identity,
+            "measurement_row_id": str(measurement.id),
+            "run_id": str(measurement.run_id),
+            "element_id": str(measurement.element_id),
+            "element_label": labels.get(str(measurement.element_id)),
+            "quantity_type": measurement.quantity_type,
+            "value": str(measurement.value) if measurement.value is not None else None,
+            "corrected_value": (
+                str(measurement.corrected_value)
+                if measurement.corrected_value is not None else None
+            ),
+            "unit": measurement.unit,
+            "state": measurement.state,
+            "rule_id": measurement.rule_id,
+            "engine_version": measurement.engine_version,
+            "inputs": measurement.inputs,
+            "inputs_digest": measurement.inputs_digest,
+            "source": source,
+            "source_handles": handles_by_element[str(measurement.element_id)],
+            "evidence": evidence_by_measurement[str(measurement.id)],
+        })
+    return records
+
+
 def _line_total(quantity: Decimal | None, rate_minor: int | None,
                markup_bp: int, currency: str) -> int:
     """Line total from (quantity, rate, markup) via the pricing kernel.
@@ -959,7 +1084,7 @@ class _ExportRow:
 
     @property
     def quantity(self) -> Decimal:
-        return self._d["quantity"]
+        return cast(Decimal, self._d["quantity"])
 
     @property
     def rate_minor(self) -> int:
@@ -988,8 +1113,9 @@ async def execute_export(
     """Export job body: load trusted approval scope, re-validate, store artifact.
 
     The ExportApproval context is constructed HERE from persisted rows —
-    never accepted from the client. csv_bytes re-validates every row and the
-    digest binding; a mismatch (stale) or any blocker refuses the export.
+    never accepted from the client. Every writer (csv/xlsx/pdf) re-validates
+    every row and the digest binding; a mismatch (stale) or any blocker
+    refuses the export regardless of format.
     """
     artifact = (await session.execute(
         select(ExportArtifact).where(ExportArtifact.id == export_id)
@@ -1022,6 +1148,7 @@ async def execute_export(
         rows = await _boq_rows_for_export(session, boq)
         if not rows:
             raise BoqServiceError("no_items", "no priced rows to export")
+        provenance_records = await _provenance_records_for_export(session, boq, rows)
         # Gate 3: the trusted approval context — built from persistence.
         approval = ExportApproval(
             boq_id=str(boq.id),
@@ -1029,20 +1156,66 @@ async def execute_export(
             rows_digest=rows_digest([_ExportRow(r) for r in rows]),
             status=BoqStatus(boq.status),
         )
-        data = csv_bytes([_ExportRow(r) for r in rows], approval=approval)
-        import hashlib
+        # Format dispatch — every format runs the SAME gates above; the
+        # writers each re-validate the rows + digest again inside.
+        if artifact.format == "csv":
+            data = csv_bytes([_ExportRow(r) for r in rows], approval=approval)
+        elif artifact.format == "xlsx":
+            from exports.xlsx_export import xlsx_bytes
+
+            data = xlsx_bytes([_ExportRow(r) for r in rows], approval=approval)
+        elif artifact.format == "pdf":
+            from exports.pdf_export import pdf_bytes
+
+            data = pdf_bytes([_ExportRow(r) for r in rows], approval=approval)
+        else:
+            raise BoqServiceError("bad_format",
+                                  f"unsupported export format {artifact.format!r}")
         sha = hashlib.sha256(data).hexdigest()
-        key = f"exports/{boq.id}/{artifact.id}.csv"
+        key = f"exports/{boq.id}/{artifact.id}.{artifact.format}"
         storage.put(key, BytesIO(data), length=len(data))
+        sidecar_rows = [
+            {
+                "code": row["code"],
+                "description": row["description"],
+                "unit": row["unit"],
+                "quantity": str(row["quantity"]),
+                "rate_minor": row["rate_minor"],
+                "markup_bp": row["markup_bp"],
+                "total_minor": row["total_minor"],
+                "currency": row["currency"],
+                "measurement_ids": list(row["measurement_ids"]),
+            }
+            for row in rows
+        ]
+        sidecar = provenance_sidecar_bytes(
+            boq={
+                "id": str(boq.id),
+                "version": boq.version,
+                "status": boq.status,
+                "source_run_id": str(boq.from_run_id) if boq.from_run_id else None,
+            },
+            rows=sidecar_rows,
+            measurements=provenance_records,
+        )
+        sidecar_sha = hashlib.sha256(sidecar).hexdigest()
+        sidecar_key = f"exports/{boq.id}/{artifact.id}.provenance.json"
+        storage.put(sidecar_key, BytesIO(sidecar), length=len(sidecar))
         artifact.storage_key = key
         artifact.sha256 = sha
         artifact.status = "succeeded"
         artifact.manifest = {
             "boq_id": str(boq.id), "boq_version": boq.version,
-            "format": "csv", "row_count": len(rows),
+            "format": artifact.format, "row_count": len(rows),
             "rows_sha256": approval.rows_digest,
             "run_ids": [str(boq.from_run_id)] if boq.from_run_id else [],
             "engine_version": None,
+            "provenance": {
+                "schema_version": "boq-provenance-v1",
+                "storage_key": sidecar_key,
+                "sha256": sidecar_sha,
+                "measurement_count": len(provenance_records),
+            },
         }
         # APPROVED -> EXPORTED is the machine's terminal-export step.
         if boq.status == BoqStatus.APPROVED.value:

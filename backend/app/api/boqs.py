@@ -27,6 +27,7 @@ from backend.app.db.models import (
 )
 from backend.app.jobs.queue import DuplicateJob, JobSpec, submit
 from backend.app.services import boq_service
+from backend.app.storage.base import Storage
 
 router = APIRouter(tags=["boq"])
 
@@ -380,6 +381,11 @@ async def _resolve_callers_item(
 async def _resolve_callers_boq(
     session: AsyncSession, boq_id: str, user: User
 ) -> BoqModel:
+    # UUID-guard first: a malformed id must 404, never an asyncpg cast 500.
+    try:
+        uuid.UUID(boq_id)
+    except ValueError as exc:
+        raise problem_error(404, "not_found", "BOQ not found") from exc
     boq = (await session.execute(
         select(BoqModel).where(BoqModel.id == boq_id)
     )).scalar_one_or_none()
@@ -396,7 +402,7 @@ async def _resolve_callers_boq(
 
 
 class ExportCreate(BaseModel):
-    format: str = Field(pattern="^(csv)$")  # xlsx/pdf arrive later (T101/T102)
+    format: str = Field(pattern="^(csv|xlsx|pdf)$")
 
 
 @router.post("/boqs/{boq_id}/exports", status_code=202)
@@ -422,6 +428,41 @@ async def create_export(
     except DuplicateJob as exc:
         raise problem_error(409, "export_already_active", str(exc)) from exc
     return {"export_id": artifact.id, "job_id": job_id}
+
+
+@router.get("/boqs/{boq_id}/exports")
+async def list_boq_exports(
+    boq_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+    storage: Storage = Depends(get_storage),
+) -> dict[str, Any]:
+    """The BOQ's export artifacts, newest-first (T104 history surface).
+
+    A pending artifact lists too (its sha256/manifest are null until the
+    export job succeeds) — the frontend's Exports tab mirrors this shape.
+    """
+    boq = await _resolve_callers_boq(session, boq_id, user)
+    # Direct service-style tests call this route function without FastAPI's
+    # dependency resolver; keep that path valid while the live route still
+    # receives the configured storage adapter.
+    storage_adapter = storage if isinstance(storage, Storage) else None
+    rows = (await session.execute(
+        select(ExportArtifact).where(ExportArtifact.boq_id == boq.id)
+        .order_by(ExportArtifact.created_at.desc(), ExportArtifact.id.desc())
+    )).scalars().all()
+    return {"items": [
+        {"id": str(a.id), "format": a.format, "status": a.status,
+             "sha256": a.sha256 or None, "manifest": a.manifest,
+             "provenance_download_url": (
+             storage_adapter.signed_url(a.manifest["provenance"]["storage_key"])
+             if a.status == "succeeded" and a.manifest
+             and storage_adapter is not None
+             and isinstance(a.manifest.get("provenance"), dict)
+             and a.manifest["provenance"].get("storage_key") else None),
+         "created_at": (a.created_at.isoformat() if a.created_at else None)}
+        for a in rows
+    ]}
 
 
 @router.get("/exports/{export_id}")
@@ -452,9 +493,15 @@ async def get_export(
     download_url = None
     if artifact.status == "succeeded" and artifact.storage_key:
         download_url = storage.signed_url(artifact.storage_key)
+    provenance_download_url = None
+    if artifact.status == "succeeded" and artifact.manifest:
+        provenance = artifact.manifest.get("provenance")
+        if isinstance(provenance, dict) and provenance.get("storage_key"):
+            provenance_download_url = storage.signed_url(provenance["storage_key"])
     return {
         "id": str(artifact.id), "boq_id": str(artifact.boq_id),
         "format": artifact.format, "status": artifact.status,
         "sha256": artifact.sha256 or None, "manifest": artifact.manifest,
         "download_url": download_url,
+        "provenance_download_url": provenance_download_url,
     }
