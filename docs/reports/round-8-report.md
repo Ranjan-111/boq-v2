@@ -122,9 +122,9 @@ point→mm ratio.
 
 ## Open work and deliberate deferrals
 
-- None from Round 8's own scope. (Remote CI run 34652270146 verified green;
-      the follow-on hardening remains: T125 perf targets, T121 golden runs,
-      registry push + TLS deployment.)
+- Nothing from Round 8's own scope — the round is closed with remote CI
+  run 34652270146 verified green. The deferrals below are follow-on
+  hardening, not R8 gaps.
 - Count-by-example candidates need a human seed-picker UI (deferred).
 - DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap (T037 P2).
 - Raster takeoff remains refused (human scale + review contract first).
@@ -134,7 +134,7 @@ point→mm ratio.
 
 ## Next milestone
 
-Verify remote CI green, then the remaining hardening tickets in
-priority order: performance profiling against the documented targets
-(T125) and the golden-run determinism suite (T121), with the deploy
-pipeline (registry + TLS) as the follow-on.
+With the round closed, the remaining hardening in priority order:
+performance profiling against the documented targets (T125), the
+golden-run determinism suite (T121), then the deploy pipeline (registry
+push + TLS).
