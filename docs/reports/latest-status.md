@@ -1,7 +1,8 @@
 # Latest Status
 
-**Verified:** 2026-09-11 · **Current:** Round 7 complete locally; remote CI
-execution remains outstanding.
+**Verified:** 2026-09-11 · **Current:** Round 7 complete — pushed and remote
+CI green (run 34621027125, all six jobs including the browser E2E
+composition).
 
 Rounds 1–6 remain completed historical milestones. Round 7 finished the
 planned BOQ/export/review hardening slice without changing the product scope:
@@ -34,9 +35,10 @@ planned BOQ/export/review hardening slice without changing the product scope:
 | Alembic | live database at `a1f4c0d2e9b3 (head)` |
 
 The one warning is the existing JWT test using a deliberately short test
-secret. No tests were skipped in the final live-PostgreSQL run. Remote CI was
-not run from this workspace, so the new CI composition is locally verified
-but not claimed as remotely green.
+secret. No tests were skipped in the final live-PostgreSQL run. Remote CI
+run 34621027125 (fc6e128) is green across lint, architecture, tests,
+license-scan, frontend, and e2e — the browser journey now runs remotely
+against the same service composition.
 
 ## Remaining roadmap
 

@@ -10,7 +10,7 @@
 | 4 | Product slice | COMPLETE | Upload, parse, scale gate, run, BOQ, approval, export, local browser journey |
 | 5 | Full takeoff engine | COMPLETE | Rooms, floors, openings, deductions, corroboration and blocker rules |
 | 6 | AI + review workspace | COMPLETE | Advisory AI, raster primitives, audited corrections/overrides, audit trail, BOQ editing |
-| 7 | BOQ, pricing, approval and export hardening | COMPLETE LOCALLY | XLSX/PDF, provenance sidecars, list endpoints, catalogue UI/mapping, audited suggestion apply, raster parse/preview, CI E2E composition; remote CI still unrun |
+| 7 | BOQ, pricing, approval and export hardening | COMPLETE | XLSX/PDF, provenance sidecars, list endpoints, catalogue UI/mapping, audited suggestion apply, raster parse/preview, CI E2E composition — pushed, remote CI green (run 34621027125) |
 
 ## Round 7 checkpoint
 
@@ -30,7 +30,9 @@ frontend AI action now distinguishes an absent job from an active polling job.
 
 ## Open roadmap
 
-Remote CI execution, deployment/S3 storage, vector-PDF tiles and scale review,
-performance/security review, DWG/IFC/RVT ingestion, and additional
-deterministic takeoff types remain future work. Raster takeoff remains
-refused until its human scale and review contract is extended.
+Remote CI execution has landed: run 34621027125 on `fc6e128` is green
+across all six jobs including the browser E2E composition. Deployment/S3
+storage, vector-PDF tiles and scale review, performance/security review,
+DWG/IFC/RVT ingestion, and additional deterministic takeoff types remain
+future work. Raster takeoff remains refused until its human scale and
+review contract is extended.

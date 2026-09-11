@@ -64,8 +64,11 @@ and frontend regression tests were added alongside those changes.
 | Reference-leak guard | **clean, 223 tracked files** |
 | Database revision | `a1f4c0d2e9b3 (head)` verified on the live development database |
 
-The remote CI workflow was not executed from this workspace. The CI E2E job
-and service composition are present and the same journey passed locally.
+The remote CI workflow was verified after the push: run **34621027125**
+on `fc6e128` — all six jobs green (lint, architecture, tests, license-scan,
+frontend, e2e). The browser E2E job ran the full service composition
+(PostgreSQL, migrations, API, worker, Vite, Playwright Chromium) remotely
+for the first time.
 
 ## Architectural decisions
 
@@ -78,8 +81,8 @@ scale is inferred.
 
 ## Open work and deliberate deferrals
 
-- Remote CI execution and deployment infrastructure still need an external
-  run; this round does not claim a remote green build.
+- Deployment infrastructure still needs an external run; this round does
+  not claim deployment.
 - Raster preview is available, but raster takeoff remains intentionally
   blocked until a human supplies an appropriate scale and a supported
   review/takeoff rule exists.

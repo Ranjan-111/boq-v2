@@ -13,7 +13,7 @@ PostgreSQL container available.
 | Ruff / mypy | ruff clean; strict mypy clean across 104 source files |
 | Architecture | import-linter **9 kept, 0 broken** |
 | Reference guard | clean; 223 tracked files checked |
-| CI workflow | E2E job and service composition are present; remote workflow was not run from this workspace |
+| CI workflow | Remote run **34621027125** green on `fc6e128` — all six jobs incl. the e2e service composition |
 | Export libraries | openpyxl and reportlab installed and exercised; XLSX/PDF bytes validated and deterministic |
 
 The only test warning is the existing JWT test that intentionally uses a

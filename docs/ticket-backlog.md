@@ -163,7 +163,7 @@ ceiling.
 | T123 ◐R3 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2. R3: evidence enforcement + digest binding tested; persisted chain later |
 | T124 | Security review: authz matrix, upload hardening, rate limits, secrets audit | P0 | 2 |
 | T125 | Performance: 50k-entity DXF < 60s parse, viewer < 3s, BOQ 5k recompute < 2s; profiling + indexes | P1 | 3 |
-| T126 ◐R7 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 | | R7: same gated journey green locally and CI service composition added; remote CI run remains pending |
+| T126 ◐R7 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 | | R7: gated journey green locally and in remote CI run 34621027125 with the full service composition |
 | T127 | Accessibility pass (WCAG AA on review/BOQ screens) | P1 | 2 |
 | T128 | Deploy: Docker Compose (app/worker/db/minio/caddy) + GH Actions pipeline + prod config + backup | P0 | 3 |
 | T129 | Docs: user guide, API reference, runbook | P1 | 2 |
