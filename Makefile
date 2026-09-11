@@ -10,7 +10,7 @@ venv: ## Create virtualenv (Python 3.13)
 	$(MAKE) install
 
 install: ## Install all deps incl. dev
-	uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
+	uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
 
 lint: ## ruff + mypy
 	.venv/bin/ruff check .
@@ -35,7 +35,7 @@ db-up: ## Start dev Postgres + MinIO via Docker
 	docker compose up -d postgres minio
 
 db-migrate: ## Run Alembic migrations
-	.venv/bin/alembic upgrade head -c backend/alembic.ini
+	.venv/bin/alembic -c backend/alembic.ini upgrade head
 
 db-revision: ## Create migration (usage: make db-revision m="msg")
 	.venv/bin/alembic revision --autogenerate -m "$(m)" -c backend/alembic.ini
@@ -46,7 +46,7 @@ api: ## Run API dev server
 worker: ## Run background worker
 	$(PYTHON) -m backend.app.jobs.worker
 
-e2e: ## Browser E2E (needs api :8099 + worker + npm dev :5173 + Postgres)
+e2e: ## Browser E2E (needs api :8099 + worker + npm dev :5173 + Postgres; CI runs the same spec in the e2e job)
 	cd frontend && npm run e2e
 
 .PHONY: help venv install lint arch guards test test-integration test-all db-up db-migrate db-revision api worker e2e

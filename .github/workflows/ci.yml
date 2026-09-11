@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
       - run: .venv/bin/ruff check .
       - run: .venv/bin/mypy core ingestion takeoff classification provenance review boq catalog pricing exports backend
 
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
       - name: import-linter boundary check
         run: .venv/bin/lint-imports
       - name: reference-leak guard
@@ -56,7 +56,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
       - name: migrations
         run: .venv/bin/alembic -c backend/alembic.ini upgrade head
       - name: unit + integration tests
@@ -70,7 +70,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
       - name: pip-audit (vulnerabilities)
         run: .venv/bin/pip-audit --skip-editable
       - name: banned-license check (AGPL must never enter the tree)
@@ -98,3 +98,72 @@ jobs:
           else
             echo "frontend not scaffolded yet — skip"
           fi
+
+  e2e:
+    # T126: the full gated-journey browser E2E against a REAL backend —
+    # same spec as local (`make e2e`), no reduced assertions. Composition:
+    # Postgres service -> migrations -> uvicorn :8099 + worker (background)
+    # -> vite dev :5173 (proxies /api to :8099) -> playwright chromium.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: boq
+          POSTGRES_PASSWORD: boq
+          POSTGRES_DB: boq_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U boq"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://boq:boq@localhost:5432/boq_e2e
+      JWT_SECRET: ci-e2e-secret-that-is-long-enough
+      STORAGE_LOCAL_DIR: /tmp/boq-e2e-storage
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: pipx install uv || pip install uv
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
+      - name: migrations
+        run: .venv/bin/alembic -c backend/alembic.ini upgrade head
+      - name: install playwright chromium
+        run: |
+          cd frontend && npm ci
+          npx playwright install --with-deps chromium
+      - name: start backend (api :8099 + worker)
+        run: |
+          nohup .venv/bin/uvicorn backend.app.main:app --port 8099 > /tmp/api.log 2>&1 &
+          nohup .venv/bin/python -m backend.app.jobs.worker > /tmp/worker.log 2>&1 &
+          # Wait for the API to answer (401 on /auth/me means alive).
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8099/api/v1/auth/me || true)
+            if [ "$code" = "401" ]; then echo "api up (attempt $i)"; exit 0; fi
+            sleep 2
+          done
+          echo "API did not come up:"; cat /tmp/api.log; exit 1
+      - name: start vite dev (:5173, proxies /api -> :8099)
+        run: |
+          cd frontend
+          nohup npm run dev -- --port 5173 --strictPort > /tmp/vite.log 2>&1 &
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/ || true)
+            if [ "$code" = "200" ]; then echo "vite up (attempt $i)"; exit 0; fi
+            sleep 2
+          done
+          echo "vite did not come up:"; cat /tmp/vite.log; exit 1
+      - name: playwright e2e
+        run: cd frontend && npx playwright test
+      - name: dump service logs on failure
+        if: failure()
+        run: |
+          echo '=== api.log ==='; tail -n 100 /tmp/api.log || true
+          echo '=== worker.log ==='; tail -n 100 /tmp/worker.log || true
+          echo '=== vite.log ==='; tail -n 100 /tmp/vite.log || true
