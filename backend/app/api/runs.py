@@ -171,8 +171,18 @@ async def list_run_measurements(
             "id": str(m.id), "measurement_id": m.measurement_id,
             "element_id": str(m.element_id), "quantity_type": m.quantity_type,
             "value": str(m.value) if m.value is not None else None,
+            # The human correction, beside the immutable engine value
+            # (api-contract rule 2: original always visible; corrected_value
+            # is what a BOQ bills — round 6 review workspace).
+            "corrected_value": (str(m.corrected_value)
+                                if m.corrected_value is not None else None),
             "unit": m.unit, "rule_id": m.rule_id, "state": m.state,
             "label": m.label, "element_label": el.label,
+            # Element classification context (round 6 override UI): the
+            # measurement list is where elements surface in V1 — the review
+            # workspace groups by element_id and offers the audited
+            # POST /elements/{id}/classification with these as the context.
+            "element_type": el.element_type, "type_source": el.type_source,
             "evidence_count": len(ev_by_subject.get(str(m.id), [])),
             "evidence": [
                 {"kind": e.kind, "ref": e.ref, "note": e.note}
@@ -207,3 +217,44 @@ async def list_run_exceptions(
         }
         for r in rows
     ]}
+
+
+@router.post("/runs/{run_id}/analyze", status_code=202)
+async def start_analyze(
+    run_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, str]:
+    """Kick off the AI understanding pass (contract: separate job).
+
+    The pass is advisory-only by construction: its handler writes prompt
+    logs + ai_suggestions and nothing else (T060/T065 doctrine). The job
+    result carries the honest outcome; an unconfigured/broken provider
+    fails the job — never a faked suggestion.
+    """
+    run = await _owned_run(session, run_id, user)
+    try:
+        job_id = await submit(session, JobSpec(
+            kind="ai_analyze",
+            payload={"run_id": str(run.id)},
+            idempotency_key=f"analyze:{run.id}",
+        ))
+    except DuplicateJob as exc:
+        raise problem_error(409, "analyze_already_active", str(exc)) from exc
+    return {"job_id": job_id}
+
+
+@router.get("/runs/{run_id}/ai/insights")
+async def get_ai_insights(
+    run_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """Advisory rows for the run — read-only relative to deterministic data."""
+    from backend.app.services.ai_service import AnalyzeError, load_insights
+
+    run = await _owned_run(session, run_id, user)
+    try:
+        return await load_insights(session, run_id=str(run.id))
+    except AnalyzeError as exc:
+        raise problem_error(404, "not_found", "run not found") from exc

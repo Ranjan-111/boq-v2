@@ -64,3 +64,18 @@ async def handle_boq_export(session: AsyncSession, job: ClaimedJob) -> dict[str,
         session, export_id=str(payload["export_id"]), storage=storage,
         actor=str(payload["actor"]),
     )
+
+
+@worker.register("ai_analyze")
+async def handle_ai_analyze(session: AsyncSession, job: ClaimedJob) -> dict[str, Any]:
+    """Advisory AI pass (T060): prompt logs + suggestions, nothing else.
+
+    The handler is deliberately thin — the trust boundary lives in
+    ai_service (provider calls sanitized, confidence mandatory, rows go
+    ONLY to prompt_logs/ai_suggestions). A provider failure fails this
+    job honestly with the machine-readable reason.
+    """
+    from backend.app.services.ai_service import execute_analyze
+
+    assert job.payload is not None, "ai_analyze payload required"
+    return await execute_analyze(session, run_id=str(job.payload["run_id"]))

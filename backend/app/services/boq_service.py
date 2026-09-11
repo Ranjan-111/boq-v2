@@ -44,6 +44,7 @@ from core.domain.enums import (
 )
 from core.domain.states import transition_boq
 from core.provenance.records import EvidenceLink
+from core.units.money import apply_markup, multiply_rate
 from exports.csv_export import ExportApproval, csv_bytes, rows_digest
 
 BLOCKING_SEVERITIES = (ExceptionSeverity.BLOCKING.value, ExceptionSeverity.REVIEW.value)
@@ -72,6 +73,17 @@ class _PersistedMeasurement:
 
     @property
     def value(self) -> Decimal:
+        """The billable value: a human correction replaces the engine value.
+
+        docs/domain-model.md: "BOQ recomputes from corrected values with
+        provenance human_correction — original always visible." The
+        original stays on the row (value column, never mutated); the
+        correction (corrected_value) is what a BOQ bills. An assembly
+        building from m.value would silently bill the pre-correction
+        number — the exact believable-but-wrong BOQ the doctrine forbids.
+        """
+        if self._row.corrected_value is not None:
+            return Decimal(str(self._row.corrected_value))
         return Decimal(str(self._row.value)) if self._row.value is not None else Decimal(0)
 
     @property
@@ -276,6 +288,7 @@ async def build_boq_from_run(
     session.add(AuditEntry(
         id=str(uuid.uuid4()), actor=actor, action=AuditAction.CREATE.value,
         subject_type="boq", subject_id=boq.id,
+        project_id=boq.project_id,
         after={"from_run_id": str(run.id), "items": item_count,
                "unmapped": len(unmapped)},
     ))
@@ -366,12 +379,13 @@ async def _unresolved_blockers(session: AsyncSession, run_id: str) -> list[Excep
 async def submit_boq(session: AsyncSession, *, project_id: str, boq_id: str,
                      actor: str) -> dict[str, Any]:
     boq = await _owned_boq(session, boq_id, project_id)
+    was = boq.status
     try:
         boq.status = transition_boq(BoqStatus(boq.status), BoqStatus.IN_REVIEW).value
     except ValueError as exc:
         raise BoqServiceError("illegal_transition", str(exc)) from exc
     await _audit(session, actor, AuditAction.SUBMIT.value if hasattr(AuditAction, "SUBMIT")
-                 else AuditAction.UPDATE.value, boq)
+                 else AuditAction.UPDATE.value, boq, before_status=was)
     return {"status": boq.status}
 
 
@@ -384,11 +398,13 @@ async def review_boq(session: AsyncSession, *, project_id: str, boq_id: str,
     like every other transition.
     """
     boq = await _owned_boq(session, boq_id, project_id)
+    was = boq.status
     try:
         boq.status = transition_boq(BoqStatus(boq.status), BoqStatus.REVIEWED).value
     except ValueError as exc:
         raise BoqServiceError("illegal_transition", str(exc)) from exc
-    await _audit(session, actor, AuditAction.UPDATE.value, boq, note=note)
+    await _audit(session, actor, AuditAction.UPDATE.value, boq, note=note,
+                 before_status=was)
     return {"status": boq.status}
 
 
@@ -397,11 +413,8 @@ async def approve_boq(session: AsyncSession, *, project_id: str, boq_id: str,
     """APPROVE only when: legal transition, items exist, zero unresolved
     blockers on the source run (server-side check, never client-supplied)."""
     boq = await _owned_boq(session, boq_id, project_id)
-    if boq.status not in (BoqStatus.REVIEWED.value, BoqStatus.DRAFT.value,
-                          BoqStatus.IN_REVIEW.value):
-        # DRAFT/IN_REVIEW/REVIEWED -> APPROVED must pass through REVIEWED per
-        # the machine; be strict: only REVIEWED can approve.
-        pass
+    # DRAFT/IN_REVIEW/REVIEWED -> APPROVED must pass through REVIEWED per
+    # the machine; be strict: only REVIEWED can approve.
     if boq.status != BoqStatus.REVIEWED.value:
         raise BoqServiceError(
             "illegal_transition",
@@ -424,20 +437,24 @@ async def approve_boq(session: AsyncSession, *, project_id: str, boq_id: str,
         raise BoqServiceError("illegal_transition", str(exc)) from exc
     # Uuid column (typed str in the ORM): asyncpg SELECTs hand back pgproto
     # UUIDs, hand-built rows hand back str — accept both.
+    was = boq.status
     boq.approved_by = str(actor)
     boq.approved_at = datetime.now(UTC)
-    await _audit(session, actor, AuditAction.APPROVE.value, boq, note=note)
+    await _audit(session, actor, AuditAction.APPROVE.value, boq, note=note,
+                 before_status=was)
     return {"status": boq.status}
 
 
 async def reject_boq(session: AsyncSession, *, project_id: str, boq_id: str,
                      actor: str, note: str | None = None) -> dict[str, Any]:
     boq = await _owned_boq(session, boq_id, project_id)
+    was = boq.status
     try:
         boq.status = transition_boq(BoqStatus(boq.status), BoqStatus.DRAFT).value
     except ValueError as exc:
         raise BoqServiceError("illegal_transition", str(exc)) from exc
-    await _audit(session, actor, AuditAction.REJECT.value, boq, note=note)
+    await _audit(session, actor, AuditAction.REJECT.value, boq, note=note,
+                 before_status=was)
     return {"status": boq.status}
 
 
@@ -445,6 +462,392 @@ async def mark_stale_if_approved(session: AsyncSession, boq: BoqModel) -> None:
     """Any post-approval mutation of a BOQ flips APPROVED -> STALE_APPROVED."""
     if boq.status == BoqStatus.APPROVED.value:
         boq.status = transition_boq(BoqStatus.APPROVED, BoqStatus.STALE_APPROVED).value
+
+
+# ---------------------------------------------------------------------------
+# BOQ editing (T086) — sections, items, recompute + diff, validation report.
+# Mutations are DRAFT-only: once review starts the BOQ is a reviewed
+# document; the only path back is REJECT -> DRAFT (audited) or, after
+# approval, the STALE_APPROVED -> DRAFT re-entry. Never a silent edit of a
+# document someone approved.
+# ---------------------------------------------------------------------------
+
+
+def _require_draft(boq: BoqModel) -> None:
+    if boq.status != BoqStatus.DRAFT.value:
+        raise BoqServiceError(
+            "not_draft",
+            f"BOQ is {boq.status!r} — only a DRAFT may be edited "
+            "(reject it first to return to draft)")
+
+
+async def _owned_section(session: AsyncSession, section_id: str,
+                         project_id: str) -> tuple[BoqModel, BoqSection]:
+    section = (await session.execute(
+        select(BoqSection).where(BoqSection.id == section_id)
+    )).scalar_one_or_none()
+    if section is None:
+        raise BoqServiceError("not_found", "section not found", 404)
+    boq = await _owned_boq(session, str(section.boq_id), project_id)
+    return boq, section
+
+
+async def add_section(session: AsyncSession, *, project_id: str, boq_id: str,
+                      code: str, title: str, sort_order: int, actor: str,
+                      ) -> dict[str, Any]:
+    """POST /boqs/{id}/sections — a human grouping decision, DRAFT-only."""
+    boq = await _owned_boq(session, boq_id, project_id)
+    _require_draft(boq)
+    if not code.strip() or not title.strip():
+        raise BoqServiceError("invalid_section", "code and title are required")
+    section = BoqSection(id=str(uuid.uuid4()), boq_id=boq.id,
+                         code=code.strip(), title=title.strip(),
+                         sort_order=sort_order)
+    session.add(section)
+    await session.flush()
+    session.add(AuditEntry(
+        id=str(uuid.uuid4()), actor=actor, action=AuditAction.CREATE.value,
+        subject_type="boq_section", subject_id=section.id,
+        project_id=boq.project_id,
+        after={"boq_id": str(boq.id), "code": section.code,
+               "title": section.title, "sort_order": sort_order},
+    ))
+    await session.flush()
+    return {"section_id": str(section.id), "code": section.code,
+            "title": section.title, "sort_order": sort_order}
+
+
+async def update_section(session: AsyncSession, *, project_id: str,
+                         section_id: str, code: str | None, title: str | None,
+                         sort_order: int | None, actor: str) -> dict[str, Any]:
+    """PATCH /sections/{id} — DRAFT-only; before/after audited."""
+    boq, section = await _owned_section(session, section_id, project_id)
+    _require_draft(boq)
+    before = {"code": section.code, "title": section.title,
+              "sort_order": section.sort_order}
+    if code is not None:
+        if not code.strip():
+            raise BoqServiceError("invalid_section", "code cannot be empty")
+        section.code = code.strip()
+    if title is not None:
+        if not title.strip():
+            raise BoqServiceError("invalid_section", "title cannot be empty")
+        section.title = title.strip()
+    if sort_order is not None:
+        section.sort_order = sort_order
+    await session.flush()
+    after = {"code": section.code, "title": section.title,
+             "sort_order": section.sort_order}
+    session.add(AuditEntry(
+        id=str(uuid.uuid4()), actor=actor, action=AuditAction.UPDATE.value,
+        subject_type="boq_section", subject_id=section.id,
+        project_id=boq.project_id, before=before, after=after,
+    ))
+    await session.flush()
+    return after
+
+
+async def delete_section(session: AsyncSession, *, project_id: str,
+                         section_id: str, actor: str) -> dict[str, Any]:
+    """DELETE /sections/{id} — DRAFT-only; items go with their section."""
+    boq, section = await _owned_section(session, section_id, project_id)
+    _require_draft(boq)
+    items = (await session.execute(
+        select(BoqItem).where(BoqItem.section_id == section.id)
+    )).scalars().all()
+    for item in items:
+        await session.delete(item)
+        await session.flush()
+    await session.delete(section)
+    await session.flush()
+    session.add(AuditEntry(
+        id=str(uuid.uuid4()), actor=actor, action=AuditAction.UPDATE.value,
+        subject_type="boq_section", subject_id=section.id,
+        project_id=boq.project_id,
+        before={"code": section.code, "title": section.title,
+                "items": len(items)},
+        after={"deleted": True},
+    ))
+    await session.flush()
+    return {"deleted": True, "items_removed": len(items)}
+
+
+async def _owned_item(session: AsyncSession, item_id: str,
+                      project_id: str) -> tuple[BoqModel, BoqItem]:
+    item = (await session.execute(
+        select(BoqItem).where(BoqItem.id == item_id)
+    )).scalar_one_or_none()
+    if item is None:
+        raise BoqServiceError("not_found", "BOQ item not found", 404)
+    section = (await session.execute(
+        select(BoqSection).where(BoqSection.id == item.section_id)
+    )).scalar_one()
+    boq = await _owned_boq(session, str(section.boq_id), project_id)
+    return boq, item
+
+
+async def add_manual_item(session: AsyncSession, *, project_id: str,
+                          boq_id: str, section_id: str | None,
+                          description: str, unit: str | None,
+                          quantity: Decimal, rate_minor: int | None,
+                          markup_bp: int, sort_order: int, actor: str,
+                          ) -> dict[str, Any]:
+    """POST /boqs/{id}/items — a MANUAL line (T085's manual/PC-sum contract).
+
+    The quantity is the human's own entry (provenance: manual, audited);
+    it never masquerades as a mapped measurement. PC-sum lines arrive the
+    same way with an explicit lump rate later.
+    """
+    boq = await _owned_boq(session, boq_id, project_id)
+    _require_draft(boq)
+    if section_id is None:
+        section = (await session.execute(
+            select(BoqSection).where(BoqSection.boq_id == boq.id)
+            .order_by(BoqSection.sort_order, BoqSection.id)
+        )).scalars().first()
+        if section is None:
+            raise BoqServiceError(
+                "no_section", "BOQ has no section to add the item to")
+    else:
+        _b, section = await _owned_section(session, section_id, project_id)
+        if str(section.boq_id) != str(boq.id):
+            raise BoqServiceError("not_found", "section not in this BOQ", 404)
+    if not description.strip():
+        raise BoqServiceError("invalid_item", "description is required")
+    if quantity < 0:
+        raise BoqServiceError("invalid_item", "quantity must be >= 0")
+    if markup_bp < 0:
+        raise BoqServiceError("invalid_item", "markup must be >= 0")
+    if rate_minor is not None and rate_minor < 0:
+        raise BoqServiceError("invalid_item", "rate must be >= 0")
+    # Manual lines are priced like any other: total recomputable from
+    # (quantity, rate, markup) — invariant 5 applies to human rows too.
+    currency = await _project_currency(session, project_id)
+    total = _line_total(quantity, rate_minor, markup_bp, currency)
+    item = BoqItem(
+        id=str(uuid.uuid4()), section_id=section.id, origin="manual",
+        catalogue_item_id=None, description=description.strip(),
+        unit=unit, quantity=quantity, rate_minor=rate_minor,
+        rate_scope=None, markup_bp=markup_bp, total_minor=total,
+        measurement_ids=[], sort_order=sort_order,
+    )
+    session.add(item)
+    await session.flush()
+    session.add(AuditEntry(
+        id=str(uuid.uuid4()), actor=actor, action=AuditAction.CREATE.value,
+        subject_type="boq_item", subject_id=item.id,
+        project_id=boq.project_id,
+        after={"origin": "manual", "description": item.description,
+               "quantity": str(quantity), "rate_minor": rate_minor,
+               "markup_bp": markup_bp},
+    ))
+    await session.flush()
+    return {"item_id": str(item.id), "total_minor": total}
+
+
+async def update_item(session: AsyncSession, *, project_id: str, item_id: str,
+                      description: str | None, rate_minor: int | None,
+                      markup_bp: int | None,
+                      quantity: Decimal | None, actor: str) -> dict[str, Any]:
+    """PATCH /boq-items/{id} — DRAFT-only; rate override + markup + manual qty.
+
+    A quantity PATCH on a MAPPED item is refused: mapped quantities come
+    from measurements (correct them through the audited review path, or
+    recompute after a correction — never a direct column edit). Manual
+    items accept quantity edits (their provenance IS the human).
+    """
+    boq, item = await _owned_item(session, item_id, project_id)
+    _require_draft(boq)
+    before = {"description": item.description, "rate_minor": item.rate_minor,
+              "markup_bp": item.markup_bp,
+              "quantity": str(item.quantity) if item.quantity is not None else None,
+              "total_minor": item.total_minor}
+    if quantity is not None and item.origin == "mapped":
+        raise BoqServiceError(
+            "mapped_quantity_immutable",
+            "mapped quantities come from measurements — correct the "
+            "measurement (audited) or recompute; a direct edit would "
+            "break provenance")
+    if description is not None:
+        if not description.strip():
+            raise BoqServiceError("invalid_item", "description cannot be empty")
+        item.description = description.strip()
+    if rate_minor is not None:
+        if rate_minor < 0:
+            raise BoqServiceError("invalid_item", "rate must be >= 0")
+        item.rate_minor = rate_minor
+    if markup_bp is not None:
+        if markup_bp < 0:
+            raise BoqServiceError("invalid_item", "markup must be >= 0")
+        item.markup_bp = markup_bp
+    if quantity is not None:
+        if quantity < 0:
+            raise BoqServiceError("invalid_item", "quantity must be >= 0")
+        item.quantity = quantity
+    # Recompute the total from (quantity, rate, markup) — never a cached
+    # number (invariant 5, enforced here so every edit leaves the row
+    # recomputable).
+    currency = await _project_currency(session, project_id)
+    total = _line_total(item.quantity, item.rate_minor, item.markup_bp,
+                        currency)
+    item.total_minor = total
+    await session.flush()
+    session.add(AuditEntry(
+        id=str(uuid.uuid4()), actor=actor, action=AuditAction.UPDATE.value,
+        subject_type="boq_item", subject_id=item.id,
+        project_id=boq.project_id, before=before,
+        after={**before, "description": item.description,
+               "rate_minor": item.rate_minor, "markup_bp": item.markup_bp,
+               "quantity": (str(item.quantity)
+                            if item.quantity is not None else None),
+               "total_minor": total},
+    ))
+    await session.flush()
+    return {"item_id": str(item.id), "total_minor": total}
+
+
+async def delete_item(session: AsyncSession, *, project_id: str, item_id: str,
+                      actor: str) -> dict[str, Any]:
+    """DELETE /boq-items/{id} — DRAFT-only; before-snapshot audited."""
+    boq, item = await _owned_item(session, item_id, project_id)
+    _require_draft(boq)
+    before = {"description": item.description, "origin": item.origin,
+              "quantity": (str(item.quantity)
+                           if item.quantity is not None else None)}
+    await session.delete(item)
+    await session.flush()
+    session.add(AuditEntry(
+        id=str(uuid.uuid4()), actor=actor, action=AuditAction.UPDATE.value,
+        subject_type="boq_item", subject_id=item.id,
+        project_id=boq.project_id, before=before, after={"deleted": True},
+    ))
+    await session.flush()
+    return {"deleted": True}
+
+
+async def recompute_boq(session: AsyncSession, *, project_id: str, boq_id: str,
+                        actor: str) -> dict[str, Any]:
+    """POST /boqs/{id}/recompute — pull upstream changes into a DRAFT BOQ.
+
+    Upstream = measurement corrections (corrected_value) since the BOQ was
+    built. Every MAPPED item re-reads its measurements: a corrected value
+    replaces the engine value (the whole point of the audited correction —
+    the BOQ recomputes from corrected values with provenance
+    human_correction, docs/domain-model.md). Totals recompute from
+    (quantity, rate, markup). Returns a per-item DIFF (before/after), so
+    the caller sees exactly what an upstream change did — never a silent
+    re-price. DRAFT-only: a reviewed/approved document does not move under
+    its reader (that is the STALE path instead).
+    """
+    boq = await _owned_boq(session, boq_id, project_id)
+    _require_draft(boq)
+    rows = (await session.execute(
+        select(BoqItem).join(BoqSection, BoqItem.section_id == BoqSection.id)
+        .where(BoqSection.boq_id == boq.id)
+        .order_by(BoqSection.sort_order, BoqItem.sort_order, BoqItem.id)
+    )).scalars().all()
+    diff: list[dict[str, Any]] = []
+    for item in rows:
+        if item.origin != "mapped" or not item.measurement_ids:
+            continue
+        # Measurements are re-read through the DURABLE identities, scoped to
+        # this BOQ's source run (measurement_id is unique per run, not
+        # globally — two runs of the same drawing share identities).
+        ms = (await session.execute(
+            select(MeasurementModel).where(
+                MeasurementModel.run_id == boq.from_run_id,
+                MeasurementModel.measurement_id.in_(item.measurement_ids))
+        )).scalars().all()
+        by_identity = {str(m.measurement_id): m for m in ms}
+        quantity = Decimal(0)
+        for mid in item.measurement_ids:
+            m = by_identity.get(str(mid))
+            if m is None:
+                continue  # identity vanished — recompute stays honest, skips
+            value = m.corrected_value if m.corrected_value is not None else m.value
+            quantity += Decimal(str(value)) if value is not None else Decimal(0)
+        before_qty = item.quantity
+        before_total = item.total_minor
+        if before_qty is None or quantity != Decimal(str(before_qty)):
+            item.quantity = quantity
+            currency = await _project_currency(session, project_id)
+            item.total_minor = _line_total(
+                item.quantity, item.rate_minor, item.markup_bp, currency)
+            await session.flush()
+            diff.append({
+                "item_id": str(item.id),
+                "description": item.description,
+                "before": {"quantity": (str(before_qty)
+                                        if before_qty is not None else None),
+                           "total_minor": before_total},
+                "after": {"quantity": str(item.quantity),
+                          "total_minor": item.total_minor},
+            })
+    if diff:
+        session.add(AuditEntry(
+            id=str(uuid.uuid4()), actor=actor,
+            action=AuditAction.UPDATE.value,
+            subject_type="boq", subject_id=boq.id,
+            project_id=boq.project_id,
+            before={"recompute": "pre-upstream-change"},
+            after={"changed_items": len(diff),
+                   "grand_total_minor": sum(i.total_minor or 0 for i in rows)},
+            reason="recompute after measurement corrections",
+        ))
+        await session.flush()
+    return {"changed_items": len(diff), "diff": diff}
+
+
+async def validation_report(session: AsyncSession, *, project_id: str,
+                            boq_id: str) -> dict[str, Any]:
+    """GET /boqs/{id}/validation — the completeness/blocking report (T093).
+
+    Server-side, export-gate-shaped: the same checks the approve/export
+    gates run, reported as a list a human can work through. Never a client
+    trust-me.
+    """
+    boq = await _owned_boq(session, boq_id, project_id)
+    sections = (await session.execute(
+        select(BoqSection).where(BoqSection.boq_id == boq.id)
+        .order_by(BoqSection.sort_order, BoqSection.id)
+    )).scalars().all()
+    items = (await session.execute(
+        select(BoqItem).where(BoqItem.section_id.in_(
+            [s.id for s in sections]
+            or ["00000000-0000-0000-0000-000000000000"]))
+    )).scalars().all() if sections else []
+    problems: list[dict[str, str]] = []
+    if not items:
+        problems.append({"code": "no_items",
+                         "message": "BOQ has no items"})
+    for item in items:
+        if item.rate_minor is None:
+            problems.append({
+                "code": "unpriced_item",
+                "message": f"{item.description[:60]}: no rate"})
+        elif item.total_minor is None:
+            problems.append({
+                "code": "unpriced_item",
+                "message": f"{item.description[:60]}: no total (recompute)"})
+        if item.origin == "mapped" and not item.measurement_ids:
+            problems.append({
+                "code": "broken_mapping",
+                "message": f"{item.description[:60]}: no measurement identity"})
+    blockers: list[ExceptionModel] = []
+    if boq.from_run_id is not None:
+        blockers = await _unresolved_blockers(session, str(boq.from_run_id))
+        for b in blockers:
+            problems.append({"code": b.code,
+                             "message": f"run blocker: {b.message[:200]}"})
+    return {
+        "boq_id": str(boq.id), "status": boq.status,
+        "item_count": len(items),
+        "unresolved_blockers": len(blockers),
+        "problems": problems,
+        "ready_for_approval": (not problems and boq.status in
+                              (BoqStatus.DRAFT.value, BoqStatus.IN_REVIEW.value,
+                               BoqStatus.REVIEWED.value)),
+    }
 
 
 def _as_uuid(value: str | uuid.UUID) -> uuid.UUID:
@@ -459,11 +862,19 @@ def _as_uuid(value: str | uuid.UUID) -> uuid.UUID:
 
 
 async def _audit(session: AsyncSession, actor: str, action: str, boq: BoqModel,
-                 *, note: str | None = None) -> None:
+                 *, note: str | None = None,
+                 before_status: str | None = None) -> None:
+    """Audited BOQ transition. before_status is the status BEFORE the
+    transition — call sites capture it first so the row records what
+    actually changed, never the post-state twice. project_id scopes the
+    row to the project's audit trail (T075)."""
     session.add(AuditEntry(
         id=str(uuid.uuid4()), actor=_as_uuid(actor), action=action,
         subject_type="boq", subject_id=_as_uuid(boq.id),
-        before={"status": boq.status}, after={"status": boq.status},
+        project_id=boq.project_id,
+        before={"status": before_status if before_status is not None
+                else boq.status},
+        after={"status": boq.status},
         reason=note,
     ))
     await session.flush()
@@ -508,6 +919,24 @@ async def _project_currency(session: AsyncSession, project_id: str) -> str:
         select(Project.currency).where(Project.id == project_id)
     )).scalar_one_or_none()
     return row or "INR"
+
+
+def _line_total(quantity: Decimal | None, rate_minor: int | None,
+               markup_bp: int, currency: str) -> int:
+    """Line total from (quantity, rate, markup) via the pricing kernel.
+
+    THE invariant-5 helper for edited lines: every human edit re-derives
+    the total through core.units.money (banker's rounding, integer minor
+    units) — never a cached or hand-computed number. A line without rate
+    or without quantity totals to 0 (unpriced lines surface in the
+    validation report instead of pretending).
+    """
+    if rate_minor is None or quantity is None:
+        return 0
+    base = multiply_rate(quantity, rate_minor, currency=currency)
+    if markup_bp:
+        return base.amount_minor + apply_markup(base, markup_bp).amount_minor
+    return base.amount_minor
 
 
 class _ExportRow:
@@ -623,6 +1052,7 @@ async def execute_export(
             id=str(uuid.uuid4()), actor=_as_uuid(actor),
             action=AuditAction.EXPORT.value, subject_type="export",
             subject_id=_as_uuid(artifact.id),
+            project_id=boq.project_id,
             after={"sha256": sha, "boq_status": boq.status},
         ))
         await session.flush()

@@ -154,6 +154,9 @@ async def confirm_scale(
         action=AuditAction.CONFIRM_SCALE.value,
         subject_type="sheet",
         subject_id=sheet.id,
+        # Project-scoped (Round 6 audit trail): THE human gate belongs on
+        # the project's trail, not just the global one.
+        project_id=uuid.UUID(str(_drawing.project_id)),
         before={"status": before_status, "units_per_drawing_unit": before_factor},
         after={
             "status": ScaleCalibrationStatus.CONFIRMED.value,

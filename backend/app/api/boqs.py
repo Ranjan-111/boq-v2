@@ -8,7 +8,8 @@ Approval and export are enforced SERVER-SIDE (boq_service):
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from decimal import Decimal
+from typing import Any, NoReturn
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -172,6 +173,208 @@ async def reject_boq(
             actor=user.id, note=body.note if body else None)
     except boq_service.BoqServiceError as exc:
         raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
+# ---------------------------------------------------------------------------
+# BOQ editing (T086) — DRAFT-only mutations, audited; contract 81-90.
+# ---------------------------------------------------------------------------
+
+
+class SectionCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    title: str = Field(min_length=1, max_length=512)
+    sort_order: int = 0
+
+
+class SectionPatch(BaseModel):
+    code: str | None = Field(default=None, min_length=1, max_length=40)
+    title: str | None = Field(default=None, min_length=1, max_length=512)
+    sort_order: int | None = None
+
+
+class ItemCreate(BaseModel):
+    """A MANUAL line (T085 manual/PC-sum contract) — the human's own entry."""
+
+    section_id: str | None = None
+    description: str = Field(min_length=1, max_length=2000)
+    unit: str | None = Field(default=None, max_length=8)
+    quantity: Decimal
+    rate_minor: int | None = Field(default=None, ge=0)
+    markup_bp: int = Field(default=0, ge=0)
+    sort_order: int = 0
+
+
+class ItemPatch(BaseModel):
+    description: str | None = Field(default=None, min_length=1, max_length=2000)
+    rate_minor: int | None = Field(default=None, ge=0)
+    markup_bp: int | None = Field(default=None, ge=0)
+    quantity: Decimal | None = Field(default=None, ge=0)
+
+
+def _svc_error(exc: boq_service.BoqServiceError) -> NoReturn:
+    raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
+@router.post("/boqs/{boq_id}/sections", status_code=201)
+async def add_section(
+    boq_id: str,
+    body: SectionCreate,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    boq = await _resolve_callers_boq(session, boq_id, user)
+    try:
+        return await boq_service.add_section(
+            session, project_id=str(boq.project_id), boq_id=boq_id,
+            code=body.code, title=body.title, sort_order=body.sort_order,
+            actor=user.id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+@router.patch("/sections/{section_id}")
+async def patch_section(
+    section_id: str,
+    body: SectionPatch,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    boq = await _resolve_callers_section(session, section_id, user)
+    try:
+        return await boq_service.update_section(
+            session, project_id=str(boq.project_id), section_id=section_id,
+            code=body.code, title=body.title, sort_order=body.sort_order,
+            actor=user.id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+@router.delete("/sections/{section_id}")
+async def delete_section(
+    section_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    boq = await _resolve_callers_section(session, section_id, user)
+    try:
+        return await boq_service.delete_section(
+            session, project_id=str(boq.project_id), section_id=section_id,
+            actor=user.id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+@router.post("/boqs/{boq_id}/items", status_code=201)
+async def add_item(
+    boq_id: str,
+    body: ItemCreate,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    boq = await _resolve_callers_boq(session, boq_id, user)
+    try:
+        return await boq_service.add_manual_item(
+            session, project_id=str(boq.project_id), boq_id=boq_id,
+            section_id=body.section_id, description=body.description,
+            unit=body.unit, quantity=body.quantity,
+            rate_minor=body.rate_minor, markup_bp=body.markup_bp,
+            sort_order=body.sort_order, actor=user.id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+@router.patch("/boq-items/{item_id}")
+async def patch_item(
+    item_id: str,
+    body: ItemPatch,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    boq = await _resolve_callers_item(session, item_id, user)
+    try:
+        return await boq_service.update_item(
+            session, project_id=str(boq.project_id), item_id=item_id,
+            description=body.description, rate_minor=body.rate_minor,
+            markup_bp=body.markup_bp, quantity=body.quantity, actor=user.id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+@router.delete("/boq-items/{item_id}")
+async def delete_item(
+    item_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    boq = await _resolve_callers_item(session, item_id, user)
+    try:
+        return await boq_service.delete_item(
+            session, project_id=str(boq.project_id), item_id=item_id,
+            actor=user.id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+@router.post("/boqs/{boq_id}/recompute")
+async def recompute(
+    boq_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """After upstream (measurement correction) changes; returns a diff."""
+    boq = await _resolve_callers_boq(session, boq_id, user)
+    try:
+        return await boq_service.recompute_boq(
+            session, project_id=str(boq.project_id), boq_id=boq_id,
+            actor=user.id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+@router.get("/boqs/{boq_id}/validation")
+async def get_validation(
+    boq_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """Completeness/blocking report — the export-gate checks, listed (T093)."""
+    boq = await _resolve_callers_boq(session, boq_id, user)
+    try:
+        return await boq_service.validation_report(
+            session, project_id=str(boq.project_id), boq_id=boq_id)
+    except boq_service.BoqServiceError as exc:
+        _svc_error(exc)
+
+
+async def _resolve_callers_section(
+    session: AsyncSession, section_id: str, user: User
+) -> BoqModel:
+    """Resolve section -> BOQ -> ownership (sections are project-implicit)."""
+    from backend.app.db.models import BoqSection
+
+    section = (await session.execute(
+        select(BoqSection).where(BoqSection.id == section_id)
+    )).scalar_one_or_none()
+    if section is None:
+        raise problem_error(404, "not_found", "section not found")
+    return await _resolve_callers_boq(session, str(section.boq_id), user)
+
+
+async def _resolve_callers_item(
+    session: AsyncSession, item_id: str, user: User
+) -> BoqModel:
+    """Resolve item -> section -> BOQ -> ownership."""
+    from backend.app.db.models import BoqItem, BoqSection
+
+    item = (await session.execute(
+        select(BoqItem).where(BoqItem.id == item_id)
+    )).scalar_one_or_none()
+    if item is None:
+        raise problem_error(404, "not_found", "BOQ item not found")
+    section = (await session.execute(
+        select(BoqSection).where(BoqSection.id == item.section_id)
+    )).scalar_one()
+    return await _resolve_callers_boq(session, str(section.boq_id), user)
 
 
 async def _resolve_callers_boq(
