@@ -453,9 +453,37 @@ class AuditEntry(Base):
     action: Mapped[str] = mapped_column(String(30), nullable=False)
     subject_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     subject_id: Mapped[str] = mapped_column(Uuid, nullable=False)
+    # Project scoping for GET /projects/{pid}/audit (T075). Nullable by
+    # design: worker/system actions may be project-less; every project-
+    # scoped write sets it.
+    project_id: Mapped[str | None] = mapped_column(Uuid, index=True)
     before: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     after: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     reason: Mapped[str | None] = mapped_column(Text)
+
+
+class PromptLogModel(Base):
+    """One AI provider call, recorded verbatim (T060 prompt/response audit).
+
+    Written BEFORE any suggestion is derived from a response — the audit
+    trail is a precondition for trusting an advisory layer. The response is
+    the structured (JSON-schema-validated) payload only; secrets and headers
+    are never stored.
+    """
+
+    __tablename__ = "prompt_logs"
+
+    id: Mapped[str] = mapped_column(Uuid, primary_key=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(60), nullable=False)
+    # What the call was for (e.g. "sheet_classification", "element_labels").
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    response: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        index=True,
+    )
 
 
 class AiSuggestion(Base):

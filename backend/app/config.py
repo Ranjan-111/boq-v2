@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     job_poll_seconds: float = 2.0
     job_max_attempts: int = 3
 
+    # AI provider (T060). The provider layer is advisory-only: it writes
+    # suggestions + prompt logs, never a quantity (docs/domain-model.md
+    # invariant 3). An empty api_key keeps every AI path honestly disabled.
+    ai_provider: str = "stub"  # stub | http
+    ai_base_url: str = ""
+    ai_api_key: str = ""
+    ai_model: str = "advisory-default"
+    ai_timeout_seconds: float = 30.0
+
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024

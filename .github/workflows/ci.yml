@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
       - run: .venv/bin/ruff check .
       - run: .venv/bin/mypy core ingestion takeoff classification provenance review boq catalog pricing exports backend
 
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
       - name: import-linter boundary check
         run: .venv/bin/lint-imports
       - name: reference-leak guard
@@ -56,7 +56,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
       - name: migrations
         run: .venv/bin/alembic -c backend/alembic.ini upgrade head
       - name: unit + integration tests
@@ -70,7 +70,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
       - name: pip-audit (vulnerabilities)
         run: .venv/bin/pip-audit --skip-editable
       - name: banned-license check (AGPL must never enter the tree)

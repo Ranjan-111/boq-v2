@@ -10,7 +10,7 @@ venv: ## Create virtualenv (Python 3.13)
 	$(MAKE) install
 
 install: ## Install all deps incl. dev
-	uv pip install --python .venv/bin/python -e ".[dev,ingest,geo]"
+	uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo]"
 
 lint: ## ruff + mypy
 	.venv/bin/ruff check .
