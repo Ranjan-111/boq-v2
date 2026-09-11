@@ -41,7 +41,7 @@ additive-only; changes are PR'd against the docs first.
 | T030 ◐R3 | DXF parser (ezdxf): entities→normalized Geometry, **capture dxf.handle for stable identity**, layers, blocks-emitted-once, INSUNITS reading | P0 | 5–8 | T011, T013 | OCErp pattern #4/#7. R3: core+INSERT+refusals done; paperspace viewports later |
 | T031 ◐R3 | DXF sheet/layout detection + measurability rules (modelspace-first, refuse ambiguous) | P0 | 2 | T030 | R3: modelspace-first + paperspace refusal done |
 | T032 ◐R5 | PDF parser: pdfplumber vector paths + text tokens (dimension candidates), pypdfium2 page tiles | P0 | 5–7 | T011 | PyMuPDF banned. R5: parse_pdf + text tokens + honest refusals (corrupt/no-Root/encrypted-locked) + hand-authored ASCII fixtures done; pypdfium2 page tiles later |
-| T033 | Raster ingestion: storage + AI-vision text/region pass; NO auto-measurement | P0 | 3 | T030 (interfaces) | |
+| T033 ◐R6 | Raster ingestion: storage + AI-vision text/region pass; NO auto-measurement | P0 | 3 | T030 (interfaces) | R6: Pillow-only parse_raster (50MP guard, geometries=() ALWAYS, no scale proposal) + 6 byte-stable fixtures done; AI-vision text/region pass later (needs the provider) |
 | T034 ◐R5 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies. R3: DXF proposal + confirmed-scale validation; R5: PDF `1:N` text regex proposal (PROPOSED-only) done; scale-bar heuristic later |
 | T035 | OOM-isolated extraction worker (RLIMIT_AS child process) | P1 | 2 | T032 | |
 | T036 ◐R3 | Corruption/adversarial file handling + format sniffing + fixtures | P0 | 2 | T030, T032, T033 | with H1. R3: DXF adversarial fixtures + refusals done |
@@ -59,7 +59,7 @@ additive-only; changes are PR'd against the docs first.
 | T045 ◐R5 | Opening detection: door/window blocks by name/geometry + counts (DXF); text+vector candidates (PDF) | P0 | 4 | T030, T032 | R5: DXF named-block + corroboration doctrine (bare gaps never openings) done; PDF text+vector candidates later |
 | T046 ◐R5 | Deduction rules (openings subtracted from wall areas; MEASURED_ZERO states) | P0 | 2 | T042, T045 | R5: geometric net-area rule + MEASURED_ZERO opening counts done |
 | T047 ◐R5 | PDF vector candidate detectors (areas/lengths/counts + seeded count-by-example) | P1 | 3 | T032 | R5: detectors landed, deliberately NOT registered as rules (candidates propose, humans confirm) |
-| T048 | Raster candidate detectors (OpenCV rooms/walls, honest confidences, "(verify)") | P1 | 3 | T033 | |
+| T048 ◐R6 | Raster candidate detectors (OpenCV rooms/walls, honest confidences, "(verify)") | P1 | 3 | T033 | R6: walls/rooms candidates done — pixel-space only, conf ≤0.75 at construction, px→mm deliberately absent (needs confirmed scale) |
 | T049 ◐R3 | Measurement states + exceptions engine (BLOCKING vs REVIEW; scale-unconfirmed guard) | P0 | 3 | T041, T034 | R3: measure_sheet/measure_parsed with scale gate, evidence enforcement, warning propagation, content-bound replay done |
 | T050 ◐R3 | Determinism test harness: golden-run replay (same inputs → identical outputs, engine_version-stamped) | P0 | 2 | T041 | with H1. R3: digest binding + ordering determinism tested; persisted golden runs later |
 
@@ -67,12 +67,12 @@ additive-only; changes are PR'd against the docs first.
 
 | ID | Ticket | Pri | Eff | Depends |
 |---|---|---|---|---|
-| T060 | Provider abstraction: httpx-based, JSON-schema structured outputs, mandatory confidence, prompt/response audit log | P0 | 3 | T011 |
+| T060 ◐R6 | Provider abstraction: httpx-based, JSON-schema structured outputs, mandatory confidence, prompt/response audit log | P0 | 3 | T011 | R6: AiProvider Protocol + strict SuggestionSchema + stub/sync-http providers + prompt_logs table + analyze job wiring done; vendor models later (config-only: ai_provider=http + base_url/key/model) |
 | T061 | Sheet classification (plan/section/elevation/detail) with confidence | P0 | 2 | T060, T030 |
 | T062 | Element classification suggestions (+label reading) with confidence + explanation | P0 | 3 | T060, T042, T043 |
 | T063 | Catalogue suggestion: rapidfuzz prefilter → LLM re-rank → 4-tier queue (nothing applies without human confirm) | P0 | 3 | T060, catalog schema |
 | T064 | Exception explainer (plain-language, cites evidence) | P1 | 2 | T060, T049 |
-| T065 | Numerical guardrails: AI writes only suggestion tables; type-layer + import-linter enforced; tests prove no AI path writes quantities | P0 | 2 | T060, T020 |
+| T065 ◐R6 | Numerical guardrails: AI writes only suggestion tables; type-layer + import-linter enforced; tests prove no AI path writes quantities | P0 | 2 | T060, T020 | R6: sanitize strips 12 quantity aliases any depth; confidence refused outside [0, 0.95]; AI-boundary import-linter contract; 51 guardrail tests |
 | T066 | Failure/retry handling, cost caps, provider fallback | P1 | 2 | T060 |
 
 ## EPIC 5 — Review workspace & provenance (Round C/D)
@@ -81,10 +81,10 @@ additive-only; changes are PR'd against the docs first.
 |---|---|---|---|---|
 | T070 ◐R4 | Evidence assembly: highlight rects/paths per measurement (all formats), evidence API | P0 | 3 | T013, T030–T033 | R4: per-measurement evidence API + viewer highlight (selected measurement red, prior blue); all-formats + tiles later |
 | T071 ◐R4 | Exceptions UI queue: severity, filter, resolve actions | P0 | 3 | T049, F-epic | R4: run-scoped list + severity badges + inline resolve (audited) done; cross-run queue later |
-| T072 | Correction workflow: audited quantity corrections (original preserved, provenance=human_correction) | P0 | 3 | T012, T014 |
-| T073 | Classification overrides (element_type human > AI, recorded) | P0 | 2 | T062 |
+| T072 ◐R6 | Correction workflow: audited quantity corrections (original preserved, provenance=human_correction) | P0 | 3 | T012, T014 | R6: value column NEVER mutated (corrected_value same row, strikethrough UI, audited before/after); two validated hops via NEEDS_REVIEW; fresh BOQ builds + recompute bill the correction; ambiguity = named 409 |
+| T073 ◐R6 | Classification overrides (element_type human > AI, recorded) | P0 | 2 | T062 | R6: override endpoint + UI done — type_source=human_set, AI provenance (ai_confidence/model/explanation) preserved on the row |
 | T074 | Scale confirmation UI (two-point calibration + confirm gate) | P0 | 2 | T034 |
-| T075 | Audit trail API + viewer (who/what/when/before/after) | P0 | 2 | T013, T014 |
+| T075 ◐R6 | Audit trail API + viewer (who/what/when/before/after) | P0 | 2 | T013, T014 | R6: project-scoped list (subject_type/actor/since/before/limit filters, deterministic order, cursor pagination) + AuditTab done; all R5-era writers retrofitted with project_id (incl. confirm-scale, THE gate) |
 | T076 ◐R4 | Blocker queue: unresolved BLOCKING items list, export gate | P0 | 2 | T049 | R4: server-side unresolved-blocker check refuses approve + export (tested incl. adversarial blocker); a dedicated queue view later |
 
 ## EPIC 6 — Catalogue & BOQ (Round D)
@@ -97,7 +97,7 @@ additive-only; changes are PR'd against the docs first.
 | T083 | Search: rapidfuzz lexical + categories (+AI re-rank via T063) | P0 | 2 | T080 |
 | T084 ◐R4 | Mapping: measurement → catalogue item, unit compatibility validation, unmapped = BLOCKING | P0 | 3 | T080, T049 | R4: unit-group mapping w/ project>default rate scope, unmapped reported honestly as blockers; manual mapping UI later |
 | T085 ◐R4 | BOQ assembly: sections (CPWD sub-head informed), items from mappings, manual/PC-sum lines | P0 | 4 | T084 | R4: persisted multi-item draft from a run (single section), unmapped honest; manual/PC-sum lines + CPWD structure later |
-| T086 | Recompute + diff on upstream change; duplicate detection | P0 | 3 | T085 |
+| T086 ◐R6 | Recompute + diff on upstream change; duplicate detection | P0 | 3 | T085 | R6: DRAFT-only section/item CRUD + manual items + recompute with per-item before/after diff (bills corrected_value, idempotent) + validation report done; duplicate detection later |
 
 ## EPIC 7 — Pricing & approval (Round D)
 
@@ -106,7 +106,7 @@ additive-only; changes are PR'd against the docs first.
 | T090 ◐R3 | Rates: DEFAULT/PROJECT/VENDOR scopes, integer minor units, provenance | P0 | 2 | T080 | R3: CatalogueRate minor-unit slice done |
 | T091 ◐R3 | Pricing engine: qty×rate, markup stack (percentage/fixed, cumulative), section+BOQ totals, banker's rounding | P0 | 3 | T085, T090 | R3: bp-markup slice w/ recompute invariant done |
 | T092 ◐R4 | Approval: submit/approve/reject with audit; lock-as-approval (CAS); stale invalidation on mutation | P0 | 3 | T085 | R4: submit/review/approve/reject via state machine, audited, REVIEWED-only approve, stale transition exists; CAS lock later |
-| T093 | Validation report (blockers: unresolved exceptions, unmapped, unpriced) — server-side, export gate | P0 | 2 | T092 |
+| T093 ◐R6 | Validation report (blockers: unresolved exceptions, unmapped, unpriced) — server-side, export gate | P0 | 2 | T092 | R6: report endpoint done (no_items/unpriced_item/broken_mapping/run blockers → ready_for_approval); wiring into the approve gate itself later (approve already refuses via blockers_present) |
 | T094 | Regional rate snapshots (post-V1): additional hand-authored/user-imported regional datasets, each with original-source license recorded (reuse-matrix #29–#32 policy). A snapshot is **static bundled/imported data with source + date** — never labeled live market data (OCErp's rate datasets are likewise static GitHub-hosted files; no live feed exists to emulate) | P2 | 3–4 | T081, T082 |
 | T095 | Price provenance chain (post-V1): rate → source (catalogue snapshot / vendor quote / manual) → quote/reference timestamp → optional external price-source API (DYNAMIC: on-demand fetch, recorded per use) with per-rate provenance. Real-time vendor price feeds are NOT planned — no evidence any reference system provides one, and claiming it would violate the trust doctrine. STATIC → IMPORTED → DYNAMIC in that order; user-imported price lists (CSV/XLSX) are the V1 path | P2 | 3–4 | T090, T094 |
 
@@ -128,7 +128,7 @@ additive-only; changes are PR'd against the docs first.
 | T111 | Upload flow + job progress (SSE) | P0 | 2 | T017 |
 | T112 | Drawing viewer: tiles + normalized-geometry SVG overlay, pan/zoom, layer control | P0 | 6 | T018, T030–T033 |
 | T113 ◐R4 | Evidence highlighting: measurement↔drawing bidirectional | P0 | 4 | T070, T112 | R4: measurement→evidence click-highlight in the viewer (pan/zoom SVG, centerlines dashed); drawing-side + tiles later |
-| T114 | Review workspace: exceptions, evidence panel, corrections, overrides, audit view | P0 | 5 | T071–T076 |
+| T114 ◐R6 | Review workspace: exceptions, evidence panel, corrections, overrides, audit view | P0 | 5 | T071–T076 | R6: corrections + overrides + audit view landed concretely as T072/T073/T075 (the frozen contracts' decomposition); exceptions + evidence panels exist since R4 — full workspace composition later |
 | T115 | Scale confirmation UX | P0 | 1 | T074 |
 | T116 | BOQ workspace: sections/items grid, mapping picker w/ suggestions, rate editing, markups, totals | P0 | 6 | T085–T093 |
 | T117 | Approval + export UX (validation report, blocker gating, downloads) | P0 | 2 | T093, T100 |
@@ -159,7 +159,7 @@ ceiling.
 |---|---|---|---|
 | T120 ◐R5 | Adversarial fixtures: corrupt DXF/PDF, missing scale, rotated sheets, multi-storey, overlapping walls, bowtie polygons | P0 | 3 | | R3: DXF adversarial suite; R5: room/opening adversarial DXF (multi-storey phantom-opening, doorway-corroborated, two-room) + hand-authored PDF suite (corrupt/encrypted/twopage/raster_only) |
 | T121 | Golden-run regression suite (determinism) + property-based tests (hypothesis) on geometry/rounding | P0 | 2 |
-| T122 | AI-hallucination tests: model returns numbers → engine must ignore | P0 | 1 |
+| T122 ◐R6 | AI-hallucination tests: model returns numbers → engine must ignore | P0 | 1 | | R6: sanitize strips 12 quantity aliases at any nesting depth; 51 guardrail tests incl. adversarial payloads with smuggled numbers; construction refuses out-of-range confidence |
 | T123 ◐R3 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2. R3: evidence enforcement + digest binding tested; persisted chain later |
 | T124 | Security review: authz matrix, upload hardening, rate limits, secrets audit | P0 | 2 |
 | T125 | Performance: 50k-entity DXF < 60s parse, viewer < 3s, BOQ 5k recompute < 2s; profiling + indexes | P1 | 3 |
