@@ -52,7 +52,16 @@ def _upload_rejection(exc: UploadRejected) -> HTTPException:
 async def _owned_drawing(
     drawing_id: str, user: User, session: AsyncSession
 ) -> tuple[DrawingFile, Project]:
-    """Drawing + its project, both scoped to the caller (creator scoping)."""
+    """Drawing + its project, both scoped to the caller (creator scoping).
+
+    UUID-guard first: a malformed id 404s before SQL — the asyncpg Uuid cast
+    trap would otherwise answer a 500 for garbage input (R7 security matrix
+    closed this class for runs/boqs/projects; drawings get the same guard).
+    """
+    try:
+        uuid.UUID(str(drawing_id))
+    except ValueError as exc:
+        raise problem_error(404, "not_found", "drawing not found") from exc
     row = (
         await session.execute(
             select(DrawingFile, Project)
@@ -268,7 +277,12 @@ async def get_drawing(
                 "page_number": sheet.page_number,
                 "title": sheet.title,
                 "sheet_type": sheet.sheet_type,
-                "is_modelspace": sheet.sheet_ref == "modelspace",
+                # The honest persisted flag: parse writes sheet_type="plan"
+                # exactly when the PARSER's summary said modelspace (a PDF
+                # page IS its drawing sheet — "page:0" — so a string compare
+                # on "modelspace" would hide every confirmed PDF sheet from
+                # the run form, an R5-era DXF-only assumption).
+                "is_modelspace": sheet.sheet_type == "plan",
                 # Flat status kept for list badges; the nested calibration
                 # object is what the run form + confirm form bind to.
                 "calibration_status": cal.status if cal is not None else "unknown",

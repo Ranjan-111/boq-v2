@@ -47,7 +47,16 @@ class ScaleConfirmBody(BaseModel):
 async def _owned_sheet(
     sheet_id: str, user: User, session: AsyncSession
 ) -> tuple[DrawingSheet, DrawingFile]:
-    """Sheet + its drawing, both scoped to the caller through the project."""
+    """Sheet + its drawing, both scoped to the caller through the project.
+
+    UUID-guard first: a malformed id 404s before SQL — the asyncpg Uuid cast
+    trap would otherwise answer a 500 for garbage input (the R7 security
+    matrix pinned this; sheets had been left unguarded).
+    """
+    try:
+        uuid.UUID(str(sheet_id))
+    except ValueError as exc:
+        raise problem_error(404, "not_found", "sheet not found") from exc
     row = (
         await session.execute(
             select(DrawingSheet, DrawingFile)
@@ -91,7 +100,10 @@ async def get_sheet(
         "page_number": sheet.page_number,
         "title": sheet.title,
         "sheet_type": sheet.sheet_type,
-        "is_modelspace": sheet.sheet_ref == "modelspace",
+        # The honest persisted flag (sheet_type="plan" is what parse writes
+        # when the parser's summary says modelspace — works for DXF
+        # modelspace AND PDF pages, unlike a "modelspace" string compare).
+        "is_modelspace": sheet.sheet_type == "plan",
         "calibration": (
             {
                 "status": cal.status,

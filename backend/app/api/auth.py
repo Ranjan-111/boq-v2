@@ -97,7 +97,11 @@ async def login(
     return TokenResponse(
         access_token=token,
         user={
-            "id": user.id,
+            # str() at the boundary: login re-SELECTs the row, so user.id is
+            # the asyncpg pgproto UUID — the R4 trap (register's in-session
+            # str id hides it; a dict[str, str] model rejects the UUID and
+            # 500s the whole login response).
+            "id": str(user.id),
             "email": user.email,
             "display_name": user.display_name,
             "role": user.role,
