@@ -1,0 +1,146 @@
+# Production composition — T128 first slice. See docs/deploy.md for the
+# smoke-test walkthrough, the env var table, and what remains open.
+#
+# Security rules enforced by this file:
+# - NO hardcoded secrets: every credential comes from ${VAR} substitution
+#   (shell or .env). Required secrets use the ${VAR:?error} form — compose
+#   refuses to start when they are missing, so the dev JWT default can never
+#   reach a prod container.
+# - Storage is S3/MinIO (STORAGE_BACKEND=s3) with presigned URLs — never a
+#   public bucket, never web-root.
+# - The image runs as a non-root user (Dockerfile) and migrations are
+#   Alembic-only (api runs `upgrade head` before serving).
+#
+# The FRONTEND is not composed here: it builds separately (vite) and is
+# served by any static host / CDN in front of the API.
+name: boqv2-prod
+
+x-backend-env: &backend-env
+  ENV: ${ENV:-prod}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  # Container-internal URL: the `postgres` service hostname replaces localhost.
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-boq}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-boq}
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (min 8 chars, generate e.g. via openssl rand -hex 32)}
+  STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+  STORAGE_LOCAL_DIR: ${STORAGE_LOCAL_DIR:-./data/uploads}
+  S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+  S3_BUCKET: ${S3_BUCKET:-boq-v2}
+  # The app talks to MinIO with the MinIO root credentials (dedicated
+  # service accounts land with a later T128 slice).
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:-boq}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+  AI_PROVIDER: ${AI_PROVIDER:-stub}
+  AI_BASE_URL: ${AI_BASE_URL:-}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-advisory-default}
+  AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-30.0}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-boq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-boq}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-boq}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    # MinIO publishes exclusively on quay.io — the old Docker Hub
+    # minio/minio repo is GONE (pulls answer "repository does not exist").
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-boq}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio-init:
+    # One-shot: create the app bucket. MinIO never auto-creates buckets on
+    # S3 API calls — without this, the first put() answers NoSuchBucket.
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-boq}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      S3_BUCKET: ${S3_BUCKET:-boq-v2}
+    entrypoint: >
+      /bin/sh -c "mc alias set boq http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD
+      && mc mb --ignore-existing boq/$$S3_BUCKET"
+    restart: "no"
+
+  api:
+    build: .
+    image: boq-v2-api:local
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  worker:
+    # Same image as api; only the command differs (canonical module path —
+    # running the file directly registers handlers into the wrong module).
+    build: .
+    image: boq-v2-api:local
+    command: ["python", "-m", "backend.app.jobs.worker"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      # healthz answering means the api already ran Alembic migrations.
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    # OPTIONAL reverse proxy (compose profile `proxy` — not started by
+    # default): docker compose --profile proxy up. Plain HTTP :80 → api:8000;
+    # a real deployment swaps this for a domain + auto-TLS Caddyfile.
+    image: caddy:2
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    restart: unless-stopped
+
+configs:
+  caddyfile:
+    content: |
+      :80 {
+        reverse_proxy api:8000
+      }
+
+volumes:
+  pgdata:
+  miniodata:

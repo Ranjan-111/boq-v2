@@ -1,0 +1,35 @@
+# Keep the docker build context lean (T128 first slice). All paths are
+# ROOT-ANCHORED on purpose: an unanchored `storage`/`data` pattern would also
+# exclude the SOURCE package backend/app/storage — the exact trap that bit us
+# with .gitignore in R2.
+/.venv
+/.git
+/.github
+/.mypy_cache
+/.pytest_cache
+/.ruff_cache
+/.import_linter_cache
+/.DS_Store
+# Secrets must NEVER be baked into an image layer — compose injects them at runtime.
+/.env
+/.env.*
+# Frontend builds separately (vite) — not part of the API image.
+/frontend
+/docs
+/reference
+/context.md
+# Local storage data (uploads) — prod runs STORAGE_BACKEND=s3 anyway.
+/data
+# Scratch files, CI files, compose files, docs — not needed at runtime.
+/Makefile
+/docker-compose.yml
+/docker-compose.prod.yml
+/Dockerfile
+/.dockerignore
+*.md
+**/__pycache__
+*.pyc
+# Test suites don't ship in the prod image.
+/tests
+/backend/tests
+/core/tests

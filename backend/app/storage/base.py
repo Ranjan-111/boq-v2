@@ -159,9 +159,29 @@ class MemoryStorage(Storage):
 
 
 def storage_from_settings(backend: str, local_dir: str) -> Storage:
+    """Dispatch the storage adapter from app settings.
+
+    Callers pass (backend, local_dir) positionally — signature is frozen:
+    both api/scope.py::get_storage and jobs/handlers.py::_storage call it.
+    S3 endpoints/credentials are read here from Settings (env-driven), so
+    the two callers never duplicated them.
+    """
     if backend == "local":
         return LocalStorage(local_dir)
+    if backend == "s3":
+        # Lazy imports: storage_from_settings must not pull boto3 (or s3.py)
+        # into a backend=local app, and s3.py imports this module for the
+        # port — a module-level import would be circular.
+        from backend.app.config import get_settings
+        from backend.app.storage.s3 import S3Storage
+
+        s3 = get_settings()
+        return S3Storage(
+            endpoint_url=s3.s3_endpoint,
+            bucket=s3.s3_bucket,
+            access_key=s3.s3_access_key,
+            secret_key=s3.s3_secret_key,
+        )
     raise StorageError(
-        f"s3 backend configured but boto3 adapter lands with deploy ticket (T128); "
-        f"requested backend={backend!r}"
+        f"unknown storage backend {backend!r} (expected 'local' or 's3')"
     )

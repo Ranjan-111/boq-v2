@@ -10,7 +10,7 @@ venv: ## Create virtualenv (Python 3.13)
 	$(MAKE) install
 
 install: ## Install all deps incl. dev
-	uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
+	uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs,s3]"
 
 lint: ## ruff + mypy
 	.venv/bin/ruff check .
@@ -49,4 +49,13 @@ worker: ## Run background worker
 e2e: ## Browser E2E (needs api :8099 + worker + npm dev :5173 + Postgres; CI runs the same spec in the e2e job)
 	cd frontend && npm run e2e
 
-.PHONY: help venv install lint arch guards test test-integration test-all db-up db-migrate db-revision api worker e2e
+deploy-build: ## Build the prod backend image (docker-compose.prod.yml)
+	docker compose -f docker-compose.prod.yml build
+
+deploy-up: ## Start prod composition (Postgres + MinIO + api + worker; build first)
+	docker compose -f docker-compose.prod.yml up -d --build
+
+deploy-down: ## Stop the prod composition (named volumes survive)
+	docker compose -f docker-compose.prod.yml down
+
+.PHONY: help venv install lint arch guards test test-integration test-all db-up db-migrate db-revision api worker e2e deploy-build deploy-up deploy-down

@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs,s3]"
       - run: .venv/bin/ruff check .
       - run: .venv/bin/mypy core ingestion takeoff classification provenance review boq catalog pricing exports backend
 
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs,s3]"
       - name: import-linter boundary check
         run: .venv/bin/lint-imports
       - name: reference-leak guard
@@ -50,15 +50,34 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://boq:boq@localhost:5432/boq_test
       JWT_SECRET: ci-secret
+      S3_TEST_ENDPOINT: http://localhost:9000
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs,s3]"
       - name: migrations
         run: .venv/bin/alembic -c backend/alembic.ini upgrade head
+      # Live S3 endpoint for the S3Storage adapter tests (T128): backend/
+      # tests/test_s3_storage.py is gated on S3_TEST_ENDPOINT pointing here.
+      # Not a `services:` entry: MinIO is GONE from Docker Hub (minio/minio
+      # answers "repository does not exist") and lives on quay.io now, whose
+      # image default-cmd prints help — GH service containers cannot override
+      # the command, so the server is started with an explicit `docker run`
+      # like the e2e job starts uvicorn/vite.
+      - name: start minio (S3 endpoint, quay.io)
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=boq -e MINIO_ROOT_PASSWORD=boqboq123 \
+            quay.io/minio/minio server /data
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9000/minio/health/live || true)
+            if [ "$code" = "200" ]; then echo "minio up (attempt $i)"; exit 0; fi
+            sleep 2
+          done
+          echo "minio did not come up:"; docker logs minio; exit 1
       - name: unit + integration tests
         run: .venv/bin/pytest core/tests backend/tests tests -q
 
@@ -70,7 +89,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs,s3]"
       - name: pip-audit (vulnerabilities)
         run: .venv/bin/pip-audit --skip-editable
       - name: banned-license check (AGPL must never enter the tree)
@@ -83,6 +102,15 @@ jobs:
           if hit:
               print(f"BANNED PACKAGES PRESENT: {hit}"); sys.exit(1)
           print("license check: clean")'
+
+  docker:
+    # T128: the backend image must always build (build-only — no push; no
+    # registry credentials exist yet). Independent of every other job.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: build backend image
+        run: docker build -t boq-v2-api:ci .
 
   frontend:
     runs-on: ubuntu-latest
@@ -131,7 +159,7 @@ jobs:
         with:
           node-version: "22"
       - run: pipx install uv || pip install uv
-      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs]"
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs,s3]"
       - name: migrations
         run: .venv/bin/alembic -c backend/alembic.ini upgrade head
       - name: install playwright chromium

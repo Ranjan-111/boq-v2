@@ -39,6 +39,9 @@ geo = [
     "shapely>=2.0",
     "types-shapely>=1.0",
 ]
+s3 = [
+    "boto3>=1.35",
+]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
