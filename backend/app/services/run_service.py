@@ -190,7 +190,11 @@ async def execute_run(
         await _fail_run(session, run, f"stored drawing missing: {exc}")
         return {"ok": False, "status": run.status, "error": run.error}
     # Format dispatch (Round 5: DXF + PDF paths; raster is later).
+    # Round 8: PDF runs surface the T047 vector candidates as NEEDS_REVIEW
+    # measurements through the engine (emit_candidates) — recorded in the
+    # run params so a run replays honestly with the same surface.
     block_names: dict[str, str] = {}
+    pdf_drawing_units: str | None = None
     if drawing.format == "pdf":
         from ingestion.pdf import PdfParseError, parse_pdf
 
@@ -199,6 +203,11 @@ async def execute_run(
         except PdfParseError as exc:
             await _fail_run(session, run, f"drawing re-parse failed: {exc}")
             return {"ok": False, "status": run.status, "error": run.error}
+        # A CONFIRMED PDF calibration is the COMPLETE physical ratio: the
+        # 1:N bar-scale proposal (and the two-point human confirm) bakes the
+        # point's own paper size into units_per_drawing_unit, so the
+        # drawing-unit->mm base is the identity. See measure_parsed.
+        pdf_drawing_units = "mm"
     else:
         try:
             parsed = parse_dxf(data)
@@ -218,9 +227,16 @@ async def execute_run(
                                 if calibration_row.units_per_drawing_unit is not None else None),
         method=calibration_row.method or ScaleMethod.USER_TWO_POINT.value,
     )
+    emit_candidates = drawing.format == "pdf"
+    # Record the emission flag in the run params (True AND False) so runs
+    # replay honestly — a NEW dict, never in-place mutation of the loaded
+    # JSONB value (re-assigning the same object does not mark the attribute
+    # dirty, so the flush would silently drop the recording).
+    run.params = {**params, "emit_candidates": emit_candidates}
     out: RunOutput = measure_parsed(
         parsed, sheet_id=sheet.sheet_ref, calibration=calibration,
         max_wall_thickness=max_wall_thickness, block_names=block_names,
+        emit_candidates=emit_candidates, drawing_units=pdf_drawing_units,
     )
     await _persist_run_output(session, run=run, sheet=sheet,
                               parsed_geometries=parsed.geometries, out=out)

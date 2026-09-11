@@ -7,9 +7,15 @@ The parse boundary's trust stance (docs/domain-model.md, Round 3 semantics):
   * honest failure: non-DXF formats and structural parse errors mark the file
     FAILED with a machine-readable reason in parse_warnings — never a faked
     success, never a swallowed error,
-  * the human gate: auto-detection from $INSUNITS writes PROPOSED calibrations
-    ONLY. Only POST /sheets/{id}/scale/confirm (an authenticated human) can
-    ever write CONFIRMED.
+  * the human gate: auto-detection only ever writes PROPOSED calibrations.
+    Two proposals exist — a DXF $INSUNITS code proposes the identity factor
+    (DETECTED_FROM_DXF_UNITS), and a PDF page's "1:N" scale annotation
+    proposes the bar-scale factor (BAR_SCALE_DETECTED, ingestion.pdf's
+    propose_scale_from_text). A sheet with NO proposal gets method NULL and
+    units NULL under status PROPOSED — the honest "a human must tell us"
+    state; writing a detection method with nothing detected would claim
+    knowledge the file does not carry. Only POST /sheets/{id}/scale/confirm
+    (an authenticated human) can ever write CONFIRMED.
 
 Layering (import-linter "Domain service layering"): services import the domain
 packages (ingestion, core). This module never imports FastAPI — the job handler
@@ -84,6 +90,8 @@ async def execute_parse(
         # Round 5 (T032 core): the PDF parser produces the same ParseResult
         # contract; sheets + text tokens + honest warnings; units are always
         # "unknown" (never guessed) so the human scale gate governs.
+        # Round 8 (T034 wiring): the page's scale annotation becomes a
+        # PROPOSED calibration (still never CONFIRMED here).
         from ingestion.pdf import PdfParseError, parse_pdf
 
         try:
@@ -118,8 +126,15 @@ async def execute_parse(
     await session.flush()
 
     for page_number, summary in enumerate(result.sheets):
-        await _persist_sheet(session, drawing_file_id=drawing.id, page_number=page_number,
-                             summary=summary, raster=drawing.format == "raster")
+        await _persist_sheet(
+            session, drawing_file_id=drawing.id, page_number=page_number,
+            summary=summary, raster=drawing.format == "raster",
+            pdf_texts=(
+                [token.text for token in result.text_tokens
+                 if token.handle.sheet_ref == summary.sheet_ref]
+                if drawing.format == "pdf" else None
+            ),
+        )
 
     drawing.parse_status = "parsed"
     drawing.parse_warnings = list(result.warnings)
@@ -135,6 +150,7 @@ async def execute_parse(
 async def _persist_sheet(
     session: AsyncSession, *, drawing_file_id: str, page_number: int,
     summary: SheetSummary, raster: bool = False,
+    pdf_texts: list[str] | None = None,
 ) -> None:
     sheet = DrawingSheet(
         id=str(uuid.uuid4()),
@@ -150,21 +166,36 @@ async def _persist_sheet(
     session.add(sheet)
     await session.flush()
 
-    # Auto-detection only ever PROPOSES. For a known $INSUNITS code the
-    # identity factor (1 unit-per-drawing-unit) is the proposal; unknown
-    # units stay NULL until a human confirms. NEVER CONFIRMED here.
-    proposal = (
-        Decimal(1)
-        if not raster and summary.unit_code is not None
-        and summary.unit_code in _KNOWN_UNIT_CODES else None
-    )
+    # Auto-detection only ever PROPOSES, and a proposal states its method
+    # honestly: DETECTED_FROM_DXF_UNITS only for a known $INSUNITS code,
+    # BAR_SCALE_DETECTED only for a PDF page whose text matches the 1:N
+    # scale annotation regex. No proposal -> method NULL, units NULL,
+    # status PROPOSED (the human must tell us). Raster stays UNKNOWN.
+    # NEVER CONFIRMED here — POST /sheets/{id}/scale/confirm is the only
+    # CONFIRMED writer in the product.
+    proposal_factor: Decimal | None = None
+    proposal_method: str | None = None
+    if not raster:
+        if summary.unit_code is not None and summary.unit_code in _KNOWN_UNIT_CODES:
+            proposal_factor = Decimal(1)
+            proposal_method = ScaleMethod.DETECTED_FROM_DXF_UNITS.value
+        elif pdf_texts is not None:
+            from ingestion.pdf import propose_scale_from_text
+
+            factor_str, method_str = propose_scale_from_text(pdf_texts)
+            if factor_str is not None:
+                proposal_factor = Decimal(factor_str)
+                # The ingestion contract returns the ScaleMethod value; the
+                # enum lookup refuses loudly if the two ever drift apart.
+                assert method_str is not None  # the pair is all-or-nothing
+                proposal_method = ScaleMethod(method_str).value
     session.add(ScaleCalibrationModel(
         id=str(uuid.uuid4()),
         sheet_id=sheet.id,
-        status=(ScaleCalibrationStatus.PROPOSED.value if not raster
-                else ScaleCalibrationStatus.UNKNOWN.value),
-        method=(ScaleMethod.DETECTED_FROM_DXF_UNITS.value if not raster else None),
-        units_per_drawing_unit=proposal,
+        status=(ScaleCalibrationStatus.UNKNOWN.value if raster
+                else ScaleCalibrationStatus.PROPOSED.value),
+        method=proposal_method,
+        units_per_drawing_unit=proposal_factor,
     ))
     await session.flush()
 

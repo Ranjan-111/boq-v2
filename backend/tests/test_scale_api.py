@@ -222,9 +222,12 @@ class TestScaleConfirm:
             assert detail["sheet_ref"] == "modelspace"
             assert detail["is_modelspace"] is True
             assert detail["parse_status"] == "parsed"
+            # R8 honesty fix: no_units.dxf detects NOTHING — claiming a
+            # detection method with no detected factor was the old lie.
+            # The sheet honestly waits for the human to state the factor.
             assert detail["calibration"] == {
                 "status": "proposed",
-                "method": "detected_from_dxf_units",
+                "method": None,
                 "units_per_drawing_unit": None,
                 "confirmed_at": None,
             }

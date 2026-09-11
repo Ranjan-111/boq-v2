@@ -32,6 +32,7 @@ from core.domain.enums import (
     ElementType,
     ExceptionSeverity,
     MeasurementState,
+    MeasurementUnit,
     ScaleCalibrationStatus,
 )
 from core.units.geometry_units import ScaleCalibration
@@ -82,6 +83,43 @@ class TestRoomsT043:
         # label evidence rides as a text_token link on the room rows
         assert any(e.kind == "text_token" for e in gross[0].evidence)
         assert any(e.kind == "text_token" for e in net[0].evidence)
+
+    def test_room_gross_perimeter_rule_row(self) -> None:
+        """Round 8: room.gross.perimeter.v1 emits beside the gross area —
+        same element, same evidence refs, replayable from the ring alone."""
+        out = _run("room_plan")
+        perimeters = _by_rule(out, "room.gross.perimeter.v1")
+        assert len(perimeters) == 1
+        row = perimeters[0]
+        # centerline ring 4000x3000mm -> 2*(4000+3000) = 14 m
+        assert row.value == Decimal("14.000000")
+        assert row.unit is MeasurementUnit.M
+        assert row.label == "KITCHEN gross perimeter"
+        assert row.element_type is ElementType.ROOM
+        assert row.state is MeasurementState.MEASURED
+        # same element as the gross area row (the room element)
+        gross = _by_rule(out, "room.gross.area.v1")[0]
+        assert row.element_index == gross.element_index
+        assert row.evidence[0].ref == gross.evidence[0].ref
+        # label evidence rides here too (the room label is never guessed)
+        assert any(e.kind == "text_token" for e in row.evidence)
+        # replay-honest: the value re-derives from the ring geometry alone
+        # through the registered rule.
+        from takeoff.rules import run_rule
+
+        ring = out.elements[row.element_index].geometry
+        assert Decimal(str(run_rule("room.gross.perimeter.v1", [ring]))) == (
+            Decimal("14000.0")
+        )
+
+    def test_two_rooms_both_perimeters(self) -> None:
+        out = _run("two_room_plan")
+        perimeters = _by_rule(out, "room.gross.perimeter.v1")
+        assert sorted(m.label for m in perimeters) == [
+            "BATH gross perimeter", "BEDROOM gross perimeter"]
+        # left room 4000x3000 -> 14 m; right room 2000x3000 -> 10 m
+        assert sorted(m.value for m in perimeters) == [
+            Decimal("10.000000"), Decimal("14.000000")]
 
     def test_two_rooms_both_labeled(self) -> None:
         out = _run("two_room_plan")
@@ -219,9 +257,9 @@ class TestDeterminismT050:
 
     def test_engine_version_bumped_for_new_rules(self) -> None:
         out = _run("room_plan")
-        assert out.engine_version == "0.4.0"
+        assert out.engine_version == "0.5.0"
         for m in out.measurements:
-            assert m.engine_version == "0.4.0"
+            assert m.engine_version == "0.5.0"
 
 
 class TestRoomRefusals:

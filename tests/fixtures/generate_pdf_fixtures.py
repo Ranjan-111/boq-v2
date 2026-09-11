@@ -152,6 +152,34 @@ def build_twopage() -> bytes:
     ])
 
 
+_SCALE_ANNOTATION_CONTENT = """1 0 0 RG
+72 640 240 120 re S
+300 300 m 480 300 l 480 420 l S
+BT /F1 12 Tf 80 730 Td (SCALE 1:100) Tj ET
+"""
+
+
+def build_scale_annotation() -> bytes:
+    """Round 8 fixture: one closed rect + one open polyline + a 1:100 note.
+
+    Known geometry (PDF user space): rect (72,640) 240x120 — a closed POLYGON
+    ring; polyline (300,300)-(480,300)-(480,420) — an open two-segment path
+    (300pt total). The single text run "SCALE 1:100" sits top-left, so
+    pdfplumber's WordExtractor yields ONE token matching the 1:N regex (the
+    whole annotation is one drawn word — no grouping ambiguity). This is the
+    slice-1/slice-2 end-to-end input: parse -> PROPOSED BAR_SCALE_DETECTED
+    calibration at 1:100 (100*25.4/72 mm/pt) -> confirmed run -> one area
+    candidate + one length candidate in NEEDS_REVIEW.
+    """
+    return _assemble([
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        _page("4 0 R", "<< /Font << /F1 5 0 R >> >>"),
+        _stream(_SCALE_ANNOTATION_CONTENT),
+        _font(),
+    ])
+
+
 def build_corrupt() -> bytes:
     """Truncated bytes of the good fixture — parse must fail loudly."""
     good = build_vector_rects()
@@ -163,6 +191,7 @@ FIXTURES: dict[str, Any] = {
     "curves.pdf": build_curves,
     "raster_only.pdf": build_raster_only,
     "twopage.pdf": build_twopage,
+    "scale_annotation.pdf": build_scale_annotation,
     "corrupt.pdf": build_corrupt,
 }
 
@@ -198,6 +227,15 @@ def _check_all() -> None:
         assert len(pdf.pages[0].rects) == 1 and len(pdf.pages[1].rects) == 1
         assert pdf.pages[0].rects[0]["x0"] != pdf.pages[1].rects[0]["x0"], (
             "the two pages must hold distinct rects"
+        )
+    with _open(build_scale_annotation()) as pdf:
+        page = pdf.pages[0]
+        assert len(page.rects) == 1, "one closed rect (re op)"
+        assert len(page.curves) == 1, "the open multi-segment path is one curve object"
+        words = [w["text"] for w in page.extract_words()]
+        assert words == ["SCALE", "1:100"], (
+            "the annotation must split into exactly the tokens the 1:N regex "
+            f"consumes (SCALE does not match; 1:100 does): {words}"
         )
     try:
         with _open(build_corrupt()) as pdf:  # type: ignore[union-attr]

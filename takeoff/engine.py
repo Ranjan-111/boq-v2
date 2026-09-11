@@ -18,6 +18,15 @@ Pipeline per measurable sheet (Round 5 — the full takeoff engine):
      a labeling concern in V1 — one plan = one floor).
   7. EXCEPTIONS: kernel refusals become NOT_MEASURABLE/BLOCKED rows +
      ExceptionRecords — surfaced, never swallowed.
+  8. CANDIDATES (T047 wiring, Round 8): when the caller passes
+     emit_candidates=True, the PDF vector candidate detectors' outputs
+     surface as NEEDS_REVIEW measurements through the SAME registered rules
+     (polygon.area.v1 / polyline.length.v1). A candidate is NEVER MEASURED
+     at construction — a human accepts it through the audited review flow,
+     and the BOQ bills only MEASURED/MEASURED_ZERO rows. Geometries already
+     consumed by wall detection never surface as candidates (double-billing
+     guard). Count candidates are NOT emitted: count_by_example needs a
+     human-picked seed, which the engine cannot invent.
 
 Every measurement carries the full replay contract (rule_id, engine_version,
 inputs_digest) and >=1 evidence link (invariant 1) or it is BLOCKED.
@@ -60,8 +69,12 @@ from core.units.geometry_units import (
     measurement_state_for,
     round_quantity,
 )
+from takeoff.pdf_candidates import PdfAreaCandidate, PdfLengthCandidate
 from takeoff.rules import ENGINE_VERSION, get_rule, run_rule
 from takeoff.wall_detection import WallCandidate, detect_walls, wall_footprint
+
+# Round 8: the advisory candidate records the detectors hand the engine.
+_Candidate = PdfAreaCandidate | PdfLengthCandidate
 
 # Severity policy (data, not code): which exception codes block what.
 SEVERITY_POLICY: dict[str, ExceptionSeverity] = {
@@ -156,12 +169,36 @@ def _convert_count(
     return value
 
 
+def _candidate_label(kind: str, index: int, candidate: _Candidate) -> str:
+    """Unmissable candidate label: the word 'candidate' plus the advisory
+    drawing-unit value formatted through the canonical 6-place banker's
+    quantize (no f-string float noise — the replay/audit trail stays stable).
+    """
+    if isinstance(candidate, PdfAreaCandidate):
+        shown, unit = round_quantity(Decimal(str(candidate.area_pt2))), "pt2"
+    else:
+        shown, unit = round_quantity(Decimal(str(candidate.length_pt))), "pt"
+    return f"PDF vector {kind} candidate {index + 1} ({shown} {unit})"
+
+
 def measure_parsed(
     parsed: ParseResult, *, sheet_id: str, calibration: ScaleCalibration,
     max_wall_thickness: float | None = None,
     block_names: dict[str, str] | None = None,
+    emit_candidates: bool = False,
+    drawing_units: str | None = None,
 ) -> RunOutput:
-    """Consume the entire parser result, including refusals and raw-file identity."""
+    """Consume the entire parser result, including refusals and raw-file identity.
+
+    drawing_units: optional override of parsed.drawing_units. The run service
+    uses it for PDF sheets: the parser honestly reports "unknown" (a PDF has
+    no INSUNITS), but a CONFIRMED PDF calibration is the COMPLETE physical
+    ratio — the 1:N bar-scale proposal bakes the point's own size (1 pt =
+    25.4/72 mm) into units_per_drawing_unit — so the drawing-unit→mm base
+    conversion is the identity ("mm"). Applying a point base on top would
+    double-count the point; passing "unknown" would refuse a run the human
+    gate already satisfied.
+    """
     sheet = next((s for s in parsed.sheets if s.sheet_ref == sheet_id), None)
     warnings = parsed.warnings
     if sheet is None or not sheet.is_modelspace:
@@ -170,10 +207,11 @@ def measure_parsed(
         warnings = (*warnings, "parsed input has no raw source version")
     return measure_sheet(
         sheet_id=sheet_id, geometries=list(parsed.geometries), calibration=calibration,
-        drawing_units=parsed.drawing_units, max_wall_thickness=max_wall_thickness,
+        drawing_units=drawing_units if drawing_units is not None else parsed.drawing_units,
+        max_wall_thickness=max_wall_thickness,
         source_id=parsed.source_sha256, source_version=parsed.source_sha256,
         parse_warnings=warnings, text_tokens=parsed.text_tokens,
-        block_names=block_names,
+        block_names=block_names, emit_candidates=emit_candidates,
     )
 
 
@@ -186,6 +224,7 @@ def measure_sheet(
     parse_warnings: tuple[str, ...] = (),
     text_tokens: tuple[TextToken, ...] = (),
     block_names: dict[str, str] | None = None,
+    emit_candidates: bool = False,
 ) -> RunOutput:
     """Pure geometry entrypoint; caller must supply complete warnings/source context.
 
@@ -194,6 +233,10 @@ def measure_sheet(
     geometry). block_names: INSERT handle -> block name (opening blocks, T045).
     Both are optional; their absence disables room labels / named-block
     openings honestly (face-gap detection still runs).
+    emit_candidates: surface the PDF vector candidate detectors' outputs as
+    NEEDS_REVIEW measurements through the registered rules (Round 8). The
+    run service sets it for PDF drawings so runs replay honestly; default
+    False keeps DXF behavior byte-identical to Round 5.
     """
     try:
         factor = calibration.require_confirmed()
@@ -331,8 +374,14 @@ def measure_sheet(
         label: str,
         extra_constants: dict[str, Any],
         element_type: ElementType = ElementType.WALL,
+        state: MeasurementState | None = None,
     ) -> None:
-        """One measurement through the registered rule (single emit discipline)."""
+        """One measurement through the registered rule (single emit discipline).
+
+        state: optional explicit override of the derived measurement_state_for
+        — used ONLY for candidate rows (NEEDS_REVIEW at construction). A
+        value-derived state stays the default for every deterministic row.
+        """
         rule = get_rule(rule_id)
         value = round_quantity(
             (convert_length if quantity_type is QuantityType.LENGTH else
@@ -366,7 +415,8 @@ def measure_sheet(
             quantity_type=quantity_type, value=value, unit=target,
             rule_id=rule_id, engine_version=ENGINE_VERSION,
             inputs_digest=inputs.digest(),
-            state=measurement_state_for(value, has_evidence=bool(evidence)),
+            state=(state if state is not None
+                   else measurement_state_for(value, has_evidence=bool(evidence))),
             element_type=element_type, evidence=evidence,
             inputs=inputs.refs, label=label, element_index=element_index,
         ))
@@ -478,6 +528,20 @@ def measure_sheet(
             extra_constants={"bounding_walls": list(room.bounding_walls)},
             element_type=ElementType.ROOM,
         )
+        # Round 8: the gross centerline ring's perimeter — the same element,
+        # the same evidence refs, re-derivable from ring geometry alone.
+        _emit(
+            rule_id="room.gross.perimeter.v1",
+            quantity_type=QuantityType.LENGTH,
+            target=target_length_unit,
+            rule_inputs=[gross_geom],
+            raw=Decimal(str(run_rule("room.gross.perimeter.v1", [gross_geom]))),
+            element_index=room_element_index[ri],
+            evidence_refs=room.source_handles,
+            label=f"{label} gross perimeter",
+            extra_constants={"bounding_walls": list(room.bounding_walls)},
+            element_type=ElementType.ROOM,
+        )
         _emit(
             rule_id="room.net.area.v1",
             quantity_type=QuantityType.AREA,
@@ -493,13 +557,15 @@ def measure_sheet(
         if room.label_token is not None:
             # Label evidence rides as its own evidence link on the room
             # measurements (text_token kind) — the label is never guessed.
+            # Round 8: the room now carries three rows (gross area, gross
+            # perimeter, net area), all label-bearing.
             label_ref = EvidenceLink(
                 kind="text_token",
                 ref=_canonical({"source": source_id or snapshot,
                                 "token": room.label_token.to_json()}),
                 note=f"room label {room.label_token.text!r}",
             )
-            for m in measurements[-2:]:
+            for m in measurements[-3:]:
                 measurements[measurements.index(m)] = replace(
                     m, evidence=(*m.evidence, label_ref)
                 )
@@ -539,6 +605,81 @@ def measure_sheet(
             extra_constants={"room_count": len(room_gross_geoms)},
             element_type=ElementType.FLOOR_FINISH,
         )
+
+    # --- PDF vector candidates (T047 wiring, Round 8) -----------------------
+    # Advisory geometry surfaces for review through the SAME registered rules
+    # the deterministic paths use; the state is NEEDS_REVIEW at construction
+    # (never MEASURED — a human accepts through the audited review flow).
+    # Dedup is trust-critical: a geometry already consumed by wall detection
+    # must NOT also surface as a candidate (double-billing risk after
+    # accept), so the consumed-handle set from the wall result gates the
+    # detectors' outputs. Count candidates are NOT emitted: count_by_example
+    # needs a human-picked seed, which the engine cannot invent.
+    if emit_candidates:
+        from takeoff.pdf_candidates import (
+            detect_closed_area_candidates,
+            detect_length_candidates,
+        )
+
+        consumed_handles: set[str] = {
+            h.entity_ref
+            for wall in detection.walls
+            for g in wall.edge_geometries
+            for h in g.source_handles
+        }
+        by_handle = {h.entity_ref: g for g in geometries for h in g.source_handles}
+
+        def _emit_candidate(
+            *, kind: str, index: int, candidate: _Candidate,
+            rule_id: str, quantity_type: QuantityType, target: MeasurementUnit,
+        ) -> None:
+            geom = by_handle[candidate.source_handles[0].entity_ref]
+            label = _candidate_label(kind, index, candidate)
+            elements.append(ElementRecord(
+                element_type=ElementType.OTHER,
+                type_source=ElementTypeSource.GEOMETRY_DETERMINISTIC,
+                geometry=geom,
+                label=label,
+            ))
+            _emit(
+                rule_id=rule_id,
+                quantity_type=quantity_type,
+                target=target,
+                rule_inputs=[geom],
+                raw=Decimal(str(run_rule(rule_id, [geom]))),
+                element_index=len(elements) - 1,
+                evidence_refs=candidate.source_handles,
+                label=label,
+                extra_constants={
+                    "candidate": True, "candidate_kind": kind,
+                    "candidate_confidence": candidate.confidence,
+                },
+                element_type=ElementType.OTHER,
+                state=MeasurementState.NEEDS_REVIEW,
+            )
+
+        # Detector output order = input order (deterministic); the dedup
+        # guard drops any candidate whose drawn shape wall detection consumed.
+        area_candidates = [
+            c for c in detect_closed_area_candidates(geometries)
+            if not any(h.entity_ref in consumed_handles for h in c.source_handles)
+        ]
+        length_candidates = [
+            c for c in detect_length_candidates(geometries)
+            if not any(h.entity_ref in consumed_handles for h in c.source_handles)
+        ]
+        for ci, candidate in enumerate(area_candidates):
+            _emit_candidate(
+                kind="area", index=ci, candidate=candidate,
+                rule_id="polygon.area.v1", quantity_type=QuantityType.AREA,
+                target=target_area_unit,
+            )
+        for li, length_candidate in enumerate(length_candidates):
+            _emit_candidate(
+                kind="length", index=li, candidate=length_candidate,
+                rule_id="polyline.length.v1", quantity_type=QuantityType.LENGTH,
+                target=target_length_unit,
+            )
 
     for geom in geometries:
         if geom.geom_type is GeomType.POLYGON:

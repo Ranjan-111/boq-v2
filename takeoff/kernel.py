@@ -66,6 +66,26 @@ def area_of(geom: NormalizedGeometry) -> float:
     return float(abs(polygon_ring_area(ring)))
 
 
+def perimeter_of(geom: NormalizedGeometry) -> float:
+    """Closed-ring perimeter (sum of segment lengths) in drawing units.
+
+    Round 8 (room.gross.perimeter.v1): refuses open/degenerate rings through
+    EXACTLY the same gate as area_of — polygon type, closed ring with >=4
+    points, shapely validity — so a bowtie or an open ring can never claim a
+    perimeter the area gate would refuse. The sum is over consecutive ring
+    points (the explicit closing point adds its final segment once).
+    """
+    ring = _ring_of(geom)
+    if geom.geom_type.value != "polygon":
+        raise NotMeasurable("perimeter requires a polygon")
+    if len(ring) < 4 or ring[0] != ring[-1]:
+        raise NotMeasurable("ring not closed")
+    poly = Polygon(ring)
+    if not poly.is_valid:
+        raise NotMeasurable("self-intersecting ring")
+    return float(LineString(ring).length)
+
+
 def count_of(geoms: list[NormalizedGeometry]) -> int:
     """Count of distinct geometries (e.g. door blocks). Deterministic by nature."""
     return len(geoms)

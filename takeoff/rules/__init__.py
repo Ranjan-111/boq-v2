@@ -19,8 +19,12 @@ from core.geometry import NormalizedGeometry
 
 # Round 5: rooms/floors/openings/deductions join the measured vocabulary;
 # every new rule version-stamps its own replay, and the engine version bumps
-# because the set of rules a run may emit changed.
-ENGINE_VERSION = "0.4.0"
+# because the set of rules a run may emit changed. Round 8 bumps it again:
+# room.gross.perimeter.v1 joins the room loop and PDF vector candidates may
+# surface as NEEDS_REVIEW rows through polygon.area.v1 / polyline.length.v1
+# (additive rules + candidate emission; old persisted runs replay by their
+# own stamped version).
+ENGINE_VERSION = "0.5.0"
 
 
 class RuleFn(Protocol):
@@ -185,6 +189,32 @@ def _room_net_area(inputs: list[NormalizedGeometry]) -> float:
     from takeoff.kernel import area_of
 
     return area_of(inputs[0])
+
+
+# ---------------------------------------------------------------------------
+# Round 8 rule — room gross perimeter (replay-honest from ring geometry alone)
+# ---------------------------------------------------------------------------
+
+
+@register(
+    "room.gross.perimeter.v1",
+    quantity_type="length",
+    description="Gross room perimeter to wall centerlines (drawing units)",
+)
+def _room_gross_perimeter(inputs: list[NormalizedGeometry]) -> float:
+    """Perimeter of a room's gross centerline ring (Round 8).
+
+    inputs: exactly one room gross-ring geometry. The value is the sum of
+    ring segment lengths — re-derivable from the ring geometry alone, so the
+    replay contract (same inputs + rule = same value) holds without any
+    derived context. Refusals (open/degenerate/self-intersecting rings) come
+    from takeoff.kernel.perimeter_of, the same gate area_of uses.
+    """
+    if len(inputs) != 1:
+        raise ValueError("room.gross.perimeter.v1 takes exactly one room ring geometry")
+    from takeoff.kernel import perimeter_of
+
+    return perimeter_of(inputs[0])
 
 
 @register(

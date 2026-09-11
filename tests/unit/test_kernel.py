@@ -14,7 +14,7 @@ import pytest
 
 from core.domain.enums import GeomType, SourceFormat
 from core.geometry import NormalizedGeometry, SourceHandleRef
-from takeoff.kernel import NotMeasurable, area_of, count_of, length_of
+from takeoff.kernel import NotMeasurable, area_of, count_of, length_of, perimeter_of
 
 
 def geom(
@@ -121,3 +121,72 @@ class TestCount:
         g2 = geom(GeomType.POLYLINE, [(0.0, 0.0), (1.0, 1.0)])
         assert count_of([g1, g2]) == 2
         assert count_of([]) == 0
+
+
+class TestPerimeter:
+    """Round 8 (room.gross.perimeter.v1) — closed-ring perimeter, same
+    honesty gate as area_of: open/degenerate/self-intersecting rings raise
+    NotMeasurable, never a plausible-looking sum of segments."""
+
+    def test_rectangle_perimeter(self) -> None:
+        g = geom(
+            GeomType.POLYGON,
+            [(0.0, 0.0), (6.0, 0.0), (6.0, 4.0), (0.0, 4.0), (0.0, 0.0)],
+        )
+        assert perimeter_of(g) == pytest.approx(20.0)
+
+    def test_closed_triangle_perimeter(self) -> None:
+        g = geom(
+            GeomType.POLYGON,
+            [(0.0, 0.0), (3.0, 0.0), (3.0, 4.0), (0.0, 0.0)],
+        )
+        assert perimeter_of(g) == pytest.approx(12.0)
+
+    def test_orientation_independent(self) -> None:
+        cw = geom(
+            GeomType.POLYGON,
+            [(0.0, 0.0), (0.0, 4.0), (6.0, 4.0), (6.0, 0.0), (0.0, 0.0)],
+        )
+        assert perimeter_of(cw) == pytest.approx(20.0)
+
+    def test_perimeter_requires_polygon(self) -> None:
+        g = geom(GeomType.POLYLINE, [(0.0, 0.0), (3.0, 4.0)])
+        with pytest.raises(NotMeasurable):
+            perimeter_of(g)
+
+    def test_open_ring_refused(self) -> None:
+        g = geom(
+            GeomType.POLYGON,
+            [(0.0, 0.0), (6.0, 0.0), (6.0, 4.0), (0.0, 4.0)],  # not closed
+        )
+        with pytest.raises(NotMeasurable):
+            perimeter_of(g)
+
+    def test_fewer_than_4_ring_points_refused(self) -> None:
+        g = geom(GeomType.POLYGON, [(0.0, 0.0), (1.0, 0.0), (0.0, 0.0)])
+        with pytest.raises(NotMeasurable):
+            perimeter_of(g)
+
+    def test_self_intersecting_bowtie_refused(self) -> None:
+        g = geom(
+            GeomType.POLYGON,
+            [(0.0, 0.0), (2.0, 2.0), (2.0, 0.0), (0.0, 2.0), (0.0, 0.0)],
+        )
+        with pytest.raises(NotMeasurable):
+            perimeter_of(g)
+
+    def test_degenerate_zero_width_ring_refused(self) -> None:
+        """A zero-width ring is invalid geometry: its 'perimeter' would
+        double-count the collapsed edge — refused like area_of would."""
+        g = geom(
+            GeomType.POLYGON,
+            [(10.0, 10.0), (10.0, 10.0), (10.0, 110.0), (10.0, 110.0), (10.0, 10.0)],
+        )
+        with pytest.raises(NotMeasurable):
+            perimeter_of(g)
+
+    def test_multi_polygon_refused(self) -> None:
+        ring = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)]
+        g = geom(GeomType.MULTI_POLYGON, [ring, ring])
+        with pytest.raises(NotMeasurable):
+            perimeter_of(g)
