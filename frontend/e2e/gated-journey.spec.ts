@@ -336,3 +336,86 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   await expect(page.getByText("map_catalogue").first()).toBeVisible();
   await expect(page.getByText("override_element_type").first()).toBeVisible();
 });
+
+/**
+ * Round 8 journey: vector-PDF scale/review depth — the candidate doctrine.
+ *
+ *   upload scale-annotated PDF -> parse job (unknown-scale sheets are NOT
+ *   auto-confirmed) -> the "SCALE 1:100" annotation surfaces as a PROPOSED
+ *   bar-scale factor -> THE human gate confirms (the form pre-fills the
+ *   proposal) -> the run emits PDF vector CANDIDATES as needs_review rows
+ *   (never measured, never billed) -> the human accepts one through the
+ *   audited review flow -> it becomes measured while its sibling stays
+ *   needs_review.
+ *
+ * Every step asserts the trust boundary: nothing measured before the human
+ * gate, candidates never billable until accepted, acceptance is an audited
+ * human decision.
+ */
+test("gated PDF candidates: proposed scale -> human gate -> accept", async ({ page }) => {
+  await page.goto("/projects");
+  const email = `e2e-pdf-${Date.now()}@example.com`;
+  const token = await apiRegister(page, email);
+  expect(token).toBeTruthy();
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByLabel("Project name").fill("E2E PDF Candidates");
+  await page.getByLabel("Region").fill("IN");
+  await page.getByLabel("Currency").fill("INR");
+  await page.getByRole("button", { name: "Create project" }).click();
+  await expect(page.getByRole("heading", { name: "E2E PDF Candidates" })).toBeVisible();
+
+  await page.getByRole("link", { name: /E2E PDF Candidates/ }).click();
+  await expect(page.getByRole("heading", { name: "E2E PDF Candidates" })).toBeVisible();
+
+  // Upload the scale-annotated vector PDF.
+  const fileInput = page.getByLabel("Upload drawing file");
+  await fileInput.setInputFiles("../tests/fixtures/pdf/scale_annotation.pdf");
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await expect(page.getByText("scale_annotation.pdf").first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("parsed").first()).toBeVisible({ timeout: 30_000 });
+
+  // The sheet waits at the human gate: PROPOSED, never confirmed by parse.
+  await page.getByRole("button", { name: /scale_annotation\.pdf/ }).click();
+  await expect(page.getByText("page:0").first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/scale proposed/i).first()).toBeVisible({ timeout: 15_000 });
+
+  // THE human gate — the form PRE-FILLS the bar-scale proposal (1:100 ->
+  // 35.2777777778 mm per point); the journey confirms it as-is (the human
+  // accepts the proposal, the system never auto-confirms).
+  await expect(
+    page.getByLabel(/units per drawing unit/i),
+  ).toHaveValue(/35\.2777/, { timeout: 15_000 });
+  await page.getByRole("button", { name: /confirm scale/i }).first().click();
+  await expect(page.getByText(/scale confirmed/i).first()).toBeVisible({ timeout: 15_000 });
+
+  // The run on the PDF sheet: vector candidates surface as NEEDS_REVIEW
+  // measurements — the state badge says "needs review", never "measured".
+  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("button", { name: /start run/i }).click();
+  await expect(page.getByText(/needs review/i).first()).toBeVisible({ timeout: 60_000 });
+  const candidateRow = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell", { name: /candidate/i }) })
+    .first();
+  await expect(candidateRow).toBeVisible({ timeout: 30_000 });
+
+  // The audited accept — the ONLY path from candidate to measured. The row
+  // is addressed by its candidate label (never position).
+  await candidateRow.getByRole("button", { name: "Accept", exact: true }).click();
+  await expect(
+    page.getByRole("row").filter({ has: page.getByRole("cell", { name: /candidate/i }) })
+      .first().getByText(/measured/i),
+  ).toBeVisible({ timeout: 15_000 });
+
+  // The sibling candidate stays needs_review — one human decision accepts
+  // exactly one candidate, nothing else flips state.
+  const remaining = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell", { name: /candidate/i }) });
+  await expect(remaining.getByText(/needs review/i).first()).toBeVisible({ timeout: 10_000 });
+
+  // The audit trail carries the acceptance (a human action on an advisory row).
+  await page.getByRole("button", { name: "Audit", exact: true }).click();
+  await expect(page.getByText("accept").first()).toBeVisible({ timeout: 15_000 });
+});
