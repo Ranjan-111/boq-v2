@@ -12,6 +12,15 @@ POST /elements/{id}/classification    human override of the element type.
 GET  /projects/{pid}/audit            the project's review trail with
                                      composable filters + deterministic
                                      pagination.
+
+Round 7 (T084):
+POST /measurements/{ref}/map         human mapping of a measurement to a
+                                     catalogue item — the unmapped blocker
+                                     resolution; appends the mapped BoqItem
+                                     to the run's DRAFT BOQ.
+POST /ai/suggestions/{id}/apply       the human acting on an advisory
+                                     proposal; structurally quantity-proof
+                                     (closed allowlist of kinds).
 """
 from __future__ import annotations
 
@@ -203,6 +212,75 @@ async def override_element_classification(
         return await review_service.override_element_type(
             session, element_id=element_id, element_type=body.element_type,
             reason=body.reason, actor=user.id)
+    except ReviewServiceError as exc:
+        raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
+# ---------------------------------------------------------------------------
+# T084 — manual mapping + suggestion apply
+# ---------------------------------------------------------------------------
+
+
+class MapCatalogueBody(BaseModel):
+    """The human's mapping statement: which catalogue item bills this
+    measurement, and why (the audit row carries the reason verbatim)."""
+
+    catalogue_item_id: str = Field(min_length=1, max_length=64)
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("reason must not be blank")
+        return v
+
+
+@router.post("/measurements/{measurement_ref}/map")
+async def map_measurement_to_catalogue(
+    measurement_ref: str,
+    body: MapCatalogueBody,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """Map a measurement to a catalogue item — the unmapped blocker's human
+    resolution (appends the priced BoqItem to the run's DRAFT BOQ)."""
+    try:
+        return await review_service.map_measurement_to_catalogue(
+            session, measurement_ref=measurement_ref,
+            catalogue_item_id=body.catalogue_item_id,
+            reason=body.reason, user_id=str(user.id))
+    except ReviewServiceError as exc:
+        raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
+class ApplySuggestionBody(BaseModel):
+    """The human's reason for acting on an advisory proposal (audited)."""
+
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("reason must not be blank")
+        return v
+
+
+@router.post("/ai/suggestions/{suggestion_id}/apply")
+async def apply_suggestion(
+    suggestion_id: str,
+    body: ApplySuggestionBody,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """Apply an advisory suggestion — quantity-proof by construction: only
+    the element_classification kind applies (as the T073 override), anything
+    else refuses without touching a row."""
+    try:
+        return await review_service.apply_suggestion(
+            session, suggestion_id=suggestion_id, reason=body.reason,
+            user_id=str(user.id))
     except ReviewServiceError as exc:
         raise problem_error(exc.status, exc.code, exc.message) from exc
 
