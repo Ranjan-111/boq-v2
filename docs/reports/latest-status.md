@@ -1,11 +1,37 @@
 # Latest Status
 
-**Verified:** 2026-09-11 · **Current:** Round 7 complete — pushed and remote
-CI green (run 34621027125, all six jobs including the browser E2E
-composition).
+**Verified:** 2026-09-12 · **Current:** Round 8 complete locally; remote
+CI run of the R8 push remains outstanding (R7 was verified remotely green,
+run 34621027125).
 
-Rounds 1–6 remain completed historical milestones. Round 7 finished the
-planned BOQ/export/review hardening slice without changing the product scope:
+Rounds 1–7 remain completed historical milestones. Round 8 delivered the
+vector-PDF scale/review depth, an additional deterministic takeoff type,
+production storage + deploy composition, and the authz matrix:
+
+- PDF `1:N` text-scale proposals now persist at parse (PROPOSED, exact
+  factor, `bar_scale_detected`) — parse still never confirms; the human
+  gate does. DXF sheets with no detected units no longer claim a detection
+  method (the honesty fix).
+- PDF vector candidates surface through the real engine as NEEDS_REVIEW
+  measurements (deduplicated against wall-consumed geometry, audited
+  accept-only); a BOQ bills an accepted candidate, never a raw one.
+- `room.gross.perimeter.v1` — closed-ring perimeter through the same
+  kernel refusal gate (engine 0.5.0).
+- `S3Storage` boto3 adapter behind the Storage port, verified against live
+  MinIO; Dockerfile + prod compose (quay.io MinIO, required secrets without
+  defaults) + deploy docs + CI docker-build job; full-stack smoke-tested
+  locally (register → project → upload → bytes in the bucket).
+- The cross-user authz matrix is pinned: the scale gate refuses strangers
+  before any write; three latent defects fixed with regressions (malformed
+  id 500s in the last two unguarded resolvers, the login pgproto-UUID 500,
+  and the DXF-only `is_modelspace` string compare that hid confirmed PDF
+  sheets from the run form).
+- The browser journey now has a second test proving the candidate doctrine
+  end-to-end (proposal pre-fill → human gate → needs_review → audited
+  accept → measured, sibling stays needs_review).
+
+Round 7's completed surfaces remain green beneath:
+
 
 - CSV, deterministic XLSX, and deterministic PDF export share one
   approval/blocker/evidence/identity gate.
@@ -25,25 +51,27 @@ planned BOQ/export/review hardening slice without changing the product scope:
 
 | Check | Result |
 |---|---|
-| Python (`core/tests tests/unit tests/integration backend/tests`) | **647 passed, 1 warning, 0 skipped** against live PostgreSQL |
+| Python (`core/tests tests/unit tests/integration backend/tests`) | **700 passed, 0 failed, 0 skipped** against live PostgreSQL + live MinIO |
 | Frontend Vitest | **79 passed** |
 | Frontend build | passed |
-| Browser E2E | **1 passed** with API, worker, Vite, and PostgreSQL |
-| Ruff / strict mypy | clean / clean (104 source files) |
+| Browser E2E | **2 passed** (DXF correction + PDF candidates) with API, worker, Vite, and PostgreSQL |
+| Ruff / strict mypy | clean / clean (108 source files) |
 | Import contracts | 9 kept, 0 broken |
-| Reference-leak guard | clean (223 tracked files) |
+| Reference-leak guard | clean (232 tracked files) |
+| pip-audit | no known vulnerabilities |
+| Docker build + prod compose smoke | passed locally (register → project → upload → bytes in MinIO bucket) |
 | Alembic | live database at `a1f4c0d2e9b3 (head)` |
 
-The one warning is the existing JWT test using a deliberately short test
-secret. No tests were skipped in the final live-PostgreSQL run. Remote CI
-run 34621027125 (fc6e128) is green across lint, architecture, tests,
-license-scan, frontend, and e2e — the browser journey now runs remotely
-against the same service composition.
+No tests were skipped and the run was warning-free. Remote CI run
+34621027125 (fc6e128, R7) is green across all six jobs; the R8 push runs
+the same matrix plus the MinIO-backed S3 tests and the docker build job —
+that remote run is the standing open gate.
 
 ## Remaining roadmap
 
-The next milestone is vector-PDF scale/review depth and additional
-deterministic takeoff types. Production S3 storage, PDF/vector tiles,
-DWG/IFC/RVT ingestion, performance/security review, and remote CI execution
-remain open. Raster measurement remains deliberately refused until its human
-scale and review contract is extended.
+The next milestone is the R8 push's remote CI verification, then
+performance profiling against the documented targets (T125) and the
+golden-run determinism suite (T121), with the deploy pipeline (registry
+push + TLS) as the follow-on. DWG/IFC/RVT ingestion remain post-V1 by the
+frozen roadmap. Raster measurement remains deliberately refused until its
+human scale and review contract is extended.
