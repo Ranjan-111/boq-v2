@@ -1,18 +1,27 @@
-"""Measurements & exceptions API (Round 4) — evidence, review actions.
+"""Measurements & exceptions API (Round 4/6) — evidence, review actions.
 
 GET /measurements/{id}/evidence powers the viewer highlight: the persisted
 geometry + source handles behind a measurement (docs/api-contract.md).
 POST /exceptions/{id}/resolve records a human decision + audit row — the only
 way an exception leaves the blocker queue.
+
+Round 6 (T072/T073/T075):
+POST /measurements/{id}/review        accept | correct — audited quantity
+                                     review; the only way a quantity changes.
+POST /elements/{id}/classification    human override of the element type.
+GET  /projects/{pid}/audit            the project's review trail with
+                                     composable filters + deterministic
+                                     pagination.
 """
 from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from decimal import Decimal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +40,8 @@ from backend.app.db.models import (
     Project,
     User,
 )
+from backend.app.services import review_service
+from backend.app.services.review_service import ReviewServiceError
 from core.domain.enums import AuditAction
 
 router = APIRouter(tags=["review"])
@@ -42,27 +53,13 @@ async def _measurement_row(
     """Resolve a measurement by durable identity (measurement_id) or row id.
 
     The viewer passes the durable measurement_id from the list payload; the
-    row id also resolves (both are honest references to the same row).
+    row id also resolves (both are honest references to the same row). The
+    resolution itself (incl. the asyncpg UUID-cast guard) lives in
+    review_service.resolve_measurement — a non-UUID ref queries the
+    measurement_id column only, so malformed refs stay an honest 404.
     """
-    m = (await session.execute(
-        select(MeasurementModel).where(
-            (MeasurementModel.measurement_id == measurement_ref)
-            | (MeasurementModel.id == measurement_ref))
-    )).scalar_one_or_none()
-    if m is None:
-        raise problem_error(404, "not_found", "measurement not found")
-    run = (await session.execute(
-        select(MeasurementRun).where(MeasurementRun.id == m.run_id)
-    )).scalar_one()
-    # Ownership: the run's project must be the user's (creator scoping).
-    project = (await session.execute(
-        select(Project).where(Project.id == run.project_id,
-                              Project.created_by == user.id,
-                              Project.deleted_at.is_(None))
-    )).scalar_one_or_none()
-    if project is None:
-        raise problem_error(404, "not_found", "measurement not found")
-    return m, run
+    return (await review_service.resolve_measurement(
+        session, measurement_ref=measurement_ref, user_id=str(user.id)))[:2]
 
 
 @router.get("/measurements/{measurement_ref}/evidence")
@@ -71,7 +68,10 @@ async def get_measurement_evidence(
     user: User = Depends(require_user),
     session: AsyncSession = Depends(session_dependency),
 ) -> dict[str, Any]:
-    m, run = await _measurement_row(session, measurement_ref, user)
+    try:
+        m, run = await _measurement_row(session, measurement_ref, user)
+    except ReviewServiceError as exc:
+        raise problem_error(exc.status, exc.code, exc.message) from exc
     evidence_rows = (await session.execute(
         select(EvidenceLinkModel).where(
             EvidenceLinkModel.subject_type == "measurement",
@@ -108,7 +108,12 @@ async def get_measurement_evidence(
         "id": str(m.id), "measurement_id": m.measurement_id,
         "run_id": str(run.id), "state": m.state, "label": m.label,
         "quantity_type": m.quantity_type,
-        "value": str(m.value) if m.value is not None else None, "unit": m.unit,
+        "value": str(m.value) if m.value is not None else None,
+        "corrected_value": (str(m.corrected_value)
+                            if m.corrected_value is not None else None),
+        "unit": m.unit,
+        "element": (review_service.element_out(element)
+                    if element is not None else None),
         "evidence": [
             {"id": str(e.id), "kind": e.kind, "ref": e.ref, "note": e.note}
             for e in evidence_rows
@@ -117,6 +122,125 @@ async def get_measurement_evidence(
         "sheet": ({"id": str(sheet.id), "sheet_ref": sheet.sheet_ref}
                   if sheet is not None else None),
     }
+
+
+# ---------------------------------------------------------------------------
+# T072 — audited quantity review
+# ---------------------------------------------------------------------------
+
+
+class MeasurementReviewBody(BaseModel):
+    """The human's review statement. Corrected values are finite, >= 0 and
+    carry at most 6 decimal places (NUMERIC(18,6), api-contract "≤6 dp").
+    The unit is the row's own unit — the request carries none, so a
+    correction is dimensionally bound to the measurement it corrects."""
+
+    action: Literal["accept", "correct"]
+    value: Decimal | None = Field(
+        default=None, ge=0, max_digits=18, decimal_places=6)
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("reason must not be blank")
+        return v
+
+    @model_validator(mode="after")
+    def _correct_requires_value(self) -> MeasurementReviewBody:
+        if self.action == "correct" and self.value is None:
+            raise ValueError("a corrected value is required for action='correct'")
+        return self
+
+
+@router.post("/measurements/{measurement_ref}/review")
+async def review_measurement(
+    measurement_ref: str,
+    body: MeasurementReviewBody,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """Audited accept/correct — audit row + state transition (api-contract).
+
+    The response carries the measurement (original value AND corrected_value
+    AND state AND provenance refs) plus the audit row id.
+    """
+    try:
+        return await review_service.review_measurement(
+            session, measurement_ref=measurement_ref, action=body.action,
+            value=body.value, reason=body.reason, actor=user.id)
+    except ReviewServiceError as exc:
+        raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
+# ---------------------------------------------------------------------------
+# T073 — element classification override
+# ---------------------------------------------------------------------------
+
+
+class ClassificationBody(BaseModel):
+    element_type: str = Field(min_length=1, max_length=40)
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("reason must not be blank")
+        return v
+
+
+@router.post("/elements/{element_id}/classification")
+async def override_element_classification(
+    element_id: str,
+    body: ClassificationBody,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """Human override of the element type (AI provenance preserved + audited)."""
+    try:
+        return await review_service.override_element_type(
+            session, element_id=element_id, element_type=body.element_type,
+            reason=body.reason, actor=user.id)
+    except ReviewServiceError as exc:
+        raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
+# ---------------------------------------------------------------------------
+# T075 — audit trail reads
+# ---------------------------------------------------------------------------
+
+
+@router.get("/projects/{project_id}/audit")
+async def get_project_audit(
+    project_id: str,
+    subject_type: str | None = Query(default=None, max_length=30),
+    actor: uuid.UUID | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    before: uuid.UUID | None = Query(default=None),
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """The project's review trail: (at DESC, id DESC) deterministic pagination,
+    filters compose with AND. Query params are pydantic-typed so garbage is a
+    422 at the boundary — never an asyncpg cast 500 from the database.
+    Ownership resolves through the service (the _owned_run 404 pattern)."""
+    try:
+        project = await review_service.owned_project_or_404(
+            session, project_id=project_id, user_id=str(user.id))
+        return await review_service.list_audit_entries(
+            session, project_id=str(project.id),
+            subject_type=subject_type, actor=actor, since=since,
+            limit=limit, before=before)
+    except ReviewServiceError as exc:
+        raise problem_error(exc.status, exc.code, exc.message) from exc
+
+
+# ---------------------------------------------------------------------------
+# Exception resolution (Round 4)
+# ---------------------------------------------------------------------------
 
 
 class ResolveBody(BaseModel):
@@ -155,6 +279,9 @@ async def resolve_exception(
         id=str(uuid.uuid4()), actor=user.id,
         action=AuditAction.RESOLVE_EXCEPTION.value,
         subject_type="exception", subject_id=uuid.UUID(str(exc_row.id)),
+        # Project-scoped write (Round 6 audit trail): without project_id the
+        # resolution is invisible in GET /projects/{pid}/audit.
+        project_id=uuid.UUID(str(project.id)),
         before=before,
         after={"resolution": body.resolution, "note": body.note},
         reason=body.note,

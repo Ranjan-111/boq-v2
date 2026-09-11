@@ -131,3 +131,25 @@ export function exportStatusBadge(status: string): Badge {
       return { label: status, className: GRAY };
   }
 }
+
+const VIOLET = "rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700";
+
+/**
+ * Corrected-quantity pill: a human number replaces what the BOQ bills — the
+ * engine value stays visible beside it (never silently replaced).
+ */
+export function correctedBadge(): Badge {
+  return { label: "corrected", className: VIOLET };
+}
+
+/** Element type-source badge: human override (amber) vs deterministic (gray). */
+export function typeSourceBadge(typeSource: string): Badge {
+  switch (typeSource) {
+    case "human_set":
+      return { label: "human set", className: AMBER };
+    case "ai_classified":
+      return { label: "AI (advisory)", className: BLUE };
+    default:
+      return { label: "geometry", className: GRAY };
+  }
+}
