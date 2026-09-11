@@ -41,7 +41,7 @@ additive-only; changes are PR'd against the docs first.
 | T030 ◐R3 | DXF parser (ezdxf): entities→normalized Geometry, **capture dxf.handle for stable identity**, layers, blocks-emitted-once, INSUNITS reading | P0 | 5–8 | T011, T013 | OCErp pattern #4/#7. R3: core+INSERT+refusals done; paperspace viewports later |
 | T031 ◐R3 | DXF sheet/layout detection + measurability rules (modelspace-first, refuse ambiguous) | P0 | 2 | T030 | R3: modelspace-first + paperspace refusal done |
 | T032 ◐R5 | PDF parser: pdfplumber vector paths + text tokens (dimension candidates), pypdfium2 page tiles | P0 | 5–7 | T011 | PyMuPDF banned. R5: parse_pdf + text tokens + honest refusals (corrupt/no-Root/encrypted-locked) + hand-authored ASCII fixtures done; pypdfium2 page tiles later |
-| T033 ◐R6 | Raster ingestion: storage + AI-vision text/region pass; NO auto-measurement | P0 | 3 | T030 (interfaces) | R6: Pillow-only parse_raster (50MP guard, geometries=() ALWAYS, no scale proposal) + 6 byte-stable fixtures done; AI-vision text/region pass later (needs the provider) |
+| T033 ◐R7 | Raster ingestion: storage + AI-vision text/region pass; NO auto-measurement | P0 | 3 | T030 (interfaces) | R7: background parse persists unknown-scale zero-geometry sheets and an authenticated pixel-only preview; AI-vision text/region pass remains later |
 | T034 ◐R5 | Scale detection (PROPOSED only): DXF header/INSUNITS, PDF text regex, scale-bar heuristic | P0 | 2 | T032 | never auto-applies. R3: DXF proposal + confirmed-scale validation; R5: PDF `1:N` text regex proposal (PROPOSED-only) done; scale-bar heuristic later |
 | T035 | OOM-isolated extraction worker (RLIMIT_AS child process) | P1 | 2 | T032 | |
 | T036 ◐R3 | Corruption/adversarial file handling + format sniffing + fixtures | P0 | 2 | T030, T032, T033 | with H1. R3: DXF adversarial fixtures + refusals done |
@@ -95,7 +95,7 @@ additive-only; changes are PR'd against the docs first.
 | T081 | India starter dataset: hand-authored ~500–1,000 CPWD-aligned items from public DSR structure + terms recorded | P0 | 4 | T080, license policy |
 | T082 | Bulk import (CSV/XLSX with column mapping + preview) — users bring their own DSR/SoR | P0 | 3 | T080 |
 | T083 | Search: rapidfuzz lexical + categories (+AI re-rank via T063) | P0 | 2 | T080 |
-| T084 ◐R4 | Mapping: measurement → catalogue item, unit compatibility validation, unmapped = BLOCKING | P0 | 3 | T080, T049 | R4: unit-group mapping w/ project>default rate scope, unmapped reported honestly as blockers; manual mapping UI later |
+| T084 ◐R7 | Mapping: measurement → catalogue item, unit compatibility validation, unmapped = BLOCKING | P0 | 3 | T080, T049 | R7: audited DRAFT-only mapping UI, unit/evidence/state gates, ambiguity and duplicate mapping refusal |
 | T085 ◐R4 | BOQ assembly: sections (CPWD sub-head informed), items from mappings, manual/PC-sum lines | P0 | 4 | T084 | R4: persisted multi-item draft from a run (single section), unmapped honest; manual/PC-sum lines + CPWD structure later |
 | T086 ◐R6 | Recompute + diff on upstream change; duplicate detection | P0 | 3 | T085 | R6: DRAFT-only section/item CRUD + manual items + recompute with per-item before/after diff (bills corrected_value, idempotent) + validation report done; duplicate detection later |
 
@@ -115,10 +115,10 @@ additive-only; changes are PR'd against the docs first.
 | ID | Ticket | Pri | Eff | Depends |
 |---|---|---|---|---|
 | T100 ◐R3 | CSV export | P0 | 1 | T091 | R3: deterministic serializer + approval gate done |
-| T101 | XLSX export (openpyxl, styled, subtotals) | P0 | 2 | T091 |
-| T102 | PDF export (reportlab, branded, markup cascade) | P0 | 3 | T091 |
-| T103 | Provenance sidecar (JSON: every row's chain) + export manifest + reproducibility check | P0 | 2 | T093, T100–T102 |
-| T104 ◐R4 | Export artifact immutability (sha256, storage) | P0 | 1 | T103 | R4: sha256 + storage key + manifest + status persisted; byte-identical re-export proven |
+| T101 ◐R7 | XLSX export (openpyxl, styled, subtotals) | P0 | 2 | T091 | R7: deterministic styled workbook, shared approval/evidence gate, byte-stable re-export |
+| T102 ◐R7 | PDF export (reportlab, branded, markup cascade) | P0 | 3 | T091 | R7: deterministic landscape report, shared approval/evidence gate, byte-stable re-export |
+| T103 ◐R7 | Provenance sidecar (JSON: every row's chain) + export manifest + reproducibility check | P0 | 2 | T093, T100–T102 | R7: deterministic sidecar stores rows, measurement identities, source handles, inputs, evidence, and SHA-256 manifest link |
+| T104 ◐R7 | Export artifact immutability (sha256, storage) | P0 | 1 | T103 | R7: CSV/XLSX/PDF + sidecar storage keys, SHA-256s, immutable artifacts, and download links |
 
 ## EPIC 9 — Frontend (Rounds C/D/E)
 
@@ -131,7 +131,7 @@ additive-only; changes are PR'd against the docs first.
 | T114 ◐R6 | Review workspace: exceptions, evidence panel, corrections, overrides, audit view | P0 | 5 | T071–T076 | R6: corrections + overrides + audit view landed concretely as T072/T073/T075 (the frozen contracts' decomposition); exceptions + evidence panels exist since R4 — full workspace composition later |
 | T115 | Scale confirmation UX | P0 | 1 | T074 |
 | T116 | BOQ workspace: sections/items grid, mapping picker w/ suggestions, rate editing, markups, totals | P0 | 6 | T085–T093 |
-| T117 | Approval + export UX (validation report, blocker gating, downloads) | P0 | 2 | T093, T100 |
+| T117 ◐R7 | Approval + export UX (validation report, blocker gating, downloads) | P0 | 2 | T093, T100 | R7: catalogue mapping, approval-gated CSV/XLSX/PDF, export history, and artifact/provenance downloads |
 | T118 | Manual takeoff tools (raster drawings): on-screen length/area/count with provenance | P1 | 4 | T112, T074 |
 | T119 | Keyboard shortcuts, empty states, onboarding tour | P1 | 2 | T110 |
 | T130 | 3D/BIM model viewer (post-V1): render 3D elements (OSS renderer, e.g. three.js-class), selection + inspection, click BOQ row → highlight linked 3D element — the 2D evidence doctrine extended to 3D; requires deferred IFC/BIM input (roadmap Post-V1) to exist first | P2 | 5–8 | IFC input (deferred), T113 |
@@ -163,7 +163,7 @@ ceiling.
 | T123 ◐R3 | Provenance integrity tests: every MEASURED row has evidence; export contains full chain | P0 | 2. R3: evidence enforcement + digest binding tested; persisted chain later |
 | T124 | Security review: authz matrix, upload hardening, rate limits, secrets audit | P0 | 2 |
 | T125 | Performance: 50k-entity DXF < 60s parse, viewer < 3s, BOQ 5k recompute < 2s; profiling + indexes | P1 | 3 |
-| T126 ◐R4 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 | | R4: the gated DXF→wall→BOQ→CSV journey green incl. pre-gate refusal; CI wiring of the service composition later |
+| T126 ◐R7 | E2E browser tests (Playwright): full workflow upload→export | P0 | 3 | | R7: same gated journey green locally and CI service composition added; remote CI run remains pending |
 | T127 | Accessibility pass (WCAG AA on review/BOQ screens) | P1 | 2 |
 | T128 | Deploy: Docker Compose (app/worker/db/minio/caddy) + GH Actions pipeline + prod config + backup | P0 | 3 |
 | T129 | Docs: user guide, API reference, runbook | P1 | 2 |

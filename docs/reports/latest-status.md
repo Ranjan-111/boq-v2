@@ -1,64 +1,47 @@
 # Latest Status
 
-**Verified:** 2026-09-11 · **HEAD:** Round 6 complete locally (the Round 6
-commit series; see round-6-report.md).
-**Current:** Round 6 — **the advisory AI layer, audited corrections, raster
-ingestion, and BOQ editing are COMPLETE and locally verified**. The trust
-doctrine held on every new surface: the AI writes only advisory
-`ai_suggestions` rows (never a quantity), and the E2E proves in the
-browser that the only way a number changes is the audited human
-correction — original struck through beside it, flowing into the BOQ.
+**Verified:** 2026-09-11 · **Current:** Round 7 complete locally; remote CI
+execution remains outstanding.
 
-Rounds 1–5 remain completed historical milestones. Round 6 added the
-human-decision surfaces the frozen contracts prescribed (T114 →
-T072/T073/T075, T086/T093) and the AI/raster halves (T033/T048/T060/T065),
-closing the R5 register's deferred items.
+Rounds 1–6 remain completed historical milestones. Round 7 finished the
+planned BOQ/export/review hardening slice without changing the product scope:
 
-## This checkpoint (Round 6)
+- CSV, deterministic XLSX, and deterministic PDF export share one
+  approval/blocker/evidence/identity gate.
+- Successful exports persist a SHA-256-bound provenance JSON sidecar with
+  priced rows, measurement identities, source handles, rule/input digests,
+  and evidence links; the sidecar is downloadable from the export surfaces.
+- Run history, export history, catalogue management, audited catalogue
+  mapping, and audited AI suggestion apply are server-backed and ownership
+  scoped.
+- Raster uploads now parse through the worker into an honest unknown-scale,
+  zero-geometry sheet and have an authenticated pixel-only preview. Raster
+  pixels never become authoritative quantities.
+- The browser E2E service composition is wired into CI, and the complete
+  local gated journey is green.
 
-- **AI provider abstraction + guardrails (T060/T065/T122):** AiProvider
-  Protocol, strict SuggestionSchema validation, the 12-alias quantity
-  stripper (any nesting depth), confidence refused outside [0, 0.95]
-  and re-clamped server-side, stub provider (0.05 — honestly low),
-  sync http provider, prompt_logs for every call. New import-linter
-  contract: classification never reaches engines/takeoff/ingestion/boq.
-- **Raster ingestion + candidates (T033/T048):** Pillow-only parser,
-  50MP guard, geometries=() ALWAYS (no auto-measurement from raster),
-  no scale proposal; OpenCV candidates pixel-space-only, "(verify)"
-  labels, confidence ≤ 0.75; px→mm deliberately absent (needs confirmed
-  scale — the human gate).
-- **Review workspace depth (T072/T073/T075):** audited accept/correct
-  (value column NEVER mutated — corrected_value on the same row, two
-  validated hops through NEEDS_REVIEW), classification override
-  (human_set, AI provenance preserved), project audit trail endpoint +
-  AuditTab with filters. The durable identity is per-run: ambiguity is
-  a 409 naming the row id — never a 500, never first-by-order.
-- **BOQ editing (T086/T093):** DRAFT-only section/item CRUD, manual
-  items priced via the money kernel, mapped-quantity PATCH refused
-  (correct the measurement instead), recompute with per-item
-  before/after diff (bills corrected_value; idempotent), validation
-  report (no_items/unpriced/broken_mapping/blockers → ready flag).
-- **Analyze wiring (T060 backend):** POST /runs/{id}/analyze (202 job,
-  stub default) + GET /runs/{id}/ai/insights; refuses non-completed
-  runs; suggestions advisory-only with rejected_fields stamps.
-
-## Verified checks (exact)
+## Verified checks
 
 | Check | Result |
 |---|---|
-| pytest backend/tests (live PG) | **136 passed** |
-| pytest tests/unit + tests/integration + core/tests | **439 passed** |
-| Browser E2E (api :8099 + worker + vite + Postgres) | **1 passed** — correction → strikethrough → corrected BOQ sum → blockers → approve → export → audit |
-| mypy strict (CI list) | 98 files clean |
-| ruff check . | clean |
-| lint-imports | 9 kept, 0 broken |
-| reference-leak guard | clean |
-| frontend vitest | 63 passed |
-| frontend build (tsc strict) | clean |
-| migration roundtrip (prompt_logs + audit.project_id) | up/down/up verified |
+| Python (`core/tests tests/unit tests/integration backend/tests`) | **647 passed, 1 warning, 0 skipped** against live PostgreSQL |
+| Frontend Vitest | **79 passed** |
+| Frontend build | passed |
+| Browser E2E | **1 passed** with API, worker, Vite, and PostgreSQL |
+| Ruff / strict mypy | clean / clean (104 source files) |
+| Import contracts | 9 kept, 0 broken |
+| Reference-leak guard | clean (223 tracked files) |
+| Alembic | live database at `a1f4c0d2e9b3 (head)` |
 
-## Next up (Round 7 candidates — from the backlog, not committed to)
+The one warning is the existing JWT test using a deliberately short test
+secret. No tests were skipped in the final live-PostgreSQL run. Remote CI was
+not run from this workspace, so the new CI composition is locally verified
+but not claimed as remotely green.
 
-xlsx/pdf export (T101/T102), list-runs/list-exports endpoints, catalog
-management UI (T084 mapping UI), suggestion-apply (audited) flow, raster
-evidence/viewer surface, E2E-in-CI composition.
+## Remaining roadmap
+
+The next milestone is vector-PDF scale/review depth and additional
+deterministic takeoff types. Production S3 storage, PDF/vector tiles,
+DWG/IFC/RVT ingestion, performance/security review, and remote CI execution
+remain open. Raster measurement remains deliberately refused until its human
+scale and review contract is extended.
