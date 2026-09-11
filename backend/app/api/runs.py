@@ -127,6 +127,39 @@ async def _owned_run(
     return run
 
 
+@router.get("/projects/{project_id}/runs")
+async def list_project_runs(
+    project_id: str,
+    status: str | None = Query(default=None),
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+    project: Project = Depends(owned_project),
+) -> dict[str, Any]:
+    """A project's runs, newest-first (T104 run history for the BOQ picker).
+
+    Row shape mirrors the frontend RunRow store: id, status, stats, error,
+    created_at + the drawing/sheet the run executed (from params, if the
+    V1 client wrote them). A malformed project id 404s in owned_project's
+    UUID guard — the asyncpg cast trap never reaches SQL.
+    """
+    q = select(MeasurementRun).where(MeasurementRun.project_id == project.id)
+    if status:
+        q = q.where(MeasurementRun.status == status)
+    rows = (await session.execute(
+        q.order_by(MeasurementRun.created_at.desc(), MeasurementRun.id.desc())
+    )).scalars().all()
+    return {"items": [
+        {"id": str(r.id), "status": r.status, "stats": r.stats,
+         "error": r.error,
+         "created_at": (r.created_at.isoformat() if r.created_at else None),
+         "drawing_file_id": ((r.params or {}).get("drawing_file_id")
+                             if r.params else None),
+         "sheet_id": ((r.params or {}).get("sheet_id")
+                      if r.params else None)}
+        for r in rows
+    ]}
+
+
 @router.get("/runs/{run_id}")
 async def get_run(
     run_id: str,

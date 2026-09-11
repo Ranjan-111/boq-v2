@@ -6,6 +6,9 @@ membership table). Storage is a request-scoped adapter from settings.
 """
 from __future__ import annotations
 
+import uuid
+from typing import cast
+
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +29,15 @@ async def owned_project(
     user: User = Depends(require_user),
     session: AsyncSession = Depends(session_dependency),
 ) -> Project:
-    """Resolve a project the caller owns, or 404 (never 403 — no existence leak)."""
+    """Resolve a project the caller owns, or 404 (never 403 — no existence leak).
+
+    UUID-guard first: a malformed id 404s before SQL — the asyncpg Uuid cast
+    trap would otherwise answer a 500 for garbage input.
+    """
+    try:
+        uuid.UUID(project_id)
+    except ValueError as exc:
+        raise problem_error(404, "not_found", "project not found") from exc
     project = (
         await session.execute(
             select(Project).where(
@@ -48,4 +59,4 @@ def get_storage(request: Request) -> Storage:
         request.app.state.storage = storage_from_settings(
             settings.storage_backend, settings.storage_local_dir
         )
-    return request.app.state.storage
+    return cast(Storage, request.app.state.storage)
