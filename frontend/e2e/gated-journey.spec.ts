@@ -136,6 +136,39 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
     page.getByRole("cell", { name: /wall/i }).first(),
   ).toBeVisible({ timeout: 30_000 });
 
+  // Round 6 (T072): the audited human correction — the ONLY way a quantity
+  // may change. Correct Wall 1's LENGTH through the review UI (value +
+  // mandatory reason); the original stays visible (struck through) beside
+  // the corrected number, and the BOQ below bills the corrected sum.
+  // Rows are addressed by LABEL, never position — the list orders by row
+  // id (UUID), so position is not an identity.
+  const wallRow = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell", { name: "Wall 1", exact: true }) });
+  await expect(wallRow).toBeVisible({ timeout: 30_000 });
+  const wallValueText = (await wallRow.getByRole("cell").nth(2).textContent()) ?? "";
+  const wallValue = Number.parseFloat(wallValueText);
+  expect(Number.isFinite(wallValue)).toBe(true);
+  const wall2Row = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell", { name: "Wall 2", exact: true }) });
+  const wall2Value = Number.parseFloat(
+    (await wall2Row.getByRole("cell").nth(2).textContent()) ?? "",
+  );
+  await wallRow.getByRole("button", { name: /correct…/i }).click();
+  const correctedInput = wallRow.getByLabel(/corrected value/i);
+  await expect(correctedInput).toBeVisible();
+  await correctedInput.fill(String(wallValue + 2));
+  await wallRow.getByLabel(/reason \(required, audited\)/i).fill("e2e: site tape measured 2 m more");
+  await wallRow.getByRole("button", { name: /save correction/i }).click();
+  await expect(page.getByText("corrected").first()).toBeVisible({ timeout: 15_000 });
+  // The original engine value stays visible (struck through) beside it —
+  // the "original always visible" doctrine, proven in the browser.
+  await expect(
+    wallRow.locator("span.line-through", { hasText: wallValue.toFixed(6) }),
+  ).toBeVisible({ timeout: 15_000 });
+  const expectedBoqSum = `${(wallValue + 2 + wall2Value).toFixed(6)}`;
+
   // BOQ: build from the completed run, submit, complete review, approve.
   await page.getByRole("button", { name: "BOQ", exact: true }).click();
   const runSelect = page.getByRole("combobox", { name: /completed run/i });
@@ -147,6 +180,9 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   expect(runId).toMatch(/^[0-9a-f-]{36}$/);
   await page.getByRole("button", { name: /build boq/i }).first().click();
   await expect(page.getByText(/brick wall/i)).toBeVisible({ timeout: 30_000 });
+  // The corrected length flows into the billable line: the m group bills
+  // wall1(corrected) + wall2 — the correction is the quantity's provenance.
+  await expect(page.getByText(expectedBoqSum).first()).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole("button", { name: /submit for review/i }).click();
   await expect(page.getByText(/in review/i).first()).toBeVisible({ timeout: 15_000 });
@@ -188,4 +224,12 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   await expect(page.getByText(/export ready/i)).toBeVisible({ timeout: 60_000 });
   const download = page.getByRole("link", { name: /download/i });
   await expect(download).toBeVisible();
+
+  // Round 6 (T075): the audit trail — every decision this journey made is
+  // on one screen: the correction, the approvals, the export.
+  await page.getByRole("button", { name: "Audit", exact: true }).click();
+  await expect(
+    page.getByText("correct_quantity").first(),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("approve").first()).toBeVisible();
 });

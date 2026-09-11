@@ -3,12 +3,26 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   api,
   ApiError,
+  type ElementRow,
   type EvidenceResponse,
   type ExceptionRow,
   type Measurement,
   type Sheet,
 } from "../lib/apiClient";
-import { measurementStateBadge, runStatusBadge, severityBadge } from "../lib/statusBadges";
+import {
+  measurementStateBadge,
+  runStatusBadge,
+  severityBadge,
+  correctedBadge,
+  typeSourceBadge,
+} from "../lib/statusBadges";
+import {
+  ELEMENT_TYPES,
+  groupElementsByMeasurements,
+  isReviewable,
+  quantityDisplay,
+} from "../lib/reviewHelpers";
+import type { ElementGroup } from "../lib/reviewHelpers";
 import StatusBadge from "./StatusBadge";
 import GeometryViewer, { type ViewerGeometry } from "./GeometryViewer";
 import { useRunPoll, isTerminalRunStatus } from "../lib/jobPolling";
@@ -315,16 +329,159 @@ function ExceptionsPanel({ runId }: { runId: string }) {
   );
 }
 
-/** Measurements table: every quantity row carries its state badge. */
+/** Correct-an-exception inline form (value + reason, both required). */
+function CorrectMeasurementForm({
+  measurement,
+  onDone,
+}: {
+  measurement: Measurement;
+  onDone: () => void;
+}) {
+  const [value, setValue] = useState(measurement.corrected_value ?? measurement.value);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const correct = useMutation({
+    mutationFn: () =>
+      // Row id (globally unique PK), not the durable identity — the
+      // identity is unique PER RUN, so a project with two runs of the
+      // same drawing would be ambiguous (409, not a guess).
+      api.reviewMeasurement(measurement.id, {
+        action: "correct",
+        value: value.trim(),
+        reason: reason.trim(),
+      }),
+    onSuccess: onDone,
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : "Could not correct."),
+  });
+  const valid = value.trim() !== "" && Number(value) >= 0 && reason.trim() !== "";
+  // A measurement may be corrected more than once (re-review); the form
+  // unmounts between edits, so a per-measurement id stays unique in the DOM.
+  const fieldId = `correct-${measurement.measurement_id}`;
+  return (
+    <div className="mt-2 flex flex-wrap items-end gap-2">
+      <div>
+        <label className="label !mb-0.5 !text-[11px]" htmlFor={`${fieldId}-value`}>
+          Corrected value ({measurement.unit})
+        </label>
+        <input
+          id={`${fieldId}-value`}
+          className="input !w-36 !py-1.5 !text-xs"
+          inputMode="decimal"
+          placeholder="e.g. 6.500000"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+      <div className="grow">
+        <label className="label !mb-0.5 !text-[11px]" htmlFor={`${fieldId}-reason`}>
+          Reason (required, audited)
+        </label>
+        <input
+          id={`${fieldId}-reason`}
+          className="input !w-64 !py-1.5 !text-xs"
+          placeholder="e.g. site tape measured 2 m more"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn-primary !px-3 !py-1.5 !text-xs"
+        disabled={!valid || correct.isPending}
+        onClick={() => correct.mutate()}
+      >
+        {correct.isPending ? "Saving…" : "Save correction"}
+      </button>
+      <button
+        type="button"
+        className="btn-secondary !px-3 !py-1.5 !text-xs"
+        onClick={onDone}
+      >
+        Cancel
+      </button>
+      {error ? <p className="w-full text-xs text-red-700">{error}</p> : null}
+    </div>
+  );
+}
+
+/** One measurement row: quantity cell + inline Accept / Correct actions. */
+function MeasurementRowActions({
+  measurement,
+  onCorrected,
+}: {
+  measurement: Measurement;
+  onCorrected: () => void;
+}) {
+  const [correcting, setCorrecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const accept = useMutation({
+    mutationFn: () =>
+      // Row id, not durable identity — see the correct mutation above.
+      api.reviewMeasurement(measurement.id, {
+        action: "accept",
+        reason: "accepted in review workspace",
+      }),
+    onSuccess: onCorrected,
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : "Could not accept."),
+  });
+  if (!isReviewable(measurement.state)) return null;
+  return (
+    <div className="flex items-center gap-3">
+      {correcting ? (
+        <CorrectMeasurementForm
+          measurement={measurement}
+          onDone={() => {
+            setCorrecting(false);
+            onCorrected();
+          }}
+        />
+      ) : (
+        <>
+          <button
+            type="button"
+            className="text-xs font-medium text-accent-700 hover:underline"
+            disabled={accept.isPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              accept.mutate();
+            }}
+          >
+            {accept.isPending ? "Accepting…" : "Accept"}
+          </button>
+          <button
+            type="button"
+            className="text-xs font-medium text-accent-700 hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              setError(null);
+              setCorrecting(true);
+            }}
+          >
+            Correct…
+          </button>
+        </>
+      )}
+      {error ? <span className="text-[11px] text-red-700">{error}</span> : null}
+    </div>
+  );
+}
+
+/** Measurements table: every quantity row carries its state badge; the
+ * original engine value stays visible (strikethrough) beside a correction. */
 export function MeasurementsTable({
   measurements,
   onHighlight,
   selectedId,
+  onReviewed,
 }: {
   measurements: Measurement[];
   onHighlight: (m: Measurement) => void;
   selectedId: string | null;
+  onReviewed: () => void;
 }) {
+  const display = (m: Measurement) => quantityDisplay(m);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
@@ -336,38 +493,164 @@ export function MeasurementsTable({
             <th className="py-2 pr-3 font-medium">State</th>
             <th className="py-2 pr-3 font-medium">Rule</th>
             <th className="py-2 pr-3 font-medium">Evidence</th>
+            <th className="py-2 pr-3 font-medium">Review</th>
           </tr>
         </thead>
         <tbody>
-          {measurements.map((m) => (
-            <tr
-              key={m.id}
-              className={
-                "cursor-pointer border-b border-ink-100 hover:bg-ink-50 " +
-                (selectedId === m.id ? "bg-accent-50" : "")
-              }
-              onClick={() => onHighlight(m)}
-            >
-              <td className="py-2 pr-3 font-medium text-ink-800">{m.label}</td>
-              <td className="py-2 pr-3 text-ink-500">{m.quantity_type}</td>
-              <td className="py-2 pr-3 text-ink-900">
-                {m.value} {m.unit}
-              </td>
-              <td className="py-2 pr-3">
-                <StatusBadge badge={measurementStateBadge(m.state)} />
-              </td>
-              <td className="py-2 pr-3 font-mono text-[10px] text-ink-400">{m.rule_id}</td>
-              <td className="py-2 pr-3 text-ink-500">{m.evidence.length}</td>
-            </tr>
-          ))}
+          {measurements.map((m) => {
+            const q = display(m);
+            return (
+              <tr
+                key={m.id}
+                className={
+                  "cursor-pointer border-b border-ink-100 hover:bg-ink-50 " +
+                  (selectedId === m.id ? "bg-accent-50" : "")
+                }
+                onClick={() => onHighlight(m)}
+              >
+                <td className="py-2 pr-3 font-medium text-ink-800">{m.label}</td>
+                <td className="py-2 pr-3 text-ink-500">{m.quantity_type}</td>
+                <td className="py-2 pr-3 text-ink-900">
+                  {q.correctedPill ? (
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="line-through decoration-ink-300 text-ink-400">
+                        {q.original}
+                      </span>
+                      <span className="font-medium">{q.corrected}</span>
+                      <StatusBadge badge={correctedBadge()} />
+                    </span>
+                  ) : (
+                    <span>
+                      {q.original} {q.unit}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-3">
+                  <StatusBadge badge={measurementStateBadge(m.state)} />
+                </td>
+                <td className="py-2 pr-3 font-mono text-[10px] text-ink-400">{m.rule_id}</td>
+                <td className="py-2 pr-3 text-ink-500">{m.evidence.length}</td>
+                <td className="py-2 pr-3" onClick={(e) => e.stopPropagation()}>
+                  <MeasurementRowActions measurement={m} onCorrected={onReviewed} />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
+/** One element row: type badge + dropdown + reason, saved through the audited
+ * override endpoint; the type_source badge flips to "human set" on save. */
+function ElementOverrideRow({ element }: { element: ElementGroup }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [elementType, setElementType] = useState<string>(element.element_type);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const override = useMutation({
+    mutationFn: () =>
+      api.overrideClassification(element.element_id, {
+        element_type: elementType as ElementRow["element_type"],
+        reason: reason.trim(),
+      }),
+    onSuccess: () => {
+      setOpen(false);
+      setError(null);
+      setReason("");
+      // Refetch the measurement list — the elements panel derives from it.
+      void qc.invalidateQueries({ queryKey: ["measurements"] });
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : "Could not override."),
+  });
+  return (
+    <li className="py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-ink-800">
+          {element.label ?? element.element_id.slice(0, 8)}
+        </span>
+        <StatusBadge badge={typeSourceBadge(element.type_source)} />
+        <span className="text-xs text-ink-500">{element.element_type}</span>
+        <span className="text-[11px] text-ink-400">
+          {element.measurement_count} measurements
+        </span>
+        <button
+          type="button"
+          className="text-xs font-medium text-accent-700 hover:underline"
+          onClick={() => setOpen(!open)}
+        >
+          {open ? "Close" : "Override…"}
+        </button>
+      </div>
+      {open ? (
+        <div className="mt-1.5 flex flex-wrap items-end gap-2">
+          <div>
+            <label className="label !mb-0.5 !text-[11px]">Type</label>
+            <select
+              className="input !w-36 !py-1.5 !text-xs"
+              value={elementType}
+              onChange={(e) => setElementType(e.target.value)}
+            >
+              {ELEMENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grow">
+            <label className="label !mb-0.5 !text-[11px]">Reason (audited)</label>
+            <input
+              className="input !w-64 !py-1.5 !text-xs"
+              placeholder="e.g. this layer is actually a room boundary"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-primary !px-3 !py-1.5 !text-xs"
+            disabled={reason.trim() === "" || override.isPending}
+            onClick={() => override.mutate()}
+          >
+            {override.isPending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      ) : null}
+      {error ? <p className="mt-1 text-xs text-red-700">{error}</p> : null}
+    </li>
+  );
+}
+
+/** Elements of the run (derived from the measurements list — V1 has no
+ * separate element endpoint): one override affordance per element row. */
+function ElementsPanel({ measurements }: { measurements: Measurement[] }) {
+  const elements = useMemo(
+    () => groupElementsByMeasurements(measurements),
+    [measurements],
+  );
+  if (elements.length === 0) return null;
+  return (
+    <div className="card p-5">
+      <h3 className="mb-1 text-sm font-semibold text-ink-900">Elements</h3>
+      <p className="mb-2 text-[11px] text-ink-400">
+        A human override is audited and never erases the AI/geometry provenance.
+      </p>
+      <ul className="divide-y divide-ink-100">
+        {elements.map((el) => (
+          <ElementOverrideRow key={el.element_id} element={el} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Result panel: stats + measurements + exceptions + evidence viewer. */
 export function RunResultPanel({ runId }: { runId: string }) {
+  const qc = useQueryClient();
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const run = useRunPoll(runId);
   const measurements = useQuery({
@@ -381,6 +664,13 @@ export function RunResultPanel({ runId }: { runId: string }) {
   const [evidenceById, setEvidenceById] = useState<Record<string, EvidenceResponse>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+
+  // A review action (accept/correct) changes rows the panel shows — refetch
+  // the measurement list; the effect below re-pulls the selected evidence
+  // when its dataUpdatedAt changes.
+  const refreshReview = () => {
+    void qc.invalidateQueries({ queryKey: ["measurements", runId] });
+  };
 
   useEffect(() => {
     if (!selectedId) return;
@@ -400,7 +690,7 @@ export function RunResultPanel({ runId }: { runId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedId, measurements.dataUpdatedAt]);
 
   const viewerGeometries: ViewerGeometry[] = useMemo(() => {
     const out: ViewerGeometry[] = [];
@@ -479,16 +769,24 @@ export function RunResultPanel({ runId }: { runId: string }) {
                 measurements={measurements.data.items}
                 selectedId={selectedId}
                 onHighlight={(m) => {
-                  setSelectedId(m.measurement_id);
+                  // Row id — the evidence lookup keys on the same resolver,
+                  // so the globally-unique PK keeps it deterministic in
+                  // multi-run projects (durable identity is per-run).
+                  setSelectedId(m.id);
                   // Scroll the viewer into view when a row is clicked.
                   viewerRef.current?.scrollIntoView({
                     behavior: "smooth",
                     block: "nearest",
                   });
                 }}
+                onReviewed={refreshReview}
               />
             )}
           </div>
+
+          {measurements.data ? (
+            <ElementsPanel measurements={measurements.data.items} />
+          ) : null}
 
           <div className="card p-5">
             <h3 className="mb-3 text-sm font-semibold text-ink-900">Exceptions</h3>

@@ -7,14 +7,16 @@ import DrawingsTab from "../components/DrawingsTab";
 import RunsTab from "../components/RunsTab";
 import BoqTab from "../components/BoqTab";
 import ExportsTab from "../components/ExportsTab";
+import AuditTab from "../components/AuditTab";
 
-type Tab = "drawings" | "runs" | "boq" | "exports";
+type Tab = "drawings" | "runs" | "boq" | "exports" | "audit";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "drawings", label: "Drawings" },
   { id: "runs", label: "Runs" },
   { id: "boq", label: "BOQ" },
   { id: "exports", label: "Exports" },
+  { id: "audit", label: "Audit" },
 ];
 
 export default function ProjectWorkspacePage() {
@@ -77,6 +79,8 @@ export default function ProjectWorkspacePage() {
               <RunsTab projectId={projectId} />
             ) : projectId && tab === "boq" ? (
               <BoqTab projectId={projectId} />
+            ) : projectId && tab === "audit" ? (
+              <AuditTab projectId={projectId} />
             ) : (
               <ExportsTab />
             )}

@@ -354,11 +354,14 @@ export interface Measurement {
   element_id: string;
   quantity_type: QuantityType;
   value: string;
+  corrected_value: string | null;
   unit: MeasurementUnit;
   rule_id: string;
   state: MeasurementState;
   label: string;
   element_label: string | null;
+  element_type: string;
+  type_source: string;
   centerline: number[][] | null;
   thickness: number | null;
   evidence: MeasurementEvidenceRef[];
@@ -400,8 +403,84 @@ export interface EvidenceGeometry {
 /** GET /measurements/{id}/evidence */
 export interface EvidenceResponse {
   measurement_id: string;
+  state: MeasurementState;
+  value: string | null;
+  corrected_value: string | null;
+  unit: MeasurementUnit | null;
   geometry: EvidenceGeometry[];
   sheet: { id: string; sheet_ref: string };
+  /** The element the measurement belongs to (powers the override UI). */
+  element: ElementRow | null;
+}
+
+// --- Review actions (audited; the only way a quantity changes) ------------------
+
+export type ReviewAction = "accept" | "correct";
+/** POST /measurements/{id}/review body */
+export interface MeasurementReviewBody {
+  action: ReviewAction;
+  /** Required for action="correct": the human's number (same unit as the row). */
+  value?: string;
+  reason: string;
+}
+/** POST /measurements/{id}/review response */
+export interface MeasurementReviewed {
+  ok: boolean;
+  audit_id: string;
+  measurement: Measurement & { corrected_value: string | null };
+}
+export type ElementType =
+  | "wall"
+  | "room"
+  | "slab"
+  | "door"
+  | "window"
+  | "opening"
+  | "floor_finish"
+  | "other";
+export type ElementTypeSource =
+  | "geometry_deterministic"
+  | "ai_classified"
+  | "human_set";
+/** POST /elements/{id}/classification body */
+export interface ClassificationBody {
+  element_type: ElementType;
+  reason: string;
+}
+/** element payload carried by evidence + classification responses */
+export interface ElementRow {
+  id: string;
+  run_id: string;
+  sheet_id: string;
+  element_type: ElementType;
+  type_source: ElementTypeSource;
+  ai_confidence: string | null;
+  ai_model: string | null;
+  ai_explanation: string | null;
+  label: string | null;
+}
+/** POST /elements/{id}/classification response */
+export interface ClassificationReviewed {
+  ok: boolean;
+  audit_id: string;
+  element: ElementRow;
+}
+/** One row of GET /projects/{pid}/audit */
+export interface AuditEntryRow {
+  id: string;
+  at: string;
+  action: string;
+  actor: string;
+  subject_type: string;
+  subject_id: string;
+  project_id: string | null;
+  before: unknown;
+  after: unknown;
+  reason: string | null;
+}
+export interface AuditList {
+  items: AuditEntryRow[];
+  next_cursor: string | null;
 }
 
 // --- BOQ ----------------------------------------------------------------------
@@ -554,6 +633,41 @@ export const api = {
     }),
   getEvidence: (measurementId: string) =>
     request<EvidenceResponse>(`/measurements/${measurementId}/evidence`),
+
+  // Review actions (audited — the only way a quantity changes)
+  reviewMeasurement: (ref: string, body: MeasurementReviewBody) =>
+    request<MeasurementReviewed>(`/measurements/${ref}/review`, {
+      method: "POST",
+      body,
+    }),
+  overrideClassification: (elementId: string, body: ClassificationBody) =>
+    request<ClassificationReviewed>(`/elements/${elementId}/classification`, {
+      method: "POST",
+      body,
+    }),
+  getProjectAudit: (
+    projectId: string,
+    params: {
+      subject_type?: string;
+      actor?: string;
+      since?: string;
+      limit?: number;
+      before?: string;
+    } = {},
+  ) => {
+    const pairs: [string, string][] = [];
+    if (params.subject_type) pairs.push(["subject_type", params.subject_type]);
+    if (params.actor) pairs.push(["actor", params.actor]);
+    if (params.since) pairs.push(["since", params.since]);
+    if (params.limit !== undefined) pairs.push(["limit", String(params.limit)]);
+    if (params.before) pairs.push(["before", params.before]);
+    const query = pairs
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join("&");
+    return request<AuditList>(
+      `/projects/${projectId}/audit${query ? `?${query}` : ""}`,
+    );
+  },
 
   // BOQ
   listBoqs: (projectId: string) => request<BoqList>(`/projects/${projectId}/boqs`),
