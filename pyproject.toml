@@ -70,6 +70,7 @@ markers = [
     "integration: needs Postgres",
     "migration: Alembic migration tests",
     "guard: architecture/license/reference-leak guards",
+    "perf: §G performance benchmarks (BOQ_PERF=1; slow, live Postgres)",
 ]
 
 [tool.ruff]

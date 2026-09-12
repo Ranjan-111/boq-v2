@@ -745,6 +745,15 @@ async def recompute_boq(session: AsyncSession, *, project_id: str, boq_id: str,
     the caller sees exactly what an upstream change did — never a silent
     re-price. DRAFT-only: a reviewed/approved document does not move under
     its reader (that is the STALE path instead).
+
+    T125 load discipline (§G target: 5k items < 2s): ALL of the run's
+    measurements are batch-loaded in ONE query and the by-identity map is
+    built once (the per-item SELECT was an N+1 — 5k items meant 5k+ round
+    trips before any UPDATE was flushed); the project currency is fetched
+    once before the loop (it cannot change mid-recompute); the per-item
+    flush is collapsed to one flush — UPDATEs of independent rows batch
+    into a single executemany either way, and the transaction makes
+    partial-flush observability a non-contract.
     """
     boq = await _owned_boq(session, boq_id, project_id)
     _require_draft(boq)
@@ -753,19 +762,25 @@ async def recompute_boq(session: AsyncSession, *, project_id: str, boq_id: str,
         .where(BoqSection.boq_id == boq.id)
         .order_by(BoqSection.sort_order, BoqItem.sort_order, BoqItem.id)
     )).scalars().all()
+    # Measurements are re-read through the DURABLE identities, scoped to
+    # this BOQ's source run (measurement_id is unique per run, not
+    # globally — two runs of the same drawing share identities). One load,
+    # one map: the identities referenced by the items are a subset of the
+    # run's rows, so a vanished identity still misses the map honestly.
+    by_identity: dict[str, MeasurementModel] = {}
+    if any(item.origin == "mapped" and item.measurement_ids for item in rows):
+        ms = (await session.execute(
+            select(MeasurementModel).where(
+                MeasurementModel.run_id == boq.from_run_id)
+        )).scalars().all()
+        by_identity = {str(m.measurement_id): m for m in ms}
+    # One currency lookup for the whole recompute (hoisted from the loop —
+    # the project row does not change between items of one call).
+    currency = await _project_currency(session, project_id)
     diff: list[dict[str, Any]] = []
     for item in rows:
         if item.origin != "mapped" or not item.measurement_ids:
             continue
-        # Measurements are re-read through the DURABLE identities, scoped to
-        # this BOQ's source run (measurement_id is unique per run, not
-        # globally — two runs of the same drawing share identities).
-        ms = (await session.execute(
-            select(MeasurementModel).where(
-                MeasurementModel.run_id == boq.from_run_id,
-                MeasurementModel.measurement_id.in_(item.measurement_ids))
-        )).scalars().all()
-        by_identity = {str(m.measurement_id): m for m in ms}
         quantity = Decimal(0)
         for mid in item.measurement_ids:
             m = by_identity.get(str(mid))
@@ -777,10 +792,8 @@ async def recompute_boq(session: AsyncSession, *, project_id: str, boq_id: str,
         before_total = item.total_minor
         if before_qty is None or quantity != Decimal(str(before_qty)):
             item.quantity = quantity
-            currency = await _project_currency(session, project_id)
             item.total_minor = _line_total(
                 item.quantity, item.rate_minor, item.markup_bp, currency)
-            await session.flush()
             diff.append({
                 "item_id": str(item.id),
                 "description": item.description,
@@ -791,6 +804,8 @@ async def recompute_boq(session: AsyncSession, *, project_id: str, boq_id: str,
                           "total_minor": item.total_minor},
             })
     if diff:
+        # One flush persists the item UPDATEs (batched) before the audit row.
+        await session.flush()
         session.add(AuditEntry(
             id=str(uuid.uuid4()), actor=actor,
             action=AuditAction.UPDATE.value,

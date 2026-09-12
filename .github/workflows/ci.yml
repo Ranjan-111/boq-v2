@@ -79,7 +79,45 @@ jobs:
           done
           echo "minio did not come up:"; docker logs minio; exit 1
       - name: unit + integration tests
-        run: .venv/bin/pytest core/tests backend/tests tests -q
+        run: .venv/bin/pytest core/tests backend/tests tests -m "not perf" -q
+
+  perf:
+    # T125: §G performance benchmarks — the same measured gates as local
+    # (BOQ_PERF=1 .venv/bin/pytest tests/perf -m perf -q), never a reduced
+    # assertion. Fixtures are GENERATED at test time (deterministic, seeded),
+    # so no large binaries ship in the repo. Deselected from the normal
+    # `tests` matrix via -m "not perf"; this job is the only place they run.
+    # timeout-minutes: generous but real — local run is ~2 min; the ceiling
+    # exists so a hung benchmark fails loudly instead of burning the default
+    # 6h job budget.
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: boq
+          POSTGRES_PASSWORD: boq
+          POSTGRES_DB: boq_perf
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U boq"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://boq:boq@localhost:5432/boq_perf
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pipx install uv || pip install uv
+      - run: uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -e ".[dev,ingest,cv,geo,exportlibs,s3]"
+      - name: migrations
+        run: .venv/bin/alembic -c backend/alembic.ini upgrade head
+      - name: "performance benchmarks (§G: DXF 50k < 60s, PDF 100p < 300s, recompute 5k < 2s, xlsx 5k < 10s)"
+        run: BOQ_PERF=1 .venv/bin/pytest tests/perf -m perf -q -s
 
   license-scan:
     runs-on: ubuntu-latest
@@ -104,13 +142,36 @@ jobs:
           print("license check: clean")'
 
   docker:
-    # T128: the backend image must always build (build-only — no push; no
-    # registry credentials exist yet). Independent of every other job.
+    # T128: the backend image must always build (build-only in PRs — the
+    # registry push lives in publish). Independent of every other job.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: build backend image
         run: docker build -t boq-v2-api:ci .
+
+  publish:
+    # T128: push the image to GHCR (ghcr.io/Ranjan-111/boq-v2) on main pushes.
+    # Zero new secrets: logs in with the workflow's own GITHUB_TOKEN, which
+    # gets packages:write through the permissions block below. PRs build
+    # only (docker job) — the push runs on the protected branch.
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: build and push
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          # lowercase-or-nothing: GHCR rejects uppercase repo names
+          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          docker build -t "$IMAGE:main" -t "$IMAGE:${GITHUB_SHA::7}" .
+          docker push "$IMAGE:main"
+          docker push "$IMAGE:${GITHUB_SHA::7}"
 
   frontend:
     runs-on: ubuntu-latest
