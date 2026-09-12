@@ -14,7 +14,7 @@ PostgreSQL and MinIO containers available.
 | Architecture | import-linter **9 kept, 0 broken** |
 | Reference guard | clean; 268 tracked files checked |
 | Hypothesis | 6.167.1 (MPL-2.0, approved dependency form) — 37 property tests, deterministic profile (3 identical runs) |
-| CI workflow | R8 remote run **34652270146** green on `ec99f33`; the R9 push runs nine jobs (perf + publish joined) — the open gate |
+| CI workflow | R9 remote run **34668532001** green on `e811368` — all nine jobs incl. the perf benchmarks and the GHCR publish |
 | MinIO | `boqv2-minio-1` (quay.io) exercised live: 12 S3 adapter tests + prod-compose smoke + least-privilege boq-app policy proof |
 | Docker | image build succeeded locally; the CI `docker` job mirrors it |
 | Export libraries | openpyxl and reportlab installed and exercised; XLSX/PDF bytes validated and deterministic |

@@ -1,10 +1,12 @@
 # Round 9 Report — Performance Targets, Golden-Run Determinism, Deploy Pipeline
 
-**Verified:** 2026-09-12 · **Verdict:** Round 9 implementation scope is
-complete locally. All three prioritized tracks (T125, T121, T128 remainder)
-landed; no trust gate was weakened — the perf benchmarks assert the §G
-numbers as written, and the golden suite pins the replay contract harder
-than any round before.
+**Verified:** 2026-09-12 · **Verdict:** Round 9 is COMPLETE — pushed
+(`b3cb019..e811368`) and remotely verified green: CI run **34668532001** across
+all NINE jobs (lint, architecture, tests, perf, license-scan, docker,
+publish, frontend, e2e) — the perf benchmarks ran in CI and the image is
+published to GHCR (`tags: main, e811368`). No trust gate was weakened — the
+perf benchmarks assert the §G numbers as written, and the golden suite pins
+the replay contract harder than any round before.
 
 ## What Round 9 completed
 
@@ -120,8 +122,8 @@ on nothing but the app bucket.
 
 ## Open work and deliberate deferrals
 
-- Remote CI run of this round's push (the standing round gate) — now 9
-  jobs (perf + publish joined).
+- Nothing from Round 9's own scope — the round is closed with remote CI
+  green (the deferrals below are follow-on work, not R9 gaps).
 - Viewer < 3s first-paint benchmark (needs a Playwright harness).
 - Real-server deployment (host + DNS) — everything up to it is now done:
   image publishes to GHCR, TLS profile exists, least-privilege storage
@@ -132,6 +134,7 @@ on nothing but the app bucket.
 
 ## Next milestone
 
-Verify remote CI green (all 9 jobs including the new perf benchmarks and
-the GHCR publish), then real-server deployment against the published image,
-or the T124/T047/T034 remainders if deployment waits on infrastructure.
+Real-server deployment against the published GHCR image — host + DNS are
+the only missing pieces (TLS profile, least-privilege storage, and
+publishing all exist and are verified). Otherwise: the viewer first-paint
+benchmark, and the T124/T047/T034 remainders.

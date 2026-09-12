@@ -1,8 +1,9 @@
 # Latest Status
 
-**Verified:** 2026-09-12 · **Current:** Round 9 complete locally; remote
-CI run of the R9 push remains outstanding (R8 was verified remotely green,
-run 34652270146).
+**Verified:** 2026-09-12 · **Current:** Round 9 COMPLETE — pushed and
+remotely verified green (CI run 34668532001 on `e811368`, all nine jobs incl. the
+perf benchmarks and the GHCR publish; image live at
+ghcr.io/ranjan-111/boq-v2:main).
 
 Rounds 1–8 remain completed historical milestones. Round 9 delivered the
 measured performance targets, the golden-run determinism suite, and the
@@ -63,16 +64,14 @@ Round 7's completed surfaces remain green beneath:
 | Docker build + prod compose smoke | passed live (full stack + caddy proxy; least-privilege boq-app storage proof) |
 | Alembic | live database at `a1f4c0d2e9b3 (head)` |
 
-The perf suite is the only deliberate deselect (it runs in its own CI
-job). Remote CI run 34652270146 (`ec99f33`, R8) is green; the R9 push
-runs nine jobs — the R8 seven plus the perf benchmarks and the GHCR
-publish — that remote run is the standing open gate.
+The perf suite runs in its own CI job (the only deliberate deselect).
+Remote CI run 34668532001 (`e811368`) is green across all nine jobs — the R8
+seven plus the perf benchmarks and the GHCR publish.
 
 ## Remaining roadmap
 
-The next milestone is the R9 push's remote CI verification, then
-real-server deployment against the published GHCR image (everything up to
-it is done), or the T124/T047/T034 remainders if deployment waits on
-infrastructure. DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap.
+The next milestone is real-server deployment against the published
+GHCR image (host + DNS are the only missing pieces), the viewer
+first-paint benchmark, and the T124/T047/T034 remainders. DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap.
 Raster measurement remains deliberately refused until its human scale and
 review contract is extended.

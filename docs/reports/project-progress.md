@@ -12,7 +12,7 @@
 | 6 | AI + review workspace | COMPLETE | Advisory AI, raster primitives, audited corrections/overrides, audit trail, BOQ editing |
 | 7 | BOQ, pricing, approval and export hardening | COMPLETE | XLSX/PDF, provenance sidecars, list endpoints, catalogue UI/mapping, audited suggestion apply, raster parse/preview, CI E2E composition — pushed, remote CI green (run 34621027125) |
 | 8 | Vector-PDF depth, deterministic perimeter, S3 + deploy, authz matrix | COMPLETE | PDF scale proposal + candidate emission, `room.gross.perimeter.v1`, `S3Storage` + Dockerfile/prod compose + CI docker job, cross-user authz pinned + 3 latent defects fixed, second E2E journey — pushed, remote CI green (run 34652270146) |
-| 9 | Perf targets, golden-run determinism, deploy pipeline | COMPLETE LOCALLY | §G benchmarks measured green (recompute N+1 fixed 6.07s→0.29s), 25-fixture golden suite + 37 property tests, TLS profile + least-privilege MinIO user + GHCR publish, worker healthcheck defect fixed — remote CI run of the R9 push outstanding |
+| 9 | Perf targets, golden-run determinism, deploy pipeline | COMPLETE | §G benchmarks measured green (recompute N+1 fixed 6.07s→0.29s), 25-fixture golden suite + 37 property tests, TLS profile + least-privilege MinIO user + GHCR publish, worker healthcheck defect fixed — pushed, remote CI green (run 34668532001, nine jobs) |
 
 ## Round 7 checkpoint (historical)
 
@@ -47,10 +47,9 @@ exactly the four object actions the Storage port performs and nothing else.
 
 ## Open roadmap
 
-The R9 push's remote CI run is the standing open gate (now nine jobs:
-the R8 seven + perf benchmarks + GHCR publish). After it: real-server
-deployment against the published image (host + DNS are the only missing
-pieces), the viewer first-paint benchmark, and the T124/T047/T034
-remainders. DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap.
-Raster takeoff remains refused until its human scale and review contract
-is extended.
+Round 9 is pushed and remotely green (run 34668532001 on `e811368`, nine jobs
+incl. perf and publish; image live on GHCR). Next: real-server deployment
+against the published image (host + DNS are the only missing pieces), the
+viewer first-paint benchmark, and the T124/T047/T034 remainders.
+DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap. Raster takeoff
+remains refused until its human scale and review contract is extended.
