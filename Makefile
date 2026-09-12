@@ -43,8 +43,8 @@ db-migrate: ## Run Alembic migrations
 db-revision: ## Create migration (usage: make db-revision m="msg")
 	.venv/bin/alembic revision --autogenerate -m "$(m)" -c backend/alembic.ini
 
-api: ## Run API dev server
-	.venv/bin/uvicorn backend.app.main:app --reload --port 8000
+api: ## Run API dev server (8099 — the port the Vite /api proxy and e2e expect)
+	.venv/bin/uvicorn backend.app.main:app --reload --port 8099
 
 worker: ## Run background worker
 	$(PYTHON) -m backend.app.jobs.worker

@@ -45,3 +45,31 @@ def test_make_lint_propagates_ruff_failure(tmp_path: Path) -> None:
         [MAKE, "lint"], cwd=tmp_path, capture_output=True, text=True, check=False
     )
     assert result.returncode != 0, "lint swallowed a failing ruff check"
+
+
+@pytest.mark.parametrize(
+    ("make_target", "proxy_line"),
+    [
+        # `make api` must serve the SAME port the Vite /api proxy (and e2e)
+        # targets — an 8099/8000 drift surfaces in the browser as an opaque
+        # 500 (proxy ECONNREFUSED) while the API itself is perfectly healthy.
+        ("api", 'target: "http://localhost:8099"'),
+    ],
+)
+def test_make_api_port_matches_vite_proxy(make_target: str, proxy_line: str) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+
+    makefile = (repo_root / "Makefile").read_text(encoding="utf-8")
+    vite = (repo_root / "frontend" / "vite.config.ts").read_text(encoding="utf-8")
+
+    # The uvicorn invocation in `make api` binds the expected port.
+    assert "--port 8099" in makefile, (
+        "`make api` no longer serves :8099 — the Vite dev proxy and the "
+        "browser E2E target that port; update frontend/vite.config.ts and "
+        "frontend/e2e together, or browsers get proxy ECONNREFUSED 500s."
+    )
+    # And the Vite proxy still points there.
+    assert proxy_line in vite, (
+        "frontend/vite.config.ts no longer proxies /api to :8099 — it and "
+        "`make api` must agree (see the assertion above)."
+    )
