@@ -1,33 +1,33 @@
 # Latest Status
 
-**Verified:** 2026-09-12 · **Current:** Round 8 COMPLETE — pushed and
-remotely verified green (CI run 34652270146 on `ec99f33`, all seven jobs incl. the MinIO-backed tests job and the docker build job).
+**Verified:** 2026-09-12 · **Current:** Round 9 complete locally; remote
+CI run of the R9 push remains outstanding (R8 was verified remotely green,
+run 34652270146).
 
-Rounds 1–7 remain completed historical milestones. Round 8 delivered the
-vector-PDF scale/review depth, an additional deterministic takeoff type,
-production storage + deploy composition, and the authz matrix:
+Rounds 1–8 remain completed historical milestones. Round 9 delivered the
+measured performance targets, the golden-run determinism suite, and the
+deploy pipeline remainder:
 
-- PDF `1:N` text-scale proposals now persist at parse (PROPOSED, exact
-  factor, `bar_scale_detected`) — parse still never confirms; the human
-  gate does. DXF sheets with no detected units no longer claim a detection
-  method (the honesty fix).
-- PDF vector candidates surface through the real engine as NEEDS_REVIEW
-  measurements (deduplicated against wall-consumed geometry, audited
-  accept-only); a BOQ bills an accepted candidate, never a raw one.
-- `room.gross.perimeter.v1` — closed-ring perimeter through the same
-  kernel refusal gate (engine 0.5.0).
-- `S3Storage` boto3 adapter behind the Storage port, verified against live
-  MinIO; Dockerfile + prod compose (quay.io MinIO, required secrets without
-  defaults) + deploy docs + CI docker-build job; full-stack smoke-tested
-  locally (register → project → upload → bytes in the bucket).
-- The cross-user authz matrix is pinned: the scale gate refuses strangers
-  before any write; three latent defects fixed with regressions (malformed
-  id 500s in the last two unguarded resolvers, the login pgproto-UUID 500,
-  and the DXF-only `is_modelspace` string compare that hid confirmed PDF
-  sheets from the run form).
-- The browser journey now has a second test proving the candidate doctrine
-  end-to-end (proposal pre-fill → human gate → needs_review → audited
-  accept → measured, sibling stays needs_review).
+- Every architecture.md §G target is now a measured, CI-enforced
+  benchmark: DXF 50k parse 1.02s (< 60s), PDF 100 pages 0.26s (< 300s),
+  BOQ recompute 5k 0.29s (< 2s — the per-item N+1 fixed, was 6.07s),
+  XLSX 5k rows 0.28s (< 10s). Viewer first-paint is the honest gap
+  (needs a browser harness).
+- Byte-identical golden replay for EVERY committed fixture — 25 goldens
+  including honest refusal paths; version-aware drift verdicts
+  (same-version drift = unintended, deliberate change = version-bump
+  first); deterministic regeneration via `make golden-update`.
+- 37 hypothesis property tests (deterministic profile) pin the geometry
+  kernel, banker's rounding/pricing, and the replay digest.
+- The deploy pipeline is complete up to a real server: caddy TLS profile
+  (ACME automatic TLS + HSTS), least-privilege MinIO app user (policy =
+  exactly the four object actions on the app bucket — verified live that
+  nothing else is possible), and GHCR publishing via the workflow's own
+  GITHUB_TOKEN. A latent R8 defect fixed: the worker container showed
+  "unhealthy" forever because the image healthcheck probes the API's HTTP
+  port, which the worker deliberately does not serve.
+
+Round 8's completed surfaces remain green beneath:
 
 Round 7's completed surfaces remain green beneath:
 
@@ -50,25 +50,29 @@ Round 7's completed surfaces remain green beneath:
 
 | Check | Result |
 |---|---|
-| Python (`core/tests tests/unit tests/integration backend/tests`) | **700 passed, 0 failed, 0 skipped** against live PostgreSQL + live MinIO |
+| Python (`core/tests tests/unit tests/integration backend/tests`) | **790 passed, 0 failed** against live PostgreSQL + live MinIO (5 perf tests deselected — they run in the perf job) |
+| Perf benchmarks (`BOQ_PERF=1`, live PG) | **5 passed in 12.64s** (§G targets measured & asserted) |
+| Golden + property suites | 53 golden + 37 property green |
 | Frontend Vitest | **79 passed** |
 | Frontend build | passed |
 | Browser E2E | **2 passed** (DXF correction + PDF candidates) with API, worker, Vite, and PostgreSQL |
 | Ruff / strict mypy | clean / clean (108 source files) |
 | Import contracts | 9 kept, 0 broken |
-| Reference-leak guard | clean (243 tracked files) |
+| Reference-leak guard | clean (268 tracked files) |
 | pip-audit | no known vulnerabilities |
-| Docker build + prod compose smoke | passed locally (register → project → upload → bytes in MinIO bucket) |
+| Docker build + prod compose smoke | passed live (full stack + caddy proxy; least-privilege boq-app storage proof) |
 | Alembic | live database at `a1f4c0d2e9b3 (head)` |
 
-No tests were skipped. The two warnings are both the known JWT
-short-secret class (InsecureKeyLengthWarning from the deliberate test
-secrets). Remote CI run 34652270146 (`ec99f33`) is green across all seven jobs incl. the MinIO-backed tests job and the docker build job.
+The perf suite is the only deliberate deselect (it runs in its own CI
+job). Remote CI run 34652270146 (`ec99f33`, R8) is green; the R9 push
+runs nine jobs — the R8 seven plus the perf benchmarks and the GHCR
+publish — that remote run is the standing open gate.
 
 ## Remaining roadmap
 
-The next milestone is performance profiling against the documented
-targets (T125) and the golden-run determinism suite (T121), with the deploy
-pipeline (registry push + TLS) as the follow-on. DWG/IFC/RVT ingestion remain post-V1 by the
-frozen roadmap. Raster measurement remains deliberately refused until its
-human scale and review contract is extended.
+The next milestone is the R9 push's remote CI verification, then
+real-server deployment against the published GHCR image (everything up to
+it is done), or the T124/T047/T034 remainders if deployment waits on
+infrastructure. DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap.
+Raster measurement remains deliberately refused until its human scale and
+review contract is extended.
