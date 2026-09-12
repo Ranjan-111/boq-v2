@@ -33,3 +33,18 @@
     @apply mb-1 block text-sm font-medium text-ink-700;
   }
 }
+
+/* Indeterminate progress strip (upload/parse staging) — slides back and
+   forth; honest "work in flight" signal for jobs that report no real
+   intermediate percentage. */
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(150%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}

@@ -23,6 +23,7 @@ from backend.app.api.catalog import (
     create_item,
     get_item,
     list_rates,
+    list_regions,
     search_catalog,
     set_rate,
 )
@@ -257,6 +258,66 @@ class TestSearch:
                 await search_catalog("  ", "IN", user, session)
             assert exc.value.status_code == 400
             assert exc.value.detail[0]["code"] == "bad_query"  # type: ignore[index]
+            await _close(engine, session)
+        except BaseException:
+            await _close(engine, session)
+            raise
+
+
+class TestListRegions:
+    """GET /catalog/regions — the New Project form's region options.
+
+    The list is DERIVED from live catalogue data (regions with items), never
+    a hardcoded country list: a region without catalogue items is not a
+    supported region. Ordering is stable (alphabetical by code).
+    """
+
+    async def test_lists_only_regions_with_items(
+        self, migrated_db: str
+    ) -> None:
+        engine, session, user = await _make_user(migrated_db)
+        try:
+            await create_item(_brick_body("2.1.1"), user, session)  # IN
+            await create_item(
+                CatalogItemCreate(
+                    region_code="AE",
+                    code="1.1.1",
+                    description="Block wall",
+                    unit="m",
+                    category_path="walls",
+                ),
+                user,
+                session,
+            )
+            await create_item(
+                CatalogItemCreate(
+                    region_code="AE",
+                    code="1.1.2",
+                    description="Block wall painted",
+                    unit="m",
+                    category_path="walls",
+                ),
+                user,
+                session,
+            )
+            out = await list_regions(user, session)
+            regions = out["regions"]
+            # Only regions with catalogue data appear; counts are honest.
+            assert [r["region_code"] for r in regions] == ["AE", "IN"]
+            counts = {r["region_code"]: r["item_count"] for r in regions}
+            assert counts == {"AE": 2, "IN": 1}
+            await _close(engine, session)
+        except BaseException:
+            await _close(engine, session)
+            raise
+
+    async def test_empty_catalogue_is_honest_empty_list(
+        self, migrated_db: str
+    ) -> None:
+        engine, session, user = await _make_user(migrated_db)
+        try:
+            out = await list_regions(user, session)
+            assert out == {"regions": []}
             await _close(engine, session)
         except BaseException:
             await _close(engine, session)

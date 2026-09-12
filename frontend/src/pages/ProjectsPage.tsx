@@ -3,13 +3,32 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/apiClient";
 import AppHeader from "../components/AppHeader";
 
+/** Region display names — keyed by the catalogue's region_code. Only
+ * regions with catalogue data appear in the dropdown; the label is the
+ * human-facing name, the VALUE stays the code the API expects. */
+const REGION_LABELS: Record<string, string> = {
+  IN: "India (IN)",
+};
+
+function regionLabel(code: string): string {
+  return REGION_LABELS[code] ?? code;
+}
+
 function NewProjectModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [clientName, setClientName] = useState("");
-  const [region, setRegion] = useState("IN");
+  const [region, setRegion] = useState("");
   const [currency, setCurrency] = useState("INR");
   const [error, setError] = useState<string | null>(null);
+
+  // Supported regions come from the catalogue itself — a region is offered
+  // exactly when it has catalogue items to bill against (GET /catalog/regions).
+  const regions = useQuery({
+    queryKey: ["catalog", "regions"],
+    queryFn: api.listRegions,
+    staleTime: 60_000,
+  });
 
   const create = useMutation({
     mutationFn: () =>
@@ -53,8 +72,44 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label" htmlFor="p-region">Region</label>
-              <input id="p-region" className="input" value={region}
-                onChange={(e) => setRegion(e.target.value)} required />
+              {regions.isPending ? (
+                <div className="input animate-pulse !bg-ink-100" aria-label="Loading regions" />
+              ) : regions.isError ? (
+                <div>
+                  <p className="text-xs text-red-700">
+                    Could not load supported regions.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-secondary mt-1 !px-2 !py-1 !text-xs"
+                    onClick={() => regions.refetch()}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <select
+                  id="p-region"
+                  className="input"
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Select a region…
+                  </option>
+                  {regions.data?.regions.map((r) => (
+                    <option key={r.region_code} value={r.region_code}>
+                      {regionLabel(r.region_code)}
+                      {r.item_count > 0 ? ` — ${r.item_count} catalogue items` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="mt-1 text-[11px] text-ink-500">
+                The region decides which catalogue items and rates are available
+                for this project.
+              </p>
             </div>
             <div>
               <label className="label" htmlFor="p-cur">Currency</label>
@@ -69,7 +124,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={create.isPending || !name}>
+            <button type="submit" className="btn-primary" disabled={create.isPending || !name || !region}>
               {create.isPending ? "Creating…" : "Create project"}
             </button>
           </div>

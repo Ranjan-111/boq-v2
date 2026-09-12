@@ -15,7 +15,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 from rapidfuzz import fuzz, process
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
@@ -103,6 +103,32 @@ async def _owned_item(
     if item is None:
         raise problem_error(404, "not_found", "catalogue item not found")
     return item
+
+
+@router.get("/regions")
+async def list_regions(
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """Regions the product actually supports — those with catalogue data.
+
+    The New Project form offers these (and only these) as region options:
+    a region is usable exactly when its catalogue has items to bill against.
+    Derived from live data, never a hardcoded country list — a region with
+    no catalogue is not a supported region, however real the country is.
+    """
+    rows = (
+        await session.execute(
+            select(CatalogueItem.region_code, func.count(CatalogueItem.id))
+            .group_by(CatalogueItem.region_code)
+            .order_by(CatalogueItem.region_code)
+        )
+    ).all()
+    return {
+        "regions": [
+            {"region_code": code, "item_count": count} for code, count in rows
+        ]
+    }
 
 
 @router.get("/search")

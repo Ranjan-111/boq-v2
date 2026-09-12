@@ -164,8 +164,8 @@ async def get_status(session: AsyncSession, job_id: str) -> dict[str, Any] | Non
     row = (
         await session.execute(
             text(
-                "SELECT id, kind, status, attempts, progress, error, created_at, "
-                "started_at, finished_at FROM jobs WHERE id = :id"
+                "SELECT id, kind, status, attempts, progress, error, result, "
+                "created_at, started_at, finished_at FROM jobs WHERE id = :id"
             ),
             {"id": job_id},
         )

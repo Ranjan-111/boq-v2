@@ -42,6 +42,59 @@ function extractBlockers(detail: unknown): string[] {
     }
     return JSON.stringify(d);
   });
+}
+
+/**
+ * Pydantic 422 errors arrive as {detail: [{type, loc, msg, input, ctx}]} —
+ * raw validation structures that must NEVER reach the UI verbatim. Map the
+ * common ones to plain-English sentences; anything unmapped gets a generic
+ * "check your entries" instead of internal JSON. The technical detail stays
+ * in the browser console / server logs, not the user-facing message.
+ */
+function humanizeValidationError(err: Record<string, unknown>): string {
+  const type = typeof err.type === "string" ? err.type : "";
+  const loc = Array.isArray(err.loc) ? err.loc : [];
+  // The offending field: last segment of loc (["body", "email"] -> "email").
+  const field = typeof loc[loc.length - 1] === "string" ? String(loc[loc.length - 1]) : "";
+  const fieldLabel: Record<string, string> = {
+    email: "email address",
+    password: "password",
+    display_name: "display name",
+    name: "name",
+    client_name: "client name",
+    region_code: "region",
+    currency: "currency",
+    amount_minor: "amount",
+    units_per_drawing_unit: "units per drawing unit",
+    reason: "reason",
+  };
+  const label = fieldLabel[field] ?? (field ? `"${field}"` : "entry");
+
+  if (type === "value_error" && /email/i.test(field)) {
+    return "Please enter a valid email address, e.g. name@example.com.";
+  }
+  if (type === "string_too_short") {
+    const min = (err.ctx as Record<string, unknown> | undefined)?.min_length;
+    return `The ${label} is too short${typeof min === "number" ? ` — at least ${min} characters` : ""}.`;
+  }
+  if (type === "string_too_long") {
+    const max = (err.ctx as Record<string, unknown> | undefined)?.max_length;
+    return `The ${label} is too long${typeof max === "number" ? ` — at most ${max} characters` : ""}.`;
+  }
+  if (type === "string_pattern_mismatch") {
+    return `The ${label} format is not valid — please check it and try again.`;
+  }
+  if (type === "missing") {
+    return `Please fill in the ${label}.`;
+  }
+  if (type === "greater_than_equal" || type === "greater_than") {
+    return `The ${label} is too low — please check it.`;
+  }
+  if (type === "less_than_equal" || type === "less_than") {
+    return `The ${label} is too high — please check it.`;
+  }
+  // Unknown validation type: honest generic, never the raw structure.
+  return "Some entries are not valid yet — please check the form and try again.";
 }const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
 function parseError(status: number, body: unknown): ApiError {
@@ -66,15 +119,30 @@ function parseError(status: number, body: unknown): ApiError {
         blockers.length > 0 ? blockers : null,
       );
     }
-    // FastAPI validation error: {detail: [{code, message}]}
+    // FastAPI detail-array errors. TWO shapes share this branch:
+    //  - the app's own problems: [{code, message}] — shown as-is (already
+    //    human phrasing, e.g. "email already registered");
+    //  - Pydantic 422 validation: [{type, loc, msg, ...}] — internal
+    //    structures that must be humanized, never stringified into the UI.
     if (Array.isArray(b.detail) && b.detail.length > 0) {
       const first = b.detail[0] as Record<string, unknown>;
-      return new ApiError(
-        status,
-        typeof first.code === "string" ? first.code : "error",
-        statusText(status),
-        typeof first.message === "string" ? first.message : JSON.stringify(first),
-      );
+      if (typeof first.code === "string" || typeof first.message === "string") {
+        return new ApiError(
+          status,
+          typeof first.code === "string" ? first.code : "error",
+          statusText(status),
+          typeof first.message === "string" ? first.message : "Request failed",
+        );
+      }
+      if (typeof first.type === "string") {
+        // Raw Pydantic validation error — humanize it for the UI.
+        return new ApiError(
+          status,
+          "validation_error",
+          statusText(status),
+          humanizeValidationError(first),
+        );
+      }
     }
     // FastAPI plain string detail
     if (typeof b.detail === "string") {
@@ -322,6 +390,9 @@ export interface Job {
   attempts: number;
   progress: number | null;
   error: string | null;
+  /** Handler result, present once succeeded. Parse failures are returned
+   * here ({ok: false, error}) instead of raising — the job itself succeeds. */
+  result: { ok?: boolean; error?: string; [k: string]: unknown } | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -666,6 +737,15 @@ export interface ExportList {
 
 // --- Catalogue -----------------------------------------------------------------
 
+/** GET /catalog/regions row — a region the product supports (has catalogue items). */
+export interface RegionRow {
+  region_code: string;
+  item_count: number;
+}
+export interface RegionList {
+  regions: RegionRow[];
+}
+
 /** GET /catalog/search row (a score field may also be present — treated as unknown-extra). */
 export interface CatalogItem {
   id: string;
@@ -824,6 +904,8 @@ export const api = {
   getJob: (jobId: string) => request<Job>(`/jobs/${jobId}`),
 
   // Catalogue
+  /** Regions the product supports — derived from live catalogue data. */
+  listRegions: () => request<RegionList>("/catalog/regions"),
   searchCatalog: (q: string, regionCode: string) =>
     request<CatalogList>(
       `/catalog/search?q=${encodeURIComponent(q)}&region_code=${encodeURIComponent(regionCode)}`,

@@ -503,6 +503,43 @@ class TestParseExecution:
         finally:
             await engine.dispose()
 
+    async def test_job_status_exposes_result_for_ui_failure_signal(
+        self, migrated_db: str
+    ) -> None:
+        """GET /jobs/{id} must carry the handler result: the parse service
+        RETURNS failures ({ok: false}) instead of raising, so the job row
+        says "succeeded" while the parse refused. The upload UI reads
+        result.ok from the polled job status to show the failure — without
+        this field a failed parse looks like a silent success."""
+        from backend.app.jobs import queue
+
+        engine = make_async_engine(migrated_db)
+        try:
+            async with make_sessionmaker(engine)() as session:
+                user, project = await _make_user_and_project(session)
+                storage = MemoryStorage()
+                marker = b"0\nSECTION\n2\nENTITIES\n0\nGARBAGE\n"
+                up = await _upload(session, project, user, marker, "plan.dxf", storage)
+                result = await parse_service.execute_parse(
+                    session, drawing_file_id=up["drawing_file_id"], storage=storage
+                )
+                assert result["ok"] is False
+                # Complete exactly as the worker would (records the result).
+                await queue.complete(session, up["job_id"], result)
+                await session.flush()
+
+                status = await queue.get_status(session, up["job_id"])
+                assert status is not None
+                assert status["status"] == "succeeded"
+                # THE contract the UI polls for:
+                assert status["result"]["ok"] is False
+                assert status["result"]["parse_status"] == "failed"
+                assert "DxfParseError" in status["result"]["error"]
+                # And the honest success path carries its result too.
+                await session.rollback()
+        finally:
+            await engine.dispose()
+
     async def test_structurally_invalid_dxf_fails_honestly(self, migrated_db: str) -> None:
         engine = make_async_engine(migrated_db)
         try:

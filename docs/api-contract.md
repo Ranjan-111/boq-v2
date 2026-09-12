@@ -62,6 +62,7 @@ GET    /projects/{pid}/audit                (filter: subject, actor, since)
 ## Catalogue & rates
 
 ```
+GET    /catalog/regions                     (regions with catalogue data — the New Project form's options; a region without catalogue items is not a supported region)
 GET    /catalog/search                     {q, region_code, category?}   (fuzzy + AI-suggested ranking)
 GET    /catalog/items/{id}
 POST   /catalog/items                       (manual items)
@@ -111,7 +112,7 @@ review action that records actor + audit row.
 ## Jobs & events
 
 ```
-GET    /jobs/{id}                           (upload/parse/run/export job status)
+GET    /jobs/{id}                           (upload/parse/run/export job status — incl. the handler `result`: parse failures are returned inside succeeded jobs as {ok:false, error}, never raised)
 GET    /projects/{pid}/events                (SSE stream: job progress, run completion)
 ```
 

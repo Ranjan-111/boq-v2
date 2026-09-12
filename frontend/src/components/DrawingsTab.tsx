@@ -5,14 +5,70 @@ import { calibrationBadge, parseStatusBadge } from "../lib/statusBadges";
 import StatusBadge from "./StatusBadge";
 import { useJobPoll } from "../lib/jobPolling";
 import { useSheets } from "./useSheets";
+import {
+  STAGE_LABELS,
+  STAGE_ORDER,
+  deriveStage,
+  humanizeParseError,
+  isQueueStuck,
+  type UploadStage,
+} from "../lib/uploadStages";
+/**
+ * The staged pipeline strip: each stage a labeled step; the active stage is
+ * highlighted with an indeterminate animated bar (NO percentage — parse jobs
+ * report no real intermediate progress, and a fake % would be a lie).
+ * Completed stages tick, the failed stage turns red.
+ */
+function StageStrip({ stage }: { stage: UploadStage }) {
+  const failed = stage === "failed";
+  const done = stage === "complete";
+  const activeIdx = failed ? 2 : STAGE_ORDER.indexOf(stage);
+  return (
+    <ol className="flex flex-wrap items-center gap-1.5 text-[11px]" aria-label="Upload progress">
+      {STAGE_ORDER.map((s, i) => {
+        const state =
+          failed && s === "parsing"
+            ? "failed"
+            : done
+              ? "done"
+              : i < activeIdx
+                ? "done"
+                : i === activeIdx
+                  ? "active"
+                  : "todo";
+        return (
+          <li
+            key={s}
+            className={
+              "flex items-center gap-1.5 rounded px-1.5 py-0.5 " +
+              (state === "done"
+                ? "bg-emerald-50 text-emerald-700"
+                : state === "active"
+                  ? "bg-blue-50 font-medium text-blue-700"
+                  : state === "failed"
+                    ? "bg-red-50 font-medium text-red-700"
+                    : "text-ink-400")
+            }
+          >
+            <span aria-hidden="true">
+              {state === "done" ? "✓" : state === "failed" ? "✗" : i + 1}
+            </span>
+            {STAGE_LABELS[s]}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
-/** Upload card: file picker + Upload → 202 → poll job → refetch list. */
+/** Upload card: file picker + Upload → 202 → staged job progress → result. */
 function UploadCard({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState<{ job_id: string } | null>(null);
+  const [nowMs, setNowMs] = useState(Date.now());
 
   const upload = useMutation({
     mutationFn: (file: File) => api.uploadDrawing(projectId, file),
@@ -20,7 +76,9 @@ function UploadCard({ projectId }: { projectId: string }) {
       setUploadError(null);
       setParseError(null);
       // job_id "" = dedupe reuse (already parsed/parsing): no new job exists,
-      // so poll nothing — the list invalidate below shows the standing state.
+      // so poll nothing — the standing list state is the truth (it already
+      // refreshed with this invalidate). A failed re-parse attempt creates a
+      // fresh job, so the retry path always has something to poll.
       setAccepted(res.job_id ? { job_id: res.job_id } : null);
       qc.invalidateQueries({ queryKey: ["drawings", projectId] });
     },
@@ -29,31 +87,64 @@ function UploadCard({ projectId }: { projectId: string }) {
   });
 
   const job = useJobPoll(accepted ? accepted.job_id : null);
-  // When the parse job finishes, refresh the drawings list and stop polling
-  // (done in an effect — never as a render side-effect). The failure message
-  // is captured BEFORE clearing the job id, or the poll result would be lost.
+
   const jobStatus = job.data?.status;
+  const jobResult = job.data?.result;
+
+  const stage: UploadStage = deriveStage({
+    uploadInFlight: upload.isPending,
+    jobId: accepted ? accepted.job_id : null,
+    jobStatus,
+    jobStartedAt: job.data?.started_at,
+    jobResultOk: jobResult && jobResult.ok !== undefined ? jobResult.ok : null,
+  });
+
+  // While polling, keep "now" fresh for the stuck-queue hint (interval in
+  // an effect, never a render side-effect).
+  const polling =
+    accepted !== null && stage !== "failed" && stage !== "complete";
+  useEffect(() => {
+    if (!polling) return;
+    const t = setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => clearInterval(t);
+  }, [polling]);
+
+  // Terminal transitions in an effect. Parse failures arrive INSIDE
+  // succeeded jobs ({ok: false} returned, not raised): the job row says
+  // succeeded while the parse refused — the result is the failure signal.
+  // Terminal states KEEP the job (polling has stopped via the interval
+  // predicate): the stage strip stays visible as the success/failure state
+  // until the next upload replaces it.
   useEffect(() => {
     if (jobStatus === "succeeded") {
       qc.invalidateQueries({ queryKey: ["drawings", projectId] });
-      setAccepted(null);
-    } else if (jobStatus === "failed") {
-      setParseError(job.data?.error ?? "Parsing failed.");
+      if (jobResult?.ok === false) {
+        setParseError(humanizeParseError(jobResult.error));
+      }
+    } else if (jobStatus === "failed" || jobStatus === "cancelled") {
+      setParseError(humanizeParseError(job.data?.error));
       qc.invalidateQueries({ queryKey: ["drawings", projectId] });
-      setAccepted(null);
     }
-  }, [jobStatus, job.data, qc, projectId]);
+  }, [jobStatus, jobResult, job.data, qc, projectId]);
+
+  const stuck = isQueueStuck(stage, job.data?.created_at, nowMs);
 
   function submit() {
-    if (selected) upload.mutate(selected);
+    if (selected) {
+      setNowMs(Date.now());
+      upload.mutate(selected);
+    }
   }
+
+  const showProgress =
+    accepted !== null && (stage === "queued" || stage === "parsing" || stage === "complete");
 
   return (
     <div className="card p-5">
       <h2 className="mb-1 text-sm font-semibold text-ink-900">Upload a drawing</h2>
       <p className="mb-3 text-xs text-ink-500">
-        DXF, PDF, PNG, JPG or WEBP. Parsing runs as a background job — the list
-        updates when it finishes.
+        DXF, PDF, PNG, JPG or WEBP. Parsing runs as a background job — progress
+        is shown below, and the list updates when it finishes.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -71,17 +162,46 @@ function UploadCard({ projectId }: { projectId: string }) {
         >
           {upload.isPending ? "Uploading…" : "Upload"}
         </button>
-        {accepted ? (
-          <span className="text-xs text-blue-700">Parsing… (polling the job)</span>
-        ) : null}
       </div>
+
+      {showProgress ? (
+        <div className="mt-3 rounded-md border border-blue-200 bg-blue-50/50 p-3">
+          <StageStrip stage={stage} />
+          {/* Indeterminate bar: real job progress is 0→100 only (no
+              intermediate percentages exist), so an animated strip is the
+              honest "working" signal — never a made-up percentage. Only
+              shown while work is genuinely in flight. */}
+          {stage === "queued" || stage === "parsing" ? (
+            <div className="mt-2 h-1 overflow-hidden rounded bg-blue-100">
+              <div className="h-full w-1/3 animate-[slide_1.4s_ease-in-out_infinite] rounded bg-blue-500" />
+            </div>
+          ) : null}
+          {stuck ? (
+            <p className="mt-2 text-[11px] text-amber-700">
+              The parse job has been waiting for a while — no worker may be
+              running. Jobs stay queued until a worker picks them up; polling
+              continues.
+            </p>
+          ) : null}
+          {stage === "complete" ? (
+            <p className="mt-2 text-[11px] text-emerald-700">
+              Parsing complete — sheets are ready in the list below. Confirm
+              scale on a sheet to enable measurement.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {uploadError ? (
         <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{uploadError}</p>
       ) : null}
       {parseError ? (
-        <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          Parse failed: {parseError}
-        </p>
+        <div className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p>Parse failed: {parseError}</p>
+          <button type="button" className="btn-secondary mt-2 !px-3 !py-1 !text-xs" onClick={submit}>
+            Retry parse
+          </button>
+        </div>
       ) : null}
     </div>
   );
@@ -227,7 +347,11 @@ function DrawingRow({ drawing }: { drawing: DrawingListItem }) {
       {drawing.parse_status === "failed" && warnings.length > 0 ? (
         <ul className="mt-2 space-y-1 rounded-md bg-red-50 p-2 text-xs text-red-700">
           {warnings.map((w, i) => (
-            <li key={i}>• {w}</li>
+            // Humanized: parse refusals carry engine/library prefixes
+            // ("parse_failed: DxfParseError: ezdxf could not parse: …")
+            // that mean nothing to a user — the reason stays, the noise
+            // is softened (same helper as the upload failure card).
+            <li key={i}>• {humanizeParseError(w)}</li>
           ))}
         </ul>
       ) : null}

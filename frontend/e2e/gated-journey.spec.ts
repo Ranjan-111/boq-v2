@@ -53,7 +53,12 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   await expect(page.getByRole("button", { name: "New project" })).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("E2E Gated Journey");
-  await page.getByLabel("Region").fill("IN");
+  // The region dropdown loads its options from GET /catalog/regions —
+  // wait for the <select> (not the loading placeholder it starts as).
+  await page
+    .locator("select#p-region")
+    .waitFor({ state: "visible", timeout: 15_000 });
+  await page.getByLabel("Region").selectOption("IN");
   await page.getByLabel("Currency").fill("INR");
   await page.getByRole("button", { name: "Create project" }).click();
   await expect(page.getByRole("heading", { name: "E2E Gated Journey" })).toBeVisible();
@@ -360,7 +365,12 @@ test("gated PDF candidates: proposed scale -> human gate -> accept", async ({ pa
   await page.goto("/projects");
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("E2E PDF Candidates");
-  await page.getByLabel("Region").fill("IN");
+  // The region dropdown loads its options from GET /catalog/regions —
+  // wait for the <select> (not the loading placeholder it starts as).
+  await page
+    .locator("select#p-region")
+    .waitFor({ state: "visible", timeout: 15_000 });
+  await page.getByLabel("Region").selectOption("IN");
   await page.getByLabel("Currency").fill("INR");
   await page.getByRole("button", { name: "Create project" }).click();
   await expect(page.getByRole("heading", { name: "E2E PDF Candidates" })).toBeVisible();
