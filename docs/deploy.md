@@ -11,12 +11,12 @@ composition.
 | Piece | Status |
 | --- | --- |
 | Backend image (multi-stage, non-root, Alembic-on-boot) | done |
-| Compose: postgres + minio + api + worker (+ optional caddy profile) | done |
+| Compose: postgres + minio + api + worker (+ caddy profiles) | done |
 | S3/MinIO storage adapter (`S3Storage`, boto3) | done, live-tested against MinIO |
-| Registry push / image publishing | **open** (no registry secrets exist yet) |
-| TLS termination / public domain | **open** (caddy profile is plain HTTP :80) |
-| Real server provisioning | **open** |
-| MinIO dedicated (non-root) app credentials | **open** (app uses MinIO root creds for now) |
+| MinIO dedicated least-privilege app user | **done** — `minio-init` creates `boq-app` with a policy limited to the four object actions on the app bucket; the app never touches root creds (verified live: list/create/delete-bucket all refused) |
+| Registry push / image publishing | **done** — CI `publish` job pushes `ghcr.io/<owner>/<repo>:{main,sha}` on main pushes via the workflow's own `GITHUB_TOKEN` (zero new secrets; PRs build only) |
+| TLS termination / public domain | **done** — caddy `tls` profile: Caddy automatic TLS (ACME) for `PUBLIC_DOMAIN` with HSTS + hardened headers; `proxy` profile stays plain HTTP for local smoke |
+| Real server provisioning | **open** (needs a host + DNS) |
 
 ## Local smoke test
 
@@ -42,11 +42,22 @@ docker compose -f docker-compose.prod.yml ps
 make deploy-down                     # volumes survive (pgdata, miniodata)
 ```
 
-Optional reverse proxy (plain HTTP :80 → api:8000, for the smoke test only):
+Optional reverse proxy — two profiles:
 
 ```bash
+# Plain HTTP (smoke test): :80 → api:8000
 docker compose -f docker-compose.prod.yml --profile proxy up -d
+
+# Public HTTPS: Caddy automatic TLS (ACME/Let's Encrypt) for PUBLIC_DOMAIN,
+# HTTP→HTTPS redirect, HSTS + hardening headers. Requires DNS pointing at
+# the host and ports 80/443 reachable — ACME cannot issue for localhost.
+CADDY_CONFIG=tls PUBLIC_DOMAIN=boq.example.com \
+  docker compose -f docker-compose.prod.yml --profile tls up -d
 ```
+
+The worker serves no HTTP port — its image healthcheck (the API's :8000
+probe) is disabled for the worker; honest worker liveness is the process
+itself (Docker restarts it if it dies).
 
 ## Environment variables
 
@@ -58,15 +69,21 @@ with a clear error when one is missing (`${VAR:?…}` form).
 | --- | --- | --- | --- |
 | `JWT_SECRET` | **yes** | api, worker | Auth signing key. Min 8 chars (Settings validation). Must be generated per deployment — `openssl rand -hex 32`. The dev default `CHANGE-ME-dev-only` must never reach prod; compose rejects a missing var. |
 | `POSTGRES_PASSWORD` | **yes** | postgres, api, worker | DB password. **Alphanumeric only** — it is interpolated into `DATABASE_URL` without URL-escaping. |
-| `MINIO_ROOT_PASSWORD` | **yes** | minio, api, worker | MinIO root password (also the app's S3 secret key in this slice). Alphanumeric only. |
+| `MINIO_ROOT_PASSWORD` | **yes** | minio, minio-init | MinIO root password — used ONLY by `minio-init` to create the app user; the app itself never holds it. Alphanumeric only. |
+| `MINIO_APP_PASSWORD` | **yes** | minio-init, api, worker | Secret key of the least-privilege `boq-app` user the app actually uses. Alphanumeric only. Rotate by changing the value and re-running (user add overwrites in place). |
 | `POSTGRES_USER` | no (boq) | postgres | DB user, also interpolated into `DATABASE_URL`. |
 | `POSTGRES_DB` | no (boq) | postgres | Database name. |
-| `MINIO_ROOT_USER` | no (boq) | minio | MinIO root user = app S3 access key in this slice. |
+| `MINIO_ROOT_USER` | no (boq) | minio, minio-init | MinIO root user (init-only). |
+| `MINIO_APP_USER` | no (boq-app) | minio-init | The least-privilege app user's access key. |
 | `S3_BUCKET` | no (boq-v2) | minio-init, api | Bucket name; `minio-init` creates it on boot (MinIO never auto-creates buckets on S3 API calls). |
 | `S3_ENDPOINT` | no (http://minio:9000) | api | Container-internal MinIO endpoint. Do not point it at localhost inside the network. |
 | `STORAGE_BACKEND` | no (s3) | api, worker | `local` for local-FS mode (dev-only; needs a writable `STORAGE_LOCAL_DIR` volume). |
 | `STORAGE_LOCAL_DIR` | no (./data/uploads) | api | Only used when `STORAGE_BACKEND=local`. |
 | `API_PORT` | no (8000) | compose | Host port for the API. |
+| `PUBLIC_DOMAIN` | **yes for `tls` profile** | caddy | Public domain Caddy issues the certificate for (ACME). The container refuses to start with `CADDY_CONFIG=tls` and no domain. |
+| `CADDY_CONFIG` | no (http) | caddy | `http` (smoke-test proxy) or `tls` (automatic HTTPS). |
+| `CADDY_HTTP_PORT` / `CADDY_HTTPS_PORT` | no (80/443) | compose | Host ports for caddy. |
+| `ACME_EMAIL` | no | caddy | ACME account email (Let's Encrypt expiry notices). |
 | `ENV`, `LOG_LEVEL` | no (prod / INFO) | api, worker | App labels. |
 | `AI_PROVIDER` etc. | no (stub) | api, worker | Advisory-AI settings; empty `AI_API_KEY` keeps AI honestly disabled. |
 
@@ -108,5 +125,18 @@ cd frontend && npm ci && npm run build   # static bundle in frontend/dist
 ```
 
 Host it on any static server/CDN and proxy `/api` to the API service. TLS
-termination for both static site and API is **open** — the current caddy
-profile is plain HTTP for smoke tests only.
+termination for the API is the caddy `tls` profile above; point the static
+host's own TLS (or the same caddy) at the frontend if you serve it yourself.
+
+## CI image publishing (GHCR)
+
+Every push to `main` publishes `ghcr.io/<owner>/<repo>:main` and
+`:$(short-sha)` through the workflow's own `GITHUB_TOKEN` — no registry
+secrets to manage. Pull with a read-scoped token:
+
+```bash
+docker pull ghcr.io/ranjan-111/boq-v2:main   # lowercase of owner/repo
+```
+
+The package starts private to the repo; make it public (or grant access)
+under the repo's Packages settings if other environments need to pull.
