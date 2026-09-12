@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/apiClient";
@@ -37,10 +37,17 @@ export default function ProjectWorkspacePage() {
         {project.isPending ? (
           <div className="card h-16 animate-pulse bg-ink-100" />
         ) : project.isError ? (
-          <div className="card p-8 text-center text-sm text-red-700">
-            {project.error instanceof ApiError
-              ? project.error.message
-              : "Could not load this project."}
+          <div className="card p-8 text-center">
+            <p className="text-sm text-red-700">
+              {project.error instanceof ApiError
+                ? project.error.message
+                : "Could not load this project."}
+            </p>
+            {/* The honest backend error stays; a way out of the dead end
+                does not change what happened — the project is gone. */}
+            <Link to="/projects" className="btn-secondary mt-4 inline-flex">
+              Back to projects
+            </Link>
           </div>
         ) : project.data ? (
           <>

@@ -5,6 +5,8 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
 
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import RootRedirectPage from "./pages/RootRedirectPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import ProjectWorkspacePage from "./pages/ProjectWorkspacePage";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -17,7 +19,9 @@ const queryClient = new QueryClient({
 });
 
 const router = createBrowserRouter([
+  { path: "/", element: <RootRedirectPage /> },
   { path: "/login", element: <LoginPage /> },
+  { path: "/register", element: <RegisterPage /> },
   {
     path: "/projects",
     element: (
