@@ -1,0 +1,1468 @@
+{
+  "case_id": "dxf__room_plan__modelspace",
+  "current_engine_version": "0.5.0",
+  "elements": [
+    {
+      "element_type": "wall",
+      "geometry": {
+        "coordinates": [
+          [
+            0.0,
+            100.0
+          ],
+          [
+            4000.0,
+            100.0
+          ],
+          [
+            4000.0,
+            -100.0
+          ],
+          [
+            0.0,
+            -100.0
+          ],
+          [
+            0.0,
+            100.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": "WALL",
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "30",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "31",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 0,
+      "label": "Wall 1",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "wall",
+      "geometry": {
+        "coordinates": [
+          [
+            -100.0,
+            0.0
+          ],
+          [
+            -100.0,
+            3000.0
+          ],
+          [
+            100.0,
+            3000.0
+          ],
+          [
+            100.0,
+            0.0
+          ],
+          [
+            -100.0,
+            0.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": "WALL",
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "32",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "33",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 1,
+      "label": "Wall 2",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "wall",
+      "geometry": {
+        "coordinates": [
+          [
+            3900.0,
+            0.0
+          ],
+          [
+            3900.0,
+            3000.0
+          ],
+          [
+            4100.0,
+            3000.0
+          ],
+          [
+            4100.0,
+            0.0
+          ],
+          [
+            3900.0,
+            0.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": "WALL",
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "34",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "35",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 2,
+      "label": "Wall 3",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "wall",
+      "geometry": {
+        "coordinates": [
+          [
+            0.0,
+            3100.0
+          ],
+          [
+            4000.0,
+            3100.0
+          ],
+          [
+            4000.0,
+            2900.0
+          ],
+          [
+            0.0,
+            2900.0
+          ],
+          [
+            0.0,
+            3100.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": "WALL",
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "36",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "37",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 3,
+      "label": "Wall 4",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "room",
+      "geometry": {
+        "coordinates": [
+          [
+            4000.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            3000.0
+          ],
+          [
+            4000.0,
+            3000.0
+          ],
+          [
+            4000.0,
+            0.0
+          ]
+        ],
+        "derived_from": [
+          "30",
+          "31",
+          "32",
+          "33",
+          "34",
+          "35",
+          "36",
+          "37"
+        ],
+        "geom_type": "polygon",
+        "layer": null,
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "30",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "31",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "32",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "33",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "34",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "35",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "36",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "37",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 4,
+      "label": "KITCHEN",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "floor_finish",
+      "geometry": {
+        "coordinates": [
+          [
+            4000.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            3000.0
+          ],
+          [
+            4000.0,
+            3000.0
+          ],
+          [
+            4000.0,
+            0.0
+          ]
+        ],
+        "derived_from": [
+          "30",
+          "31",
+          "32",
+          "33",
+          "34",
+          "35",
+          "36",
+          "37"
+        ],
+        "geom_type": "polygon",
+        "layer": null,
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "30",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "31",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "32",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "33",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "34",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "35",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "36",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "37",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 5,
+      "label": "Floor (all rooms)",
+      "type_source": "geometry_deterministic"
+    }
+  ],
+  "engine_version": "0.5.0",
+  "exceptions": [],
+  "fixture": "dxf/room_plan.dxf",
+  "fixture_sha256": "135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f",
+  "format": "dxf",
+  "measurements": [
+    {
+      "centerline": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          4000.0,
+          0.0
+        ]
+      ],
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31"
+      ],
+      "inputs_digest": "dfaa13282d6ff91239155f5b959786a548a85de60d75b9a85a27f7448af0676b",
+      "label": "Wall 1",
+      "measurement_id": "23b36c13-7ffa-5bf6-bff5-6460dc597f8f",
+      "quantity_type": "length",
+      "rule_id": "wall.centerline.length.v1",
+      "state": "measured",
+      "thickness": 200.0,
+      "unit": "m",
+      "value": "4.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31"
+      ],
+      "inputs_digest": "20d37bbb2b085f784800f5512500234e177a4376f03f4a0b35cf69e58e63a335",
+      "label": "Wall 1 footprint",
+      "measurement_id": "a0c88242-8e10-561e-99a8-de2b29c024ac",
+      "quantity_type": "area",
+      "rule_id": "wall.footprint.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.800000"
+    },
+    {
+      "centerline": null,
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31"
+      ],
+      "inputs_digest": "2ed221a757235ceffde29a198f2f64c004cd33a257dcb7cb01b4e9ddbff300ba",
+      "label": "Wall 1 openings (none detected)",
+      "measurement_id": "12185700-f116-585e-a77c-6aa421688d60",
+      "quantity_type": "count",
+      "rule_id": "opening.count.v1",
+      "state": "measured_zero",
+      "thickness": null,
+      "unit": "count",
+      "value": "0.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "30",
+        "31",
+        "31"
+      ],
+      "inputs_digest": "984acda0a15e2f92681005156688eaf3db433ee44049f15cfdd162093ed35c49",
+      "label": "Wall 1 net of openings",
+      "measurement_id": "d602ef1c-1344-5e80-ae12-45bb89f4f458",
+      "quantity_type": "area",
+      "rule_id": "wall.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.800000"
+    },
+    {
+      "centerline": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          3000.0
+        ]
+      ],
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "33"
+      ],
+      "inputs_digest": "5f2cc145742b28e546fc1255c21c541090ff11251c089db06955aad8e3ff52ec",
+      "label": "Wall 2",
+      "measurement_id": "930040fa-e860-5996-b565-6f0c285a792d",
+      "quantity_type": "length",
+      "rule_id": "wall.centerline.length.v1",
+      "state": "measured",
+      "thickness": 200.0,
+      "unit": "m",
+      "value": "3.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "33"
+      ],
+      "inputs_digest": "d4c4da828ab403ef335e7bee6d4000a9b813af1e63ca97bbee83ab7c1ebca4dd",
+      "label": "Wall 2 footprint",
+      "measurement_id": "09ac13bd-4ebd-5813-b098-5308afffe352",
+      "quantity_type": "area",
+      "rule_id": "wall.footprint.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.600000"
+    },
+    {
+      "centerline": null,
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "33"
+      ],
+      "inputs_digest": "12f7d52da0e3a510d780a402539014d47fef594f4960e900f53c4bc3557a4980",
+      "label": "Wall 2 openings (none detected)",
+      "measurement_id": "e280d648-bc0f-5259-a440-79d4dfebf855",
+      "quantity_type": "count",
+      "rule_id": "opening.count.v1",
+      "state": "measured_zero",
+      "thickness": null,
+      "unit": "count",
+      "value": "0.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "32",
+        "33",
+        "33"
+      ],
+      "inputs_digest": "df28ed2a34f45406566eb31efb2c4504ae9d2436ee735dbe538c14bae0ea9801",
+      "label": "Wall 2 net of openings",
+      "measurement_id": "61aad88d-3c08-5e40-a2d4-9e93959ac025",
+      "quantity_type": "area",
+      "rule_id": "wall.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.600000"
+    },
+    {
+      "centerline": [
+        [
+          4000.0,
+          0.0
+        ],
+        [
+          4000.0,
+          3000.0
+        ]
+      ],
+      "element_index": 2,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 3",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 3",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "34",
+        "35"
+      ],
+      "inputs_digest": "0ed98fb0fe51a6e54f7ee9ac0bfab4cf6d5df4afff9ed2a7e07508cdf7f57efd",
+      "label": "Wall 3",
+      "measurement_id": "eca2498b-2461-5543-9c29-019db4217478",
+      "quantity_type": "length",
+      "rule_id": "wall.centerline.length.v1",
+      "state": "measured",
+      "thickness": 200.0,
+      "unit": "m",
+      "value": "3.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 2,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 3 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 3 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "34",
+        "35"
+      ],
+      "inputs_digest": "8e8ce70b18957d96a2b958a689c480a94cf1692136c07542dbbd6ff722cb88e0",
+      "label": "Wall 3 footprint",
+      "measurement_id": "2ff3140e-6424-54cb-b7c0-152a8acb3b7c",
+      "quantity_type": "area",
+      "rule_id": "wall.footprint.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.600000"
+    },
+    {
+      "centerline": null,
+      "element_index": 2,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 3 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 3 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "34",
+        "35"
+      ],
+      "inputs_digest": "9fee2e704614682f8ebd2fb1ac521b6f191decc1e57df07cdd7bf27446b61bac",
+      "label": "Wall 3 openings (none detected)",
+      "measurement_id": "c557ddb1-1b99-5172-ba3d-df2229de65c8",
+      "quantity_type": "count",
+      "rule_id": "opening.count.v1",
+      "state": "measured_zero",
+      "thickness": null,
+      "unit": "count",
+      "value": "0.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 2,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 3 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 3 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 3 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 3 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "34",
+        "34",
+        "35",
+        "35"
+      ],
+      "inputs_digest": "ab436e6bf88114cb57e3585c29940f08123ad214c471f13d910998cfa9154769",
+      "label": "Wall 3 net of openings",
+      "measurement_id": "504096e7-5729-5552-986f-6db2d5d4e8f4",
+      "quantity_type": "area",
+      "rule_id": "wall.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.600000"
+    },
+    {
+      "centerline": [
+        [
+          0.0,
+          3000.0
+        ],
+        [
+          4000.0,
+          3000.0
+        ]
+      ],
+      "element_index": 3,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 4",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 4",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "36",
+        "37"
+      ],
+      "inputs_digest": "5ec2d5bf00b6d9baeecb2ddcb073d1f308ab417fca006246c5df145ecfe6cd79",
+      "label": "Wall 4",
+      "measurement_id": "038fbb41-51c0-546f-873f-2640b0ac10d1",
+      "quantity_type": "length",
+      "rule_id": "wall.centerline.length.v1",
+      "state": "measured",
+      "thickness": 200.0,
+      "unit": "m",
+      "value": "4.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 3,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 4 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 4 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "36",
+        "37"
+      ],
+      "inputs_digest": "02cd8dbffea00134a7a8767c77a4932cfcbbf30a9e38bb298fdfdc1bab20efdd",
+      "label": "Wall 4 footprint",
+      "measurement_id": "5a6df171-9301-5f4d-9b1a-3db3f812f68b",
+      "quantity_type": "area",
+      "rule_id": "wall.footprint.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.800000"
+    },
+    {
+      "centerline": null,
+      "element_index": 3,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 4 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 4 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "36",
+        "37"
+      ],
+      "inputs_digest": "25119390bb86232fbcc5b452e2bdbda75592933e3458d93b0fb2fce74e133fb5",
+      "label": "Wall 4 openings (none detected)",
+      "measurement_id": "c951f6f8-eca6-5c3d-ad8e-b17633d3d464",
+      "quantity_type": "count",
+      "rule_id": "opening.count.v1",
+      "state": "measured_zero",
+      "thickness": null,
+      "unit": "count",
+      "value": "0.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 3,
+      "element_type": "wall",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 4 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 4 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 4 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 4 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "36",
+        "36",
+        "37",
+        "37"
+      ],
+      "inputs_digest": "356ef21bbf47b0445219ae72455268de287d08e0f923e182fbc98f2778e3f043",
+      "label": "Wall 4 net of openings",
+      "measurement_id": "14ba0f81-715c-5469-9c64-df3f27263967",
+      "quantity_type": "area",
+      "rule_id": "wall.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.800000"
+    },
+    {
+      "centerline": null,
+      "element_index": 4,
+      "element_type": "room",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross area",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "text_token",
+          "note": "room label 'KITCHEN'",
+          "ref": "{\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"token\":{\"handle\":{\"entity_ref\":\"38\",\"format\":\"dxf_entity\",\"layer\":\"TEXT\",\"sheet_ref\":\"modelspace\"},\"height\":200.0,\"insertion\":[1000.0,1500.0],\"text\":\"KITCHEN\"}}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31",
+        "32",
+        "33",
+        "34",
+        "35",
+        "36",
+        "37"
+      ],
+      "inputs_digest": "13165fc81fea7c68ea52842ccede98a5fb06bcdd9cff8017af519cabfd6c22b0",
+      "label": "KITCHEN gross area",
+      "measurement_id": "3ad2315b-11f0-5b9f-926a-ca0e9c4cbdc4",
+      "quantity_type": "area",
+      "rule_id": "room.gross.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "12.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 4,
+      "element_type": "room",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN gross perimeter",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "text_token",
+          "note": "room label 'KITCHEN'",
+          "ref": "{\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"token\":{\"handle\":{\"entity_ref\":\"38\",\"format\":\"dxf_entity\",\"layer\":\"TEXT\",\"sheet_ref\":\"modelspace\"},\"height\":200.0,\"insertion\":[1000.0,1500.0],\"text\":\"KITCHEN\"}}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31",
+        "32",
+        "33",
+        "34",
+        "35",
+        "36",
+        "37"
+      ],
+      "inputs_digest": "f0e771f8ee6dd482e2ed689ffae008d3a36310d4d643d60e07140c258fb6dfc1",
+      "label": "KITCHEN gross perimeter",
+      "measurement_id": "64057f2e-bbe0-536f-a455-c49fccac23ce",
+      "quantity_type": "length",
+      "rule_id": "room.gross.perimeter.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m",
+      "value": "14.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 4,
+      "element_type": "room",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "KITCHEN net area",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "text_token",
+          "note": "room label 'KITCHEN'",
+          "ref": "{\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"token\":{\"handle\":{\"entity_ref\":\"38\",\"format\":\"dxf_entity\",\"layer\":\"TEXT\",\"sheet_ref\":\"modelspace\"},\"height\":200.0,\"insertion\":[1000.0,1500.0],\"text\":\"KITCHEN\"}}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31",
+        "32",
+        "33",
+        "34",
+        "35",
+        "36",
+        "37"
+      ],
+      "inputs_digest": "5d3ffbdbbc6151d9c182f13f1612d19c4d5df562920bff64b42b3e296a382b41",
+      "label": "KITCHEN net area",
+      "measurement_id": "57d982d8-547e-58f5-991c-bd7468d16ce5",
+      "quantity_type": "area",
+      "rule_id": "room.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "10.640000"
+    },
+    {
+      "centerline": null,
+      "element_index": 5,
+      "element_type": "floor_finish",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor gross area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "30",
+        "31",
+        "31",
+        "32",
+        "32",
+        "33",
+        "33",
+        "34",
+        "34",
+        "35",
+        "35",
+        "36",
+        "36",
+        "37",
+        "37"
+      ],
+      "inputs_digest": "efcbd970c58f24ccccbf1c2ebe19b6a9c62eb3fdc7327fd3e634f1181edf7653",
+      "label": "Floor gross area (room roll-up)",
+      "measurement_id": "237a07ba-cd18-5e2e-b878-a9c29e0c3d50",
+      "quantity_type": "area",
+      "rule_id": "floor.gross.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "12.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 5,
+      "element_type": "floor_finish",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"36\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Floor net area (room roll-up)",
+          "ref": "{\"handle\":{\"entity_ref\":\"37\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\",\"version\":\"135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "30",
+        "31",
+        "31",
+        "32",
+        "32",
+        "33",
+        "33",
+        "34",
+        "34",
+        "35",
+        "35",
+        "36",
+        "36",
+        "37",
+        "37"
+      ],
+      "inputs_digest": "292a1e6bf3cd6d1f8d28b6e42e77193d78f7ddd27e8b8f73ba86e1ea569796ba",
+      "label": "Floor net area (room roll-up)",
+      "measurement_id": "63c401ec-ac21-5ba9-8024-1d01badfee3f",
+      "quantity_type": "area",
+      "rule_id": "floor.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "10.640000"
+    }
+  ],
+  "parse": {
+    "drawing_units": "mm",
+    "geometry_count": 8,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 9,
+        "is_modelspace": true,
+        "layout_name": "Model",
+        "measurable": true,
+        "measurable_count": 8,
+        "sheet_ref": "modelspace",
+        "title": null,
+        "unit_code": "mm"
+      }
+    ],
+    "source_sha256": "135dc1ec8468fef7feb043891db3daedb8522c419030791211c8aa1294e6542f",
+    "text_token_count": 1,
+    "text_tokens": [
+      {
+        "handle": {
+          "entity_ref": "38",
+          "format": "dxf_entity",
+          "layer": "TEXT",
+          "sheet_ref": "modelspace"
+        },
+        "height": 200.0,
+        "insertion": [
+          1000.0,
+          1500.0
+        ],
+        "text": "KITCHEN"
+      }
+    ],
+    "warnings": []
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "detected_from_dxf_units",
+      "sheet_id": "modelspace",
+      "status": "confirmed",
+      "units_per_drawing_unit": "1.0"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": null,
+    "emit_candidates": false,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "modelspace"
+  },
+  "schema": "golden-run-v1"
+}

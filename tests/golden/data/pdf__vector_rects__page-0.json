@@ -1,0 +1,366 @@
+{
+  "case_id": "pdf__vector_rects__page-0",
+  "current_engine_version": "0.5.0",
+  "elements": [
+    {
+      "element_type": "other",
+      "geometry": {
+        "coordinates": [
+          [
+            72.0,
+            32.0
+          ],
+          [
+            312.0,
+            32.0
+          ],
+          [
+            312.0,
+            152.0
+          ],
+          [
+            72.0,
+            152.0
+          ],
+          [
+            72.0,
+            32.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": null,
+        "source_format": "pdf_vector",
+        "source_handles": [
+          {
+            "entity_ref": "p0:rect:0",
+            "format": "pdf_vector",
+            "layer": null,
+            "sheet_ref": "page:0"
+          }
+        ]
+      },
+      "index": 0,
+      "label": "PDF vector area candidate 1 (28800.000000 pt2)",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "other",
+      "geometry": {
+        "coordinates": [
+          [
+            360.0,
+            62.0
+          ],
+          [
+            540.0,
+            62.0
+          ],
+          [
+            540.0,
+            152.0
+          ],
+          [
+            360.0,
+            152.0
+          ],
+          [
+            360.0,
+            62.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": null,
+        "source_format": "pdf_vector",
+        "source_handles": [
+          {
+            "entity_ref": "p0:rect:1",
+            "format": "pdf_vector",
+            "layer": null,
+            "sheet_ref": "page:0"
+          }
+        ]
+      },
+      "index": 1,
+      "label": "PDF vector area candidate 2 (16200.000000 pt2)",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "other",
+      "geometry": {
+        "coordinates": [
+          [
+            72.0,
+            252.0
+          ],
+          [
+            192.0,
+            252.0
+          ],
+          [
+            192.0,
+            312.0
+          ],
+          [
+            72.0,
+            312.0
+          ],
+          [
+            72.0,
+            252.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": null,
+        "source_format": "pdf_vector",
+        "source_handles": [
+          {
+            "entity_ref": "p0:rect:2",
+            "format": "pdf_vector",
+            "layer": null,
+            "sheet_ref": "page:0"
+          }
+        ]
+      },
+      "index": 2,
+      "label": "PDF vector area candidate 3 (7200.000000 pt2)",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "other",
+      "geometry": {
+        "coordinates": [
+          [
+            300.0,
+            492.0
+          ],
+          [
+            480.0,
+            492.0
+          ],
+          [
+            480.0,
+            372.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polyline",
+        "layer": null,
+        "source_format": "pdf_vector",
+        "source_handles": [
+          {
+            "entity_ref": "p0:curve:0",
+            "format": "pdf_vector",
+            "layer": null,
+            "sheet_ref": "page:0"
+          }
+        ]
+      },
+      "index": 3,
+      "label": "PDF vector length candidate 1 (300.000000 pt)",
+      "type_source": "geometry_deterministic"
+    }
+  ],
+  "engine_version": "0.5.0",
+  "exceptions": [],
+  "fixture": "pdf/vector_rects.pdf",
+  "fixture_sha256": "dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743",
+  "format": "pdf",
+  "measurements": [
+    {
+      "centerline": null,
+      "element_index": 0,
+      "element_type": "other",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "PDF vector area candidate 1 (28800.000000 pt2)",
+          "ref": "{\"handle\":{\"entity_ref\":\"p0:rect:0\",\"format\":\"pdf_vector\",\"layer\":null,\"sheet_ref\":\"page:0\"},\"source\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\",\"version\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\"}"
+        }
+      ],
+      "inputs": [
+        "p0:rect:0"
+      ],
+      "inputs_digest": "d56e639fca26c49c011dba48820100510cb6158e910e23e8365d3021e953fac2",
+      "label": "PDF vector area candidate 1 (28800.000000 pt2)",
+      "measurement_id": "83e3e489-bcf7-580b-be5c-3b65d3379b21",
+      "quantity_type": "area",
+      "rule_id": "polygon.area.v1",
+      "state": "needs_review",
+      "thickness": null,
+      "unit": "m2",
+      "value": "35.842222"
+    },
+    {
+      "centerline": null,
+      "element_index": 1,
+      "element_type": "other",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "PDF vector area candidate 2 (16200.000000 pt2)",
+          "ref": "{\"handle\":{\"entity_ref\":\"p0:rect:1\",\"format\":\"pdf_vector\",\"layer\":null,\"sheet_ref\":\"page:0\"},\"source\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\",\"version\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\"}"
+        }
+      ],
+      "inputs": [
+        "p0:rect:1"
+      ],
+      "inputs_digest": "fda8d49c2e720bce59a7da7ce5b90b102da0c08a51d5309ef54092913f3f1b08",
+      "label": "PDF vector area candidate 2 (16200.000000 pt2)",
+      "measurement_id": "a5a30595-a3ba-5769-b409-d9d353410afc",
+      "quantity_type": "area",
+      "rule_id": "polygon.area.v1",
+      "state": "needs_review",
+      "thickness": null,
+      "unit": "m2",
+      "value": "20.161250"
+    },
+    {
+      "centerline": null,
+      "element_index": 2,
+      "element_type": "other",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "PDF vector area candidate 3 (7200.000000 pt2)",
+          "ref": "{\"handle\":{\"entity_ref\":\"p0:rect:2\",\"format\":\"pdf_vector\",\"layer\":null,\"sheet_ref\":\"page:0\"},\"source\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\",\"version\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\"}"
+        }
+      ],
+      "inputs": [
+        "p0:rect:2"
+      ],
+      "inputs_digest": "739c1a7b025ea7975cd2437d9cd86f51c8c0cd83801dce7a7f114841b32ff719",
+      "label": "PDF vector area candidate 3 (7200.000000 pt2)",
+      "measurement_id": "c4c2ba61-d0c3-5284-8eb4-6ec3db4356b0",
+      "quantity_type": "area",
+      "rule_id": "polygon.area.v1",
+      "state": "needs_review",
+      "thickness": null,
+      "unit": "m2",
+      "value": "8.960556"
+    },
+    {
+      "centerline": null,
+      "element_index": 3,
+      "element_type": "other",
+      "engine_version": "0.5.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "PDF vector length candidate 1 (300.000000 pt)",
+          "ref": "{\"handle\":{\"entity_ref\":\"p0:curve:0\",\"format\":\"pdf_vector\",\"layer\":null,\"sheet_ref\":\"page:0\"},\"source\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\",\"version\":\"dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743\"}"
+        }
+      ],
+      "inputs": [
+        "p0:curve:0"
+      ],
+      "inputs_digest": "95979e61ca3d419e9068f6bfdb8137e9ec68afe3fe8ca8ab6949da4a6eba8612",
+      "label": "PDF vector length candidate 1 (300.000000 pt)",
+      "measurement_id": "09e67f83-333b-5369-9748-5e5f4eaf0c4b",
+      "quantity_type": "length",
+      "rule_id": "polyline.length.v1",
+      "state": "needs_review",
+      "thickness": null,
+      "unit": "m",
+      "value": "10.583333"
+    }
+  ],
+  "parse": {
+    "drawing_units": "unknown",
+    "geometry_count": 4,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 8,
+        "is_modelspace": true,
+        "layout_name": "Page 1",
+        "measurable": true,
+        "measurable_count": 4,
+        "sheet_ref": "page:0",
+        "title": null,
+        "unit_code": null
+      }
+    ],
+    "source_sha256": "dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743",
+    "text_token_count": 4,
+    "text_tokens": [
+      {
+        "handle": {
+          "entity_ref": "p0:text:0",
+          "format": "pdf_vector",
+          "layer": null,
+          "sheet_ref": "page:0"
+        },
+        "height": 12.0,
+        "insertion": [
+          80.0,
+          52.48400000000004
+        ],
+        "text": "ROOM"
+      },
+      {
+        "handle": {
+          "entity_ref": "p0:text:1",
+          "format": "pdf_vector",
+          "layer": null,
+          "sheet_ref": "page:0"
+        },
+        "height": 12.0,
+        "insertion": [
+          120.66799999999999,
+          52.48400000000004
+        ],
+        "text": "A"
+      },
+      {
+        "handle": {
+          "entity_ref": "p0:text:2",
+          "format": "pdf_vector",
+          "layer": null,
+          "sheet_ref": "page:0"
+        },
+        "height": 12.0,
+        "insertion": [
+          80.0,
+          722.484
+        ],
+        "text": "SCALE"
+      },
+      {
+        "handle": {
+          "entity_ref": "p0:text:3",
+          "format": "pdf_vector",
+          "layer": null,
+          "sheet_ref": "page:0"
+        },
+        "height": 12.0,
+        "insertion": [
+          122.684,
+          722.484
+        ],
+        "text": "1:100"
+      }
+    ],
+    "warnings": []
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "bar_scale_detected",
+      "sheet_id": "page:0",
+      "status": "confirmed",
+      "units_per_drawing_unit": "35.2777777778"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": "mm",
+    "emit_candidates": true,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "page:0"
+  },
+  "schema": "golden-run-v1"
+}

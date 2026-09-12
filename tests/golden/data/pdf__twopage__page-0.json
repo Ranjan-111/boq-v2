@@ -1,0 +1,68 @@
+{
+  "case_id": "pdf__twopage__page-0",
+  "current_engine_version": "0.5.0",
+  "elements": [],
+  "engine_version": "0.5.0",
+  "exceptions": [
+    {
+      "ai_explanation": null,
+      "code": "ambiguous_sheet",
+      "element_id": null,
+      "evidence": [],
+      "measurement_id": null,
+      "message": "source belongs to another sheet",
+      "severity": "blocking",
+      "sheet_id": "page:0"
+    }
+  ],
+  "fixture": "pdf/twopage.pdf",
+  "fixture_sha256": "04c627afd560a9e886685be6cc5c8191861fc28540515f93c5699a9fd9a54106",
+  "format": "pdf",
+  "measurements": [],
+  "parse": {
+    "drawing_units": "unknown",
+    "geometry_count": 2,
+    "sheet_count": 2,
+    "sheets": [
+      {
+        "entity_count": 1,
+        "is_modelspace": true,
+        "layout_name": "Page 1",
+        "measurable": true,
+        "measurable_count": 1,
+        "sheet_ref": "page:0",
+        "title": null,
+        "unit_code": null
+      },
+      {
+        "entity_count": 1,
+        "is_modelspace": true,
+        "layout_name": "Page 2",
+        "measurable": true,
+        "measurable_count": 1,
+        "sheet_ref": "page:1",
+        "title": null,
+        "unit_code": null
+      }
+    ],
+    "source_sha256": "04c627afd560a9e886685be6cc5c8191861fc28540515f93c5699a9fd9a54106",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": []
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "bar_scale_detected",
+      "sheet_id": "page:0",
+      "status": "confirmed",
+      "units_per_drawing_unit": "35.2777777778"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": "mm",
+    "emit_candidates": true,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "page:0"
+  },
+  "schema": "golden-run-v1"
+}

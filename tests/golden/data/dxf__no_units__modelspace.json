@@ -1,0 +1,58 @@
+{
+  "case_id": "dxf__no_units__modelspace",
+  "current_engine_version": "0.5.0",
+  "elements": [],
+  "engine_version": "0.5.0",
+  "exceptions": [
+    {
+      "ai_explanation": null,
+      "code": "scale_unconfirmed",
+      "element_id": null,
+      "evidence": [],
+      "measurement_id": null,
+      "message": "unsupported drawing unit: 'unknown'",
+      "severity": "blocking",
+      "sheet_id": "modelspace"
+    }
+  ],
+  "fixture": "dxf/no_units.dxf",
+  "fixture_sha256": "feebc3efd832d72940c72d725a0e28cad1a9ef910d5329a214ed5aee902314f7",
+  "format": "dxf",
+  "measurements": [],
+  "parse": {
+    "drawing_units": "unknown",
+    "geometry_count": 2,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 2,
+        "is_modelspace": true,
+        "layout_name": "Model",
+        "measurable": false,
+        "measurable_count": 2,
+        "sheet_ref": "modelspace",
+        "title": null,
+        "unit_code": "unknown"
+      }
+    ],
+    "source_sha256": "feebc3efd832d72940c72d725a0e28cad1a9ef910d5329a214ed5aee902314f7",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": []
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "detected_from_dxf_units",
+      "sheet_id": "modelspace",
+      "status": "confirmed",
+      "units_per_drawing_unit": "1.0"
+    },
+    "drawing_units": "unknown",
+    "drawing_units_override": null,
+    "emit_candidates": false,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "modelspace"
+  },
+  "schema": "golden-run-v1"
+}

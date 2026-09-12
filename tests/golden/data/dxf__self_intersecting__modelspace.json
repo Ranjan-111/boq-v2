@@ -1,0 +1,58 @@
+{
+  "case_id": "dxf__self_intersecting__modelspace",
+  "current_engine_version": "0.5.0",
+  "elements": [],
+  "engine_version": "0.5.0",
+  "exceptions": [
+    {
+      "ai_explanation": null,
+      "code": "self_intersecting",
+      "element_id": null,
+      "evidence": [],
+      "measurement_id": null,
+      "message": "polygon refused: self-intersecting ring",
+      "severity": "blocking",
+      "sheet_id": "modelspace"
+    }
+  ],
+  "fixture": "dxf/self_intersecting.dxf",
+  "fixture_sha256": "19b65b6314d909ebcccf196218c8fd348b50fadb38af419df9a3f115f6724fee",
+  "format": "dxf",
+  "measurements": [],
+  "parse": {
+    "drawing_units": "mm",
+    "geometry_count": 1,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 1,
+        "is_modelspace": true,
+        "layout_name": "Model",
+        "measurable": true,
+        "measurable_count": 1,
+        "sheet_ref": "modelspace",
+        "title": null,
+        "unit_code": "mm"
+      }
+    ],
+    "source_sha256": "19b65b6314d909ebcccf196218c8fd348b50fadb38af419df9a3f115f6724fee",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": []
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "detected_from_dxf_units",
+      "sheet_id": "modelspace",
+      "status": "confirmed",
+      "units_per_drawing_unit": "1.0"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": null,
+    "emit_candidates": false,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "modelspace"
+  },
+  "schema": "golden-run-v1"
+}

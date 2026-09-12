@@ -1,0 +1,70 @@
+{
+  "case_id": "dxf__paperspace_only__modelspace",
+  "current_engine_version": "0.5.0",
+  "elements": [],
+  "engine_version": "0.5.0",
+  "exceptions": [
+    {
+      "ai_explanation": null,
+      "code": "parse_incomplete",
+      "element_id": null,
+      "evidence": [],
+      "measurement_id": null,
+      "message": "paper-space layout 'Layout1' parsed but not measurable (V1)",
+      "severity": "blocking",
+      "sheet_id": "modelspace"
+    }
+  ],
+  "fixture": "dxf/paperspace_only.dxf",
+  "fixture_sha256": "6b92d604052d48a9afb2229aecd11c844c16d4d5c2a26a081909ca2ce67adcb2",
+  "format": "dxf",
+  "measurements": [],
+  "parse": {
+    "drawing_units": "mm",
+    "geometry_count": 0,
+    "sheet_count": 2,
+    "sheets": [
+      {
+        "entity_count": 0,
+        "is_modelspace": true,
+        "layout_name": "Model",
+        "measurable": false,
+        "measurable_count": 0,
+        "sheet_ref": "modelspace",
+        "title": null,
+        "unit_code": "mm"
+      },
+      {
+        "entity_count": 2,
+        "is_modelspace": false,
+        "layout_name": "Layout1",
+        "measurable": false,
+        "measurable_count": 0,
+        "sheet_ref": "paperspace:Layout1",
+        "title": null,
+        "unit_code": "mm"
+      }
+    ],
+    "source_sha256": "6b92d604052d48a9afb2229aecd11c844c16d4d5c2a26a081909ca2ce67adcb2",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": [
+      "paper-space layout 'Layout1' parsed but not measurable (V1)"
+    ]
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "detected_from_dxf_units",
+      "sheet_id": "modelspace",
+      "status": "confirmed",
+      "units_per_drawing_unit": "1.0"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": null,
+    "emit_candidates": false,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "modelspace"
+  },
+  "schema": "golden-run-v1"
+}

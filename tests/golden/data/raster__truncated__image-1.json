@@ -1,0 +1,10 @@
+{
+  "case_id": "raster__truncated__image-1",
+  "current_engine_version": "0.5.0",
+  "fixture": "raster/truncated.png",
+  "fixture_sha256": "976e93e65ff47527b74a369f7c934c1e1a062e0daf052a7b5771128522f20477",
+  "format": "raster",
+  "parse_error_type": "RasterParseError",
+  "parse_refused": true,
+  "schema": "golden-run-v1"
+}

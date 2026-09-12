@@ -1,0 +1,60 @@
+{
+  "case_id": "pdf__curves__page-0",
+  "current_engine_version": "0.5.0",
+  "elements": [],
+  "engine_version": "0.5.0",
+  "exceptions": [
+    {
+      "ai_explanation": null,
+      "code": "parse_incomplete",
+      "element_id": null,
+      "evidence": [],
+      "measurement_id": null,
+      "message": "unsupported path p0:curve:0: curved segment",
+      "severity": "blocking",
+      "sheet_id": "page:0"
+    }
+  ],
+  "fixture": "pdf/curves.pdf",
+  "fixture_sha256": "de6726cbabed4574d8589d6cb7a3261b1a93de4ae3974fcb1c34f2062d4180af",
+  "format": "pdf",
+  "measurements": [],
+  "parse": {
+    "drawing_units": "unknown",
+    "geometry_count": 1,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 2,
+        "is_modelspace": true,
+        "layout_name": "Page 1",
+        "measurable": true,
+        "measurable_count": 1,
+        "sheet_ref": "page:0",
+        "title": null,
+        "unit_code": null
+      }
+    ],
+    "source_sha256": "de6726cbabed4574d8589d6cb7a3261b1a93de4ae3974fcb1c34f2062d4180af",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": [
+      "unsupported path p0:curve:0: curved segment"
+    ]
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "bar_scale_detected",
+      "sheet_id": "page:0",
+      "status": "confirmed",
+      "units_per_drawing_unit": "35.2777777778"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": "mm",
+    "emit_candidates": true,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "page:0"
+  },
+  "schema": "golden-run-v1"
+}

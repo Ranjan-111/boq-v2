@@ -1,0 +1,10 @@
+{
+  "case_id": "pdf__corrupt__page-0",
+  "current_engine_version": "0.5.0",
+  "fixture": "pdf/corrupt.pdf",
+  "fixture_sha256": "7064ccd45c34f9bd5d5aff8ad83603f3e4f28470472ca51ea833b79b6b6c929c",
+  "format": "pdf",
+  "parse_error_type": "PdfParseError",
+  "parse_refused": true,
+  "schema": "golden-run-v1"
+}

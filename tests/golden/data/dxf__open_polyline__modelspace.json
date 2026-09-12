@@ -1,0 +1,47 @@
+{
+  "case_id": "dxf__open_polyline__modelspace",
+  "current_engine_version": "0.5.0",
+  "elements": [],
+  "engine_version": "0.5.0",
+  "exceptions": [],
+  "fixture": "dxf/open_polyline.dxf",
+  "fixture_sha256": "0d09b72c2195d7a65306b867bd554719ef45f111ea3a8fa59c968e57e8099f50",
+  "format": "dxf",
+  "measurements": [],
+  "parse": {
+    "drawing_units": "mm",
+    "geometry_count": 1,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 1,
+        "is_modelspace": true,
+        "layout_name": "Model",
+        "measurable": true,
+        "measurable_count": 1,
+        "sheet_ref": "modelspace",
+        "title": null,
+        "unit_code": "mm"
+      }
+    ],
+    "source_sha256": "0d09b72c2195d7a65306b867bd554719ef45f111ea3a8fa59c968e57e8099f50",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": []
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "detected_from_dxf_units",
+      "sheet_id": "modelspace",
+      "status": "confirmed",
+      "units_per_drawing_unit": "1.0"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": null,
+    "emit_candidates": false,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "modelspace"
+  },
+  "schema": "golden-run-v1"
+}

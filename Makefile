@@ -25,6 +25,9 @@ guards: ## license + reference-leak guards
 test: ## Run all non-integration Python tests
 	.venv/bin/pytest $(TEST_PATHS) -m "not integration"
 
+golden-update: ## Regenerate golden-run files (tests/golden/data) — deliberate drift ONLY: bump ENGINE_VERSION first (T121)
+	$(PYTHON) tests/golden/golden_run.py --update
+
 test-integration: ## Run integration tests (needs Postgres)
 	.venv/bin/pytest $(TEST_PATHS) -m integration
 
@@ -58,4 +61,4 @@ deploy-up: ## Start prod composition (Postgres + MinIO + api + worker; build fir
 deploy-down: ## Stop the prod composition (named volumes survive)
 	docker compose -f docker-compose.prod.yml down
 
-.PHONY: help venv install lint arch guards test test-integration test-all db-up db-migrate db-revision api worker e2e deploy-build deploy-up deploy-down
+.PHONY: help venv install lint arch guards test golden-update test-integration test-all db-up db-migrate db-revision api worker e2e deploy-build deploy-up deploy-down

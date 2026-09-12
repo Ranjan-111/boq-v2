@@ -1,0 +1,10 @@
+{
+  "case_id": "raster__oversized__image-1",
+  "current_engine_version": "0.5.0",
+  "fixture": "raster/oversized.png",
+  "fixture_sha256": "f46442d11819d2e76385bc3382ab20db476f218c36e643747c29d0e5bb97ac87",
+  "format": "raster",
+  "parse_error_type": "RasterParseError",
+  "parse_refused": true,
+  "schema": "golden-run-v1"
+}

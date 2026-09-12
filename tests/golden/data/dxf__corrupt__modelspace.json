@@ -1,0 +1,10 @@
+{
+  "case_id": "dxf__corrupt__modelspace",
+  "current_engine_version": "0.5.0",
+  "fixture": "dxf/corrupt.dxf",
+  "fixture_sha256": "249db52e5a8ce5759e2ffb817682e102130d9417e4598226df44157921677bcc",
+  "format": "dxf",
+  "parse_error_type": "DxfParseError",
+  "parse_refused": true,
+  "schema": "golden-run-v1"
+}

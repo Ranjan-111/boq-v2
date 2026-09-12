@@ -1,0 +1,61 @@
+{
+  "case_id": "raster__border_rect__image-1",
+  "current_engine_version": "0.5.0",
+  "elements": [],
+  "engine_version": "0.5.0",
+  "exceptions": [
+    {
+      "ai_explanation": null,
+      "code": "scale_unconfirmed",
+      "element_id": null,
+      "evidence": [],
+      "measurement_id": null,
+      "message": "unsupported drawing unit: 'unknown'",
+      "severity": "blocking",
+      "sheet_id": "image:1"
+    }
+  ],
+  "fixture": "raster/border_rect.png",
+  "fixture_sha256": "29f8868b2b6de943b0a8e57a514f982e66051ce39dc5b9095e10a006e3bc2747",
+  "format": "raster",
+  "measurements": [],
+  "parse": {
+    "drawing_units": "unknown",
+    "geometry_count": 0,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 1,
+        "is_modelspace": false,
+        "layout_name": "Image 1",
+        "measurable": false,
+        "measurable_count": 0,
+        "sheet_ref": "image:1",
+        "title": null,
+        "unit_code": null
+      }
+    ],
+    "source_sha256": "29f8868b2b6de943b0a8e57a514f982e66051ce39dc5b9095e10a006e3bc2747",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": [
+      "raster sheet: AI-vision/manual takeoff only, no deterministic geometry (PNG 320x240 px, mode RGB)",
+      "raster units are unknowable from pixels: no scale proposal exists, calibration stays the human gate"
+    ]
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "user_known_ratio",
+      "sheet_id": "image:1",
+      "status": "confirmed",
+      "units_per_drawing_unit": "1.0"
+    },
+    "drawing_units": "unknown",
+    "drawing_units_override": null,
+    "emit_candidates": false,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "image:1"
+  },
+  "schema": "golden-run-v1"
+}
