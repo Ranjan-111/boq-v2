@@ -253,7 +253,7 @@ class TestPdfRunCandidates:
                 select(MeasurementRun).where(MeasurementRun.id == run.id)
             )).scalar_one()
             assert (run.params or {}).get("emit_candidates") is True
-            assert run.engine_version == "0.5.0"
+            assert run.engine_version == "0.6.0"
 
             rows = (await session.execute(
                 select(MeasurementModel).where(

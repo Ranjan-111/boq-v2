@@ -641,7 +641,11 @@ class TestParseExecution:
                     )
                 ).scalar_one()
                 assert result["warnings"] == len(row.parse_warnings or [])
-                assert result["warnings"] >= 1
+                # Post-R9 manual pass: the paper-space notice is no longer a
+                # blocking parse warning — the sheets row itself (Layout1,
+                # unclassified) and the engine's single non-blocking
+                # annotation_skipped review exception carry it at run time.
+                assert result["warnings"] == 0
                 sheets = (
                     await session.execute(
                         select(DrawingSheet).where(
@@ -736,6 +740,63 @@ class TestDrawingRoutes:
                 up = await _upload(session, project, user, data, "wall_plan.dxf", storage)
                 out = await download_drawing(up["drawing_file_id"], user, session, storage)
                 assert out["url"].startswith("memory://")
+                await session.rollback()
+        finally:
+            await engine.dispose()
+
+    async def test_delete_refused_when_runs_measured_the_drawing(
+        self, migrated_db: str
+    ) -> None:
+        """Post-R9 manual matrix: deleting a re-parsed drawing hit a 500 FK
+        violation (exceptions.sheet_id references drawing_sheets). The honest
+        contract: a drawing with runs against its sheets refuses with 409 —
+        the runs' provenance (elements/measurements/exceptions/audit) must
+        survive; a mid-delete 500 is the worst of all answers."""
+        from backend.app.db.models import MeasurementRun, ScaleCalibrationModel
+        from backend.app.services import run_service
+
+        engine = make_async_engine(migrated_db)
+        try:
+            async with make_sessionmaker(engine)() as session:
+                user, project = await _make_user_and_project(session)
+                storage = MemoryStorage()
+                data = (FIXTURES / "wall_plan.dxf").read_bytes()
+                up = await _upload(session, project, user, data, "wall_plan.dxf", storage)
+                await parse_service.execute_parse(
+                    session, drawing_file_id=up["drawing_file_id"], storage=storage
+                )
+                sheet = (await session.execute(
+                    select(DrawingSheet).where(
+                        DrawingSheet.drawing_file_id == up["drawing_file_id"])
+                )).scalar_one()
+                cal = (await session.execute(
+                    select(ScaleCalibrationModel).where(
+                        ScaleCalibrationModel.sheet_id == sheet.id)
+                )).scalar_one()
+                cal.status = "confirmed"
+                cal.units_per_drawing_unit = Decimal("1.0")
+                cal.confirmed_by = user.id
+                await session.flush()
+                run = MeasurementRun(
+                    id=str(uuid.uuid4()), project_id=project.id, status="queued",
+                    params={"drawing_file_id": str(up["drawing_file_id"]),
+                            "sheet_id": str(sheet.id), "max_wall_thickness": 250.0},
+                )
+                session.add(run)
+                await session.flush()
+                await run_service.execute_run(session, run_id=run.id,
+                                              storage=storage,
+                                              max_wall_thickness=250)
+                with pytest.raises(HTTPException) as refused:
+                    await delete_drawing(up["drawing_file_id"], user, session, storage)
+                assert refused.value.status_code == 409
+                assert "provenance" in str(refused.value.detail)
+                # The drawing and its measurement history are all intact.
+                still = (await session.execute(
+                    select(DrawingFile).where(
+                        DrawingFile.id == up["drawing_file_id"])
+                )).scalar_one()
+                assert still is not None
                 await session.rollback()
         finally:
             await engine.dispose()

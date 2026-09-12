@@ -180,6 +180,33 @@ function authHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/**
+ * A dead token (expired 30-min JWT or a rotated secret) must not leave the
+ * user stuck signed-in with every action failing "malformed or expired
+ * token". When the server rejects the CREDENTIAL itself, clear it and land
+ * on /login (preserving the target for post-sign-in return). Only
+ * token-level rejections — NOT wrong-password (401 invalid_credentials) or
+ * business refusals, which the caller surfaces to the user.
+ */
+function handleExpiredSession(err: ApiError): void {
+  if (
+    err.status === 401 &&
+    (err.code === "invalid_token" ||
+      err.code === "unknown_user" ||
+      err.code === "unauthenticated") &&
+    typeof window !== "undefined" &&
+    window.location.pathname !== "/login" &&
+    window.location.pathname !== "/register"
+  ) {
+    localStorage.removeItem("boq.token");
+    localStorage.removeItem("boq.user");
+    const from = encodeURIComponent(
+      window.location.pathname + window.location.search,
+    );
+    window.location.assign(`/login?expired=1&from=${from}`);
+  }
+}
+
 async function request<T>(
   path: string,
   options: { method?: string; body?: unknown; signal?: AbortSignal } = {},
@@ -213,7 +240,11 @@ async function request<T>(
       body = text;
     }
   }
-  if (!response.ok) throw parseError(response.status, body);
+  if (!response.ok) {
+    const err = parseError(response.status, body);
+    handleExpiredSession(err);
+    throw err;
+  }
   return body as T;
 }
 
@@ -265,7 +296,11 @@ export async function postForm<T>(path: string, formData: FormData): Promise<T> 
       body = text;
     }
   }
-  if (!response.ok) throw parseError(response.status, body);
+  if (!response.ok) {
+    const err = parseError(response.status, body);
+    handleExpiredSession(err);
+    throw err;
+  }
   return body as T;
 }
 
@@ -508,6 +543,28 @@ export interface EvidenceGeometry {
   source_handles: SourceHandle[];
   layer: string | null;
 }
+/** GET /runs/{id}/geometry — the run's classified base geometry (what the
+ * viewer draws as the base layer). Independent of measurements: a run with
+ * zero measurements still carries its elements. */
+export interface RunGeometryElement {
+  element_id: string;
+  element_type: ElementType;
+  /** "geometry_deterministic" vs "ai_classified" — the viewer dashes the
+   * latter (advisory classification, awaiting human confirmation). */
+  type_source?: ElementTypeSource;
+  label: string | null;
+  geometry: {
+    geom_type: GeomType;
+    coordinates: number[][];
+    layer: string | null;
+  };
+}
+export interface RunGeometryResponse {
+  run_id: string;
+  count: number;
+  elements: RunGeometryElement[];
+}
+
 /** GET /measurements/{id}/evidence */
 export interface EvidenceResponse {
   measurement_id: string;
@@ -824,6 +881,10 @@ export const api = {
   listMeasurements: (runId: string) =>
     request<MeasurementList>(`/runs/${runId}/measurements`),
   listExceptions: (runId: string) => request<ExceptionList>(`/runs/${runId}/exceptions`),
+  /** The run's base geometry (viewer base layer) — every classified element
+   * the run persisted, measurement or not. */
+  getRunGeometry: (runId: string) =>
+    request<RunGeometryResponse>(`/runs/${runId}/geometry`),
   resolveException: (exceptionId: string, body: { resolution: string; note?: string }) =>
     request<ExceptionResolved>(`/exceptions/${exceptionId}/resolve`, {
       method: "POST",

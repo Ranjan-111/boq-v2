@@ -27,6 +27,7 @@ import {
   suggestionSummary,
 } from "../lib/reviewHelpers";
 import type { ElementGroup } from "../lib/reviewHelpers";
+import { guidanceFor } from "../lib/exceptionGuidance";
 import StatusBadge from "./StatusBadge";
 import GeometryViewer, { type ViewerGeometry } from "./GeometryViewer";
 import {
@@ -269,7 +270,10 @@ function ResolveExceptionForm({
   );
 }
 
-/** Exceptions list with color-coded severity + inline resolve. */
+/** Exceptions list with severity, plain-English guidance, and the CORRECT
+ * action per code. Resolve (an audited human decision) is offered only where
+ * a decision is genuinely the resolution — source-problem exceptions point
+ * at the real fix instead of a magic unblock button. */
 function ExceptionsPanel({ runId }: { runId: string }) {
   const qc = useQueryClient();
   const [resolving, setResolving] = useState<string | null>(null);
@@ -290,45 +294,80 @@ function ExceptionsPanel({ runId }: { runId: string }) {
     );
 
   const items = exceptions.data?.items ?? [];
+  const unresolved = items.filter((ex) => !ex.resolved_at);
+  const resolved = items.filter((ex) => ex.resolved_at);
   if (items.length === 0)
     return <p className="text-xs text-ink-500">No exceptions — clean run.</p>;
 
   return (
-    <ul className="space-y-2">
-      {items.map((ex) => (
-        <li key={ex.id} className="rounded-md border border-ink-200 p-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge badge={severityBadge(ex.severity)} />
-            <span className="text-xs font-medium text-ink-800">{ex.code}</span>
-            {ex.resolved_at ? (
-              <span className="text-[11px] text-emerald-700">
-                resolved ({ex.resolution ?? "—"})
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-1 text-xs text-ink-600">{ex.message}</p>
-          {!ex.resolved_at ? (
-            resolving === ex.id ? (
-              <ResolveExceptionForm
-                exception={ex}
-                onResolved={() => {
-                  setResolving(null);
-                  qc.invalidateQueries({ queryKey: ["exceptions", runId] });
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                className="mt-1.5 text-xs font-medium text-accent-700 hover:underline"
-                onClick={() => setResolving(ex.id)}
-              >
-                Resolve…
-              </button>
-            )
-          ) : null}
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-2">
+      {unresolved.length > 0 ? (
+        <p className="text-[11px] text-ink-500">
+          {unresolved.length} open — resolve each with a recorded reason, or
+          take the action it names. Audit trail keeps every decision.
+        </p>
+      ) : (
+        <p className="text-[11px] text-emerald-700">
+          All exceptions resolved — approval and export are unblocked.
+        </p>
+      )}
+      <ul className="space-y-2">
+        {items.map((ex) => {
+          const g = guidanceFor(ex.code);
+          return (
+            <li key={ex.id} className="rounded-md border border-ink-200 p-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge badge={severityBadge(ex.severity)} />
+                <span className="text-xs font-medium text-ink-800">{ex.code}</span>
+                {ex.resolved_at ? (
+                  <span className="text-[11px] text-emerald-700">
+                    resolved ({ex.resolution ?? "—"})
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-ink-400">open</span>
+                )}
+              </div>
+              {/* What it means + why it blocks + the correct action — the
+                  reviewer understands the exception, not just its code. */}
+              <div className="mt-1.5 space-y-1 text-xs">
+                <p className="text-ink-700">{g.what}</p>
+                <p className="text-ink-500">{g.consequence}</p>
+                <p className="text-ink-800">
+                  <span className="font-medium">Next: </span>
+                  {g.action}
+                </p>
+                <p className="text-ink-400">{ex.message}</p>
+              </div>
+              {!ex.resolved_at && g.humanResolvable ? (
+                resolving === ex.id ? (
+                  <ResolveExceptionForm
+                    exception={ex}
+                    onResolved={() => {
+                      setResolving(null);
+                      qc.invalidateQueries({ queryKey: ["exceptions", runId] });
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="mt-1.5 text-xs font-medium text-accent-700 hover:underline"
+                    onClick={() => setResolving(ex.id)}
+                  >
+                    Resolve with a reason…
+                  </button>
+                )
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {resolved.length > 0 ? (
+        <p className="text-[11px] text-ink-400">
+          {resolved.length} already resolved — every resolution is on the audit
+          trail (Audit tab).
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -856,6 +895,14 @@ export function RunResultPanel({
     queryFn: () => api.listMeasurements(runId),
     enabled: run.data !== undefined && isTerminalRunStatus(run.data.status),
   });
+  // Base layer: the run's classified elements (walls/rooms/openings as the
+  // engine persisted them). Independent of measurements — the drawing is
+  // visible the moment a terminal run exists, zero measurements included.
+  const baseGeometry = useQuery({
+    queryKey: ["run-geometry", runId],
+    queryFn: () => api.getRunGeometry(runId),
+    enabled: run.data !== undefined && isTerminalRunStatus(run.data.status),
+  });
 
   // Viewer state: accumulate evidence per measurement so previously selected
   // geometry stays visible (blue) while the newest selection is highlighted red.
@@ -900,6 +947,30 @@ export function RunResultPanel({
     };
   }, [selectedId, measurements.dataUpdatedAt]);
 
+  // Two honest layers, never merged: the run's base geometry (classified
+  // elements, always visible once the run persisted them) and the evidence
+  // geometries of measurements the reviewer has selected (blue = previously
+  // loaded, red = current selection).
+  const baseGeometries: ViewerGeometry[] = useMemo(() => {
+    const out: ViewerGeometry[] = [];
+    const elements = baseGeometry.data?.elements ?? [];
+    for (let i = 0; i < elements.length; i++) {
+      const g = elements[i].geometry;
+      out.push({
+        id: `base#${i}`,
+        geom_type: g.geom_type,
+        coordinates: g.coordinates,
+        layer: g.layer,
+        highlighted: false,
+        variant: "base",
+        // AI-classified elements render dashed — advisory classification
+        // (never deterministic geometry) is visually distinct from the start.
+        dashed: elements[i].type_source === "ai_classified",
+      });
+    }
+    return out;
+  }, [baseGeometry.data]);
+
   const viewerGeometries: ViewerGeometry[] = useMemo(() => {
     const out: ViewerGeometry[] = [];
     for (const [mid, ev] of Object.entries(evidenceById)) {
@@ -917,6 +988,20 @@ export function RunResultPanel({
     }
     return out;
   }, [evidenceById, selectedId]);
+
+  // What the viewer shows depends on what honestly exists: base geometry
+  // first (the drawing), evidence overlays on top, and a hint that states
+  // the true situation — never a blank page with a misleading message.
+  const viewerEmptyHint = baseGeometry.isError
+    ? baseGeometry.error instanceof ApiError
+      ? baseGeometry.error.message
+      : "Could not load the run's base geometry."
+    : baseGeometry.isPending
+      ? "Loading the run's geometry…"
+      : (baseGeometry.data?.count ?? 0) === 0 &&
+          (measurements.data?.items.length ?? 0) === 0
+        ? "This run persisted no geometry — the drawing produced no classified elements, so there is nothing safe to render."
+        : "Select a measurement row to overlay its evidence geometry on the drawing.";
 
   const selected = measurements.data?.items.find(
     (m) => m.measurement_id === selectedId || m.id === selectedId,
@@ -1006,14 +1091,20 @@ export function RunResultPanel({
           </div>
 
           <GeometryViewer
-            geometries={viewerGeometries}
+            geometries={[...baseGeometries, ...viewerGeometries]}
             centerlines={selected?.centerline ? [selected.centerline] : []}
-            emptyHint={
-              evidenceError
-                ? evidenceError
-                : "Select a measurement row to load its evidence geometry."
-            }
+            emptyHint={viewerEmptyHint}
           />
+          <p className="mt-1 text-[11px] text-ink-400">
+            Gray: the run's classified base geometry (walls, rooms, openings);
+            dashed gray: AI-classified (advisory). Blue: evidence of
+            measurements you have selected; red: the current selection. The
+            base layer renders only what the parser honestly extracted — no
+            fabricated geometry.
+          </p>
+          {evidenceError ? (
+            <p className="mt-1 text-[11px] text-red-700">{evidenceError}</p>
+          ) : null}
         </>
       ) : null}
     </div>

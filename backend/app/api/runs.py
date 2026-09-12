@@ -227,6 +227,55 @@ async def list_run_measurements(
     ]}
 
 
+@router.get("/runs/{run_id}/geometry")
+async def get_run_geometry(
+    run_id: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(session_dependency),
+) -> dict[str, Any]:
+    """The run's classified base geometry — the drawing as the engine saw it.
+
+    Every element the run persisted (walls, rooms, openings — each with its
+    evidence geometry), independent of whether a measurement attached to it.
+    This is what the viewer draws as the base layer so a run is never a
+    blank page just because it produced no (or unreviewed) measurements.
+    Ownership resolves through _owned_run (creator-of-the-project rule).
+    Deterministic order: element id, geometry id (Element rows carry no
+    created_at — the UUID pair pins the payload for tests and replays).
+    """
+    run = await _owned_run(session, run_id, user)
+    from backend.app.db.models import GeometryModel
+
+    rows = (await session.execute(
+        select(Element, GeometryModel)
+        .join(GeometryModel, GeometryModel.element_id == Element.id)
+        .where(Element.run_id == run.id)
+        .order_by(Element.id, GeometryModel.id)
+    )).all()
+    elements: list[dict[str, Any]] = []
+    for el, geo in rows:
+        elements.append({
+            "element_id": str(el.id),
+            "element_type": el.element_type,
+            # type_source distinguishes deterministic classification from
+            # AI-classified (advisory, awaiting human confirmation) — the
+            # viewer draws the latter with a dashed outline.
+            "type_source": el.type_source,
+            "label": el.label,
+            "geometry": {
+                "geom_type": geo.geom_type,
+                "coordinates": geo.coordinates,
+                "layer": next((h.get("layer") for h in geo.source_handles
+                               if h.get("layer")), None),
+            },
+        })
+    return {
+        "run_id": str(run.id),
+        "count": len(elements),
+        "elements": elements,
+    }
+
+
 @router.get("/runs/{run_id}/exceptions")
 async def list_run_exceptions(
     run_id: str,

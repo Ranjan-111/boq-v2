@@ -110,7 +110,7 @@ class TestCandidateEmission:
             assert all(e.kind == "geometry" for e in m.evidence)
             # replay contract on candidate rows too
             assert len(m.inputs_digest) == 64
-            assert m.engine_version == "0.5.0"
+            assert m.engine_version == "0.6.0"
             # the drawn source handle is the input (p0:rect:0 / p0:curve:0)
             assert all(ref.startswith("p0:") for ref in m.inputs)
 

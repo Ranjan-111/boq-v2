@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../stores/auth";
 import { ApiError } from "../lib/apiClient";
 
 export default function LoginPage() {
   const login = useAuth((s) => s.login);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const sessionExpired = params.get("expired") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,10 @@ export default function LoginPage() {
     setBusy(true);
     try {
       await login(email, password);
-      navigate("/projects", { replace: true });
+      // Return to where the user was headed (AuthGuard's from state, or the
+      // ?from= param set by the expired-session redirect) — default projects.
+      const target = params.get("from") ?? "/projects";
+      navigate(target.startsWith("/") ? target : "/projects", { replace: true });
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Sign-in failed. Try again.",
@@ -40,6 +45,11 @@ export default function LoginPage() {
           </p>
         </div>
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
+          {sessionExpired ? (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Your session expired — please sign in again.
+            </p>
+          ) : null}
           <div>
             <label className="label" htmlFor="email">
               Email

@@ -91,6 +91,13 @@ SEVERITY_POLICY: dict[str, ExceptionSeverity] = {
     "opening_ambiguous": ExceptionSeverity.REVIEW,
     "opening_partial_span": ExceptionSeverity.REVIEW,
     "pdf_path_unclassified": ExceptionSeverity.REVIEW,
+    # Post-R9 manual pass: annotation-only entity skips (dimensions, hatching,
+    # leaders) never carried measurable geometry — their absence cannot
+    # understate a quantity, so they surface for review but do not block.
+    "annotation_skipped": ExceptionSeverity.REVIEW,
+    # Value-preserving parse repairs (made entities measurable, refused
+    # nothing) — transparency, never a takeoff blocker.
+    "parse_repaired": ExceptionSeverity.REVIEW,
 }
 
 
@@ -212,6 +219,8 @@ def measure_parsed(
         source_id=parsed.source_sha256, source_version=parsed.source_sha256,
         parse_warnings=warnings, text_tokens=parsed.text_tokens,
         block_names=block_names, emit_candidates=emit_candidates,
+        annotations_skipped=parsed.annotations_skipped,
+        parse_notices=parsed.notices,
     )
 
 
@@ -225,6 +234,8 @@ def measure_sheet(
     text_tokens: tuple[TextToken, ...] = (),
     block_names: dict[str, str] | None = None,
     emit_candidates: bool = False,
+    annotations_skipped: int = 0,
+    parse_notices: tuple[str, ...] = (),
 ) -> RunOutput:
     """Pure geometry entrypoint; caller must supply complete warnings/source context.
 
@@ -252,6 +263,26 @@ def measure_sheet(
     if parse_warnings:
         return RunOutput((), tuple(_exc("parse_incomplete", warning, sheet_id=sheet_id)
                                    for warning in sorted(set(parse_warnings))))
+    # Post-R9 manual pass: annotation-only skips (dimensions, hatching,
+    # leaders, paper-space layouts) never carried measurable geometry, so
+    # they surface as ONE non-blocking review notice — the measurable
+    # content of the sheet is not tainted by their absence. Anything that
+    # COULD have contributed geometry stays in parse_warnings (blocking)
+    # above: an understated-but-believable quantity is the worse failure.
+    exceptions: list[ExceptionRecord] = []
+    if annotations_skipped > 0:
+        exceptions.append(_exc(
+            "annotation_skipped",
+            f"{annotations_skipped} annotation entities skipped (dimensions, "
+            "hatching, labels or paper-space layouts — not measurable geometry)",
+            sheet_id=sheet_id))
+    # Value-preserving parse repairs (subclass-marker injection, truncation
+    # closure): the repaired entities WERE measured, nothing was refused —
+    # transparency only, never a takeoff blocker. Each notice surfaces as
+    # its own review-severity exception so the audit trail names every
+    # applied repair.
+    for notice in sorted(set(parse_notices)):
+        exceptions.append(_exc("parse_repaired", notice, sheet_id=sheet_id))
     if any(h.sheet_ref != sheet_id for g in geometries for h in g.source_handles):
         return RunOutput((), (_exc("ambiguous_sheet", "source belongs to another sheet",
                                   sheet_id=sheet_id),))
@@ -268,7 +299,6 @@ def measure_sheet(
     from takeoff.kernel import NotMeasurable, area_of
     from takeoff.wall_detection import OFFSET_EPS, PARALLEL_EPS
 
-    exceptions: list[ExceptionRecord] = []
     measurements: list[MeasurementRecord] = []
     try:
         detection = detect_walls(geometries, max_thickness=max_wall_thickness)

@@ -90,7 +90,11 @@ class TestSheets:
         result = parse("paperspace_only.dxf")
         measurable = [s for s in result.sheets if s.measurable]
         assert measurable == [], "paper-space sheet must not be measurable (V1)"
-        assert any("not measurable" in w for w in result.warnings)
+        # Post-R9 manual pass: a paper-space layout can never understate a
+        # modelspace quantity, so the notice is the non-blocking annotation
+        # count (one review exception in the engine), not a blocking warning.
+        assert result.annotations_skipped >= 1
+        assert all("not measurable" not in w for w in result.warnings)
 
 
 @pytest.mark.unit
@@ -172,7 +176,7 @@ def _parse_document(doc):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("kind", [
-    "spline", "ellipse", "point", "hatch", "solid",
+    "spline", "ellipse", "point", "solid",
     "point_1", "lwpolyline_1",
 ])
 def test_other_entity_types_never_silently_dropped(kind):
@@ -180,7 +184,9 @@ def test_other_entity_types_never_silently_dropped(kind):
     warning — the docs contract is "skipped with a warning (never silently
     dropped)". A silent drop would make an unsupported sheet look complete.
     (TEXT/MTEXT are no longer here: they are captured as evidence tokens —
-    see TestTextTokens. They stay out of the geometry path entirely.)
+    see TestTextTokens. HATCH moved to the annotation class post-R9: it can
+    never understate a quantity, so it counts into annotations_skipped
+    instead — pinned separately below.)
     """
     doc = ezdxf.new("R2010")
     doc.units = 4
@@ -191,8 +197,6 @@ def test_other_entity_types_never_silently_dropped(kind):
         entity = msp.add_ellipse((0, 0), (10, 0), 0.5)
     elif kind == "point":
         entity = msp.add_point((3, 3))
-    elif kind == "hatch":
-        entity = msp.add_hatch()
     elif kind == "solid":
         entity = msp.add_solid([(0, 0), (10, 0), (10, 10), (0, 10)])
     elif kind == "point_1":
@@ -206,6 +210,21 @@ def test_other_entity_types_never_silently_dropped(kind):
         entity.dxf.handle in w and entity.dxftype() in w and "unsupported" in w
         for w in result.warnings
     )
+
+
+@pytest.mark.unit
+def test_annotation_entity_skips_count_not_warn():
+    """Post-R9 manual pass: annotation-only entities (HATCH is the canonical
+    example) never carry measurable geometry, so their skip cannot understate
+    a quantity — it must surface in annotations_skipped (the engine's ONE
+    non-blocking review exception), never as a blocking warning."""
+    doc = ezdxf.new("R2010")
+    doc.units = 4
+    doc.modelspace().add_hatch()
+    result = _parse_document(doc)
+    assert result.geometries == ()
+    assert result.annotations_skipped == 1
+    assert result.warnings == ()
 
 
 @pytest.mark.unit
@@ -438,7 +457,10 @@ def test_paperspace_content_never_leaks_into_modelspace_geometries():
     assert layout.entity_count == 2
     assert layout.measurable_count == 0
     assert layout.measurable is False
-    assert any("not measurable" in w for w in result.warnings)
+    # Post-R9 manual pass: the paperspace notice is the non-blocking
+    # annotation count (never a blocking warning on modelspace takeoff).
+    assert result.annotations_skipped == 1
+    assert all("not measurable" not in w for w in result.warnings)
 
 
 @pytest.mark.unit

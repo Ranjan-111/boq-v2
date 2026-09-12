@@ -183,7 +183,7 @@ def boq_measurement_rows(n: int = BOQ_ITEMS) -> list[dict[str, Any]]:
             "corrected_value": Decimal(i) / Decimal(4) + Decimal("1"),
             "unit": "m",
             "rule_id": "wall.centerline.length.v1",
-            "engine_version": "0.5.0",
+            "engine_version": "0.6.0",
             "state": "measured",
             "label": f"wall {i}",
         }

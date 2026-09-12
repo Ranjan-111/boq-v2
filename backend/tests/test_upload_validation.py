@@ -45,6 +45,19 @@ class TestSniff:
             sniff_format(b"\x89PNG-corrupt", "a.png")
         assert e.value.code == "bad_magic"
 
+    def test_dxf_entities_marker_may_sit_deep_in_file(self) -> None:
+        """Real drawings carry large TABLES/BLOCKS sections before ENTITIES —
+        the marker search must span the whole (size-capped) file, not a
+        fixed window. Found by manual testing: a valid 1.1 MB real-world
+        R2004 DXF was upload-rejected (ENTITIES at byte 711933)."""
+        filler = b"0\nSECTION\n2\nTABLES\n" + b"0\nLAYER\n" + b"x\n" * 400_000
+        data = (
+            b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n"
+            + filler
+            + b"0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+        )
+        assert sniff_format(data, "plan.dxf") == "dxf"
+
     def test_dxf_without_entities_rejected(self) -> None:
         with pytest.raises(UploadRejected) as e:
             sniff_format(_dxf(include_entities=False), "plan.dxf")

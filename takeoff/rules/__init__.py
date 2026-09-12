@@ -24,7 +24,14 @@ from core.geometry import NormalizedGeometry
 # surface as NEEDS_REVIEW rows through polygon.area.v1 / polyline.length.v1
 # (additive rules + candidate emission; old persisted runs replay by their
 # own stamped version).
-ENGINE_VERSION = "0.5.0"
+#
+# Post-R9 manual pass — 0.6.0: annotation-only skips (dimensions, hatching,
+# paper-space layouts) no longer abort measurement. The rules themselves are
+# unchanged; what changed is which parse notices block: a paper-space or
+# annotation skip surfaces as ONE non-blocking annotation_skipped review
+# exception instead of a blocking parse_incomplete, so real-world drawings
+# with intact modelspace geometry measure honestly.
+ENGINE_VERSION = "0.6.0"
 
 
 class RuleFn(Protocol):

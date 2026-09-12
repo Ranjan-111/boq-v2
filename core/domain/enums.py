@@ -126,6 +126,14 @@ class ExceptionCode(StrEnum):
     OPENING_AMBIGUOUS = "opening_ambiguous"
     OPENING_PARTIAL_SPAN = "opening_partial_span"
     PDF_PATH_UNCLASSIFIED = "pdf_path_unclassified"
+    # Post-R9 manual pass: annotation-only entities (dimensions, hatching,
+    # leaders) that the parser skipped — never measurable geometry, so the
+    # notice is REVIEW severity, not a takeoff blocker.
+    ANNOTATION_SKIPPED = "annotation_skipped"
+    # Post-R9 manual pass: a value-preserving repair that MADE entities
+    # measurable (subclass-marker injection, truncation closure). Refused
+    # nothing; REVIEW-severity transparency so the audit trail names it.
+    PARSE_REPAIRED = "parse_repaired"
 
 
 class RateScope(StrEnum):

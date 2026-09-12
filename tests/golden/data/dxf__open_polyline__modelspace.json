@@ -1,8 +1,8 @@
 {
   "case_id": "dxf__open_polyline__modelspace",
-  "current_engine_version": "0.5.0",
+  "current_engine_version": "0.6.0",
   "elements": [],
-  "engine_version": "0.5.0",
+  "engine_version": "0.6.0",
   "exceptions": [],
   "fixture": "dxf/open_polyline.dxf",
   "fixture_sha256": "0d09b72c2195d7a65306b867bd554719ef45f111ea3a8fa59c968e57e8099f50",

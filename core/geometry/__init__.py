@@ -210,4 +210,17 @@ class ParseResult:
     sheets: tuple[SheetSummary, ...]
     text_tokens: tuple[TextToken, ...] = ()
     warnings: tuple[str, ...] = ()
+    # Non-blocking transparency notices (post-R9 manual pass): deterministic,
+    # value-preserving repairs — e.g. subclass-marker injection that made
+    # entities MEASURABLE. Nothing was refused, so nothing can understate a
+    # quantity; the engine surfaces them as ONE review-severity exception
+    # while measuring normally. Genuine refusals stay in `warnings`.
+    notices: tuple[str, ...] = ()
+    # How many annotation-only entities (dimensions, hatching, leaders,
+    # paper-space layouts) were skipped. These never carry measurable
+    # geometry — their absence cannot understate a quantity — so the count
+    # surfaces as ONE non-blocking review exception, not blocking warnings.
+    # Kept separate from `warnings` precisely so the engine can treat the
+    # two honestly differently.
+    annotations_skipped: int = 0
     source_sha256: str = ""  # immutable raw-file version, populated by ingestion

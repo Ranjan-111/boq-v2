@@ -1,6 +1,6 @@
 {
   "case_id": "dxf__opening_blocks__modelspace",
-  "current_engine_version": "0.5.0",
+  "current_engine_version": "0.6.0",
   "elements": [
     {
       "element_type": "wall",
@@ -147,7 +147,7 @@
       "type_source": "geometry_deterministic"
     }
   ],
-  "engine_version": "0.5.0",
+  "engine_version": "0.6.0",
   "exceptions": [],
   "fixture": "dxf/opening_blocks.dxf",
   "fixture_sha256": "9c4e8eff3c3070ceb0dbe505a99c34c72960ab23aa41538c9e5e9c1440446255",
@@ -166,7 +166,7 @@
       ],
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.5.0",
+      "engine_version": "0.6.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -183,9 +183,9 @@
         "32",
         "33"
       ],
-      "inputs_digest": "06dae280fa324b76b5a94477872073540f79ee077de61cabb469c65f9ccae14d",
+      "inputs_digest": "17ae7d665b96010792a119f12e97f8273530efc5eb80285999528e8b02031b30",
       "label": "Wall 1",
-      "measurement_id": "755f7d38-e278-521b-850b-aaaade843ab8",
+      "measurement_id": "23aa87a1-e404-5d41-ae25-95b44e255f72",
       "quantity_type": "length",
       "rule_id": "wall.centerline.length.v1",
       "state": "measured",
@@ -197,7 +197,7 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.5.0",
+      "engine_version": "0.6.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -214,9 +214,9 @@
         "32",
         "33"
       ],
-      "inputs_digest": "313eb882a472dff95cdf9cdf7f000da42493be4d7e0dd8ec46cdb2d721d24e64",
+      "inputs_digest": "eca1b8a22d3402f54b53f15bb96e2bfc768ac37b2e5a6474d30f5e69c24c406b",
       "label": "Wall 1 footprint",
-      "measurement_id": "07c755ed-7f89-56d5-bd43-48b6713b45f3",
+      "measurement_id": "94558be9-8803-534c-aff8-eabe9c811ad3",
       "quantity_type": "area",
       "rule_id": "wall.footprint.area.v1",
       "state": "measured",
@@ -228,7 +228,7 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.5.0",
+      "engine_version": "0.6.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -305,9 +305,9 @@
         "42",
         "42"
       ],
-      "inputs_digest": "78ef92f964918f795d6389c914133b47963c0a01914b8038bfb3d45988c90bfa",
+      "inputs_digest": "fab3a807eb232a3024db6305766cd83f68d7303b5d3d9fbdce76a883624c4eee",
       "label": "Wall 1 openings (2)",
-      "measurement_id": "9dfb5874-dd0a-5fbf-98aa-dbfb533174d8",
+      "measurement_id": "fd63861c-4ecc-5efd-aa4b-ba957e027a49",
       "quantity_type": "count",
       "rule_id": "opening.count.v1",
       "state": "measured",
@@ -319,7 +319,7 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.5.0",
+      "engine_version": "0.6.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -420,9 +420,9 @@
         "42",
         "42"
       ],
-      "inputs_digest": "314ed811fcbdafff997a9a3d7074e5b51f538f10b1e167fe855f6795c3031296",
+      "inputs_digest": "3210d5f940417eb13a07f91c7fad5ee866794596578f4dc7302e9321709f3a18",
       "label": "Wall 1 net of openings",
-      "measurement_id": "54353fdd-0437-5173-b93f-5456d5b59c1e",
+      "measurement_id": "02e32de4-558a-5e6f-83ea-8b7e1d55a355",
       "quantity_type": "area",
       "rule_id": "wall.net.area.v1",
       "state": "measured",

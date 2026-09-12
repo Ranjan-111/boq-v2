@@ -12,9 +12,12 @@ import {
 import { boqStatusBadge, severityBadge } from "../lib/statusBadges";
 import StatusBadge from "./StatusBadge";
 import { unmappedExceptionMessage } from "../lib/reviewHelpers";
+import { noMeasuredGuidance } from "../lib/boqBuildGuidance";
 
 /** Build-from-run card when the project has no BOQ yet. The picker offers
- * the project's FULL run history (list-runs) — completed ones selectable. */
+ * the project's FULL run history (list-runs) — completed ones selectable.
+ * A `no_measured` refusal is explained by the run's own state, not left
+ * as a raw red error. */
 function BuildBoqCard({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const runs = useQuery({
@@ -26,11 +29,30 @@ function BuildBoqCard({ projectId }: { projectId: string }) {
   );
   const [runId, setRunId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [noMeasuredRun, setNoMeasuredRun] = useState<string | null>(null);
+
+  // When the backend refuses with `no_measured`, pull the run's own rows to
+  // explain WHY (scale unconfirmed / parse incomplete / needs review /
+  // blocked) and state the correct next step. The fetch is on-demand for
+  // the refused run only — never a blanket lookup.
+  const explain = useQuery({
+    queryKey: ["no-measured-explain", noMeasuredRun],
+    queryFn: async () => {
+      const [m, e] = await Promise.all([
+        api.listMeasurements(noMeasuredRun!),
+        api.listExceptions(noMeasuredRun!),
+      ]);
+      return { measurements: m.items, exceptions: e.items };
+    },
+    enabled: noMeasuredRun !== null,
+    staleTime: 0,
+  });
 
   const create = useMutation({
     mutationFn: () => api.createBoq(projectId, { from_run_id: runId }),
     onSuccess: () => {
       setError(null);
+      setNoMeasuredRun(null);
       qc.invalidateQueries({ queryKey: ["boqs", projectId] });
       // The build PERSISTS unmapped blockers for the run's unmapped groups —
       // any cached exceptions list for this run (e.g. the Runs tab's, fetched
@@ -38,7 +60,12 @@ function BuildBoqCard({ projectId }: { projectId: string }) {
       // leading key so every ["exceptions", runId] entry refetches.
       qc.invalidateQueries({ queryKey: ["exceptions", runId] });
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Could not build BOQ."),
+    onError: (err) => {
+      setNoMeasuredRun(
+        err instanceof ApiError && err.code === "no_measured" ? runId : null,
+      );
+      setError(err instanceof ApiError ? err.message : "Could not build BOQ.");
+    },
   });
 
   return (
@@ -88,7 +115,22 @@ function BuildBoqCard({ projectId }: { projectId: string }) {
           </button>
         </div>
       )}
-      {error ? <p className="mt-2 text-xs text-red-700">{error}</p> : null}
+      {noMeasuredRun !== null ? (
+        explain.isPending ? (
+          <p className="mt-2 text-xs text-ink-500">Checking this run's state…</p>
+        ) : explain.isError ? (
+          <p className="mt-2 text-xs text-red-700">{error}</p>
+        ) : (
+          <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {noMeasuredGuidance(
+              explain.data.measurements,
+              explain.data.exceptions,
+            ) ?? "This run has no measured quantities."}
+          </p>
+        )
+      ) : error ? (
+        <p className="mt-2 text-xs text-red-700">{error}</p>
+      ) : null}
     </div>
   );
 }

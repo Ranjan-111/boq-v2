@@ -29,6 +29,7 @@ from backend.app.db.models import (
     DrawingFile,
     DrawingSheet,
     JobRun,
+    MeasurementRun,
     Project,
     ScaleCalibrationModel,
     User,
@@ -316,9 +317,31 @@ async def delete_drawing(
     storage: Storage = Depends(get_storage),
 ) -> None:
     drawing, _project = await _owned_drawing(drawing_id, user, session)
+    # Measurement history guards the delete. Runs measured this drawing's
+    # sheets; their elements/measurements/exceptions reference the sheet rows
+    # by FK, and a BOQ may reference the run. Cascading would silently
+    # destroy provenance (the audit trail's rows point at what is gone) —
+    # so a drawing with runs refuses honestly instead of failing as a 500
+    # FK violation mid-delete (found in the post-R9 manual matrix: deleting
+    # a re-parsed drawing hit fk_exceptions_sheet_id).
+    sheet_ids = select(DrawingSheet.id).where(DrawingSheet.drawing_file_id == drawing.id)
+    sheet_rows = (await session.execute(sheet_ids)).scalars().all()
+    if sheet_rows:
+        runs = (await session.execute(
+            select(MeasurementRun.id, MeasurementRun.params).where(
+                MeasurementRun.project_id == _project.id)
+        )).all()
+        sheet_id_strs = {str(sid) for sid in sheet_rows}
+        used_by = [str(rid) for rid, params in runs
+                   if (params or {}).get("sheet_id") in sheet_id_strs]
+        if used_by:
+            raise problem_error(
+                409, "drawing_in_use",
+                f"this drawing has {len(used_by)} measurement run(s) against "
+                "its sheets — delete is refused so the runs' provenance "
+                "(elements, measurements, exceptions, audit trail) stays intact")
     # V1 hard-deletes (the model has no deleted_at): calibrations and sheets
     # cascade manually, then the row, then the stored bytes.
-    sheet_ids = select(DrawingSheet.id).where(DrawingSheet.drawing_file_id == drawing.id)
     await session.execute(
         delete(ScaleCalibrationModel).where(ScaleCalibrationModel.sheet_id.in_(sheet_ids))
     )

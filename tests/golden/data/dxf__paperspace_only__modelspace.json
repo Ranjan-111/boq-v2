@@ -1,17 +1,17 @@
 {
   "case_id": "dxf__paperspace_only__modelspace",
-  "current_engine_version": "0.5.0",
+  "current_engine_version": "0.6.0",
   "elements": [],
-  "engine_version": "0.5.0",
+  "engine_version": "0.6.0",
   "exceptions": [
     {
       "ai_explanation": null,
-      "code": "parse_incomplete",
+      "code": "annotation_skipped",
       "element_id": null,
       "evidence": [],
       "measurement_id": null,
-      "message": "paper-space layout 'Layout1' parsed but not measurable (V1)",
-      "severity": "blocking",
+      "message": "1 annotation entities skipped (dimensions, hatching, labels or paper-space layouts — not measurable geometry)",
+      "severity": "review",
       "sheet_id": "modelspace"
     }
   ],
@@ -48,9 +48,7 @@
     "source_sha256": "6b92d604052d48a9afb2229aecd11c844c16d4d5c2a26a081909ca2ce67adcb2",
     "text_token_count": 0,
     "text_tokens": [],
-    "warnings": [
-      "paper-space layout 'Layout1' parsed but not measurable (V1)"
-    ]
+    "warnings": []
   },
   "run_inputs": {
     "block_names": {},

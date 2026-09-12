@@ -63,9 +63,12 @@ def sniff_format(data: bytes, filename: str) -> str:
         if ext == "webp" and (data[0:4] != b"RIFF" or data[8:12] != b"WEBP"):
             raise UploadRejected("bad_magic", "not a real WEBP")
         return "raster"
-    if ext == "dxf" or (b"SECTION" in data[:4096] and b"ENTITIES" in data[:65536]):
-        # DXF is ASCII; require both section markers, else reject (do not guess).
-        if b"SECTION" in data[:4096] and b"ENTITIES" in data[:65536]:
+    if ext == "dxf" or (b"SECTION" in data[:4096] and b"ENTITIES" in data):
+        # DXF is ASCII. SECTION opens the file structure (must appear early);
+        # ENTITIES may sit deep in real drawings — after large TABLES/BLOCKS
+        # sections — so it is searched across the whole (size-capped) file,
+        # never a fixed window. Both markers are required: no guessing.
+        if b"SECTION" in data[:4096] and b"ENTITIES" in data:
             return "dxf"
         raise UploadRejected("bad_magic", "DXF missing SECTION/ENTITIES markers")
     raise UploadRejected("unknown_format", f"cannot determine format of {filename!r}")

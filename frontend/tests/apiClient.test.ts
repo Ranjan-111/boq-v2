@@ -110,3 +110,85 @@ describe("api error normalization", () => {
     
   });
 });
+
+describe("expired-session redirect", () => {
+  const realLocation = window.location;
+
+  afterEach(() => {
+    // jsdom allows deleting once then reassigning
+    (window as unknown as { location: Location }).location = realLocation;
+    vi.unstubAllGlobals();
+  });
+
+  function stubLocation(path: string) {
+    const assign = vi.fn();
+    const loc = {
+      pathname: path,
+      search: "",
+      assign,
+      href: `http://localhost${path}`,
+    };
+    // jsdom location is non-writable; replace the whole property
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: loc,
+    });
+    return assign;
+  }
+
+  it("clears credentials and redirects to /login?expired=1 on token-level 401", async () => {
+    localStorage.setItem("boq.token", "dead-token");
+    localStorage.setItem("boq.user", '{"email":"a@b.dev"}');
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(401, {
+        detail: [{ code: "invalid_token", message: "malformed or expired token" }],
+      }),
+    );
+    const assign = stubLocation("/projects/123?tab=runs");
+    const err = await api.listProjects().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).code).toBe("invalid_token");
+    // the dead session is cleared...
+    expect(localStorage.getItem("boq.token")).toBeNull();
+    expect(localStorage.getItem("boq.user")).toBeNull();
+    // ...and the user lands on /login with the return target preserved
+    expect(assign).toHaveBeenCalledWith(
+      "/login?expired=1&from=%2Fprojects%2F123%3Ftab%3Druns",
+    );
+  });
+
+  it("does NOT sign out on wrong-password (invalid_credentials)", async () => {
+    localStorage.setItem("boq.token", "tok");
+    const assign = stubLocation("/login");
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(401, {
+        detail: [{ code: "invalid_credentials", message: "email or password incorrect" }],
+      }),
+    );
+    await api.login("a@b.dev", "wrong").catch(() => undefined);
+    expect(assign).not.toHaveBeenCalled();
+    expect(localStorage.getItem("boq.token")).toBe("tok");
+  });
+
+  it("does NOT redirect for business refusals (409)", async () => {
+    const assign = stubLocation("/projects/1");
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(409, {
+        type: "b",
+        title: "t",
+        status: 409,
+        code: "no_measured",
+        detail: "run has no measured quantities",
+      }),
+    );
+    const err = await api.createBoq("p", { from_run_id: "r" }).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(ApiError);
+    expect(assign).not.toHaveBeenCalled();
+  });
+});

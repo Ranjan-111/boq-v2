@@ -1,6 +1,6 @@
 {
   "case_id": "pdf__scale_annotation__page-0",
-  "current_engine_version": "0.5.0",
+  "current_engine_version": "0.6.0",
   "elements": [
     {
       "element_type": "other",
@@ -79,7 +79,7 @@
       "type_source": "geometry_deterministic"
     }
   ],
-  "engine_version": "0.5.0",
+  "engine_version": "0.6.0",
   "exceptions": [],
   "fixture": "pdf/scale_annotation.pdf",
   "fixture_sha256": "f621fc111f1e14756d8cce77a1d342ee65d49d9bc7229d50e42ee0144a912b3a",
@@ -89,7 +89,7 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "other",
-      "engine_version": "0.5.0",
+      "engine_version": "0.6.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -100,9 +100,9 @@
       "inputs": [
         "p0:rect:0"
       ],
-      "inputs_digest": "4e5d568b3fca1bce656795cbe4a4ba665acbf5586d21a32c9a0bb0d6fa0a50ba",
+      "inputs_digest": "5a0bc3da430b93c8dbcd284238e541f4ba09cca9dd9f18c172eccef7d9e77a4b",
       "label": "PDF vector area candidate 1 (28800.000000 pt2)",
-      "measurement_id": "f3694644-72d2-5f6e-8ea7-9f7f0ab31fdd",
+      "measurement_id": "6c48bb1a-7b45-52f4-b14b-ea5b795a89c3",
       "quantity_type": "area",
       "rule_id": "polygon.area.v1",
       "state": "needs_review",
@@ -114,7 +114,7 @@
       "centerline": null,
       "element_index": 1,
       "element_type": "other",
-      "engine_version": "0.5.0",
+      "engine_version": "0.6.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -125,9 +125,9 @@
       "inputs": [
         "p0:curve:0"
       ],
-      "inputs_digest": "bdeb34a1ebc2f36ecbcb65b016298dc46831c05f3f45ff2a8e53a7410363de04",
+      "inputs_digest": "3afde37e67412bfd58d2f4e90c051ea764017e27ab0a45538c9e5be70d098a50",
       "label": "PDF vector length candidate 1 (300.000000 pt)",
-      "measurement_id": "423948b4-b6b1-5547-87fc-f18531a8c6d3",
+      "measurement_id": "5d94f5fa-4197-5bd9-bbde-8bb29e587ae0",
       "quantity_type": "length",
       "rule_id": "polyline.length.v1",
       "state": "needs_review",

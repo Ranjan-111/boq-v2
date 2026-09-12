@@ -53,6 +53,16 @@ _MEASURABLE_TYPES = frozenset({"LINE", "LWPOLYLINE", "POLYLINE"})
 # of _MEASURABLE_TYPES — a label is evidence for room naming, never a shape.
 _TEXT_TYPES = frozenset({"TEXT", "MTEXT"})
 
+# Annotation-only entities (post-R9 manual pass): dimensions, hatching,
+# leaders, tolerances and images NEVER carry measurable geometry — skipping
+# one cannot understate a quantity. They count (annotations_skipped) and
+# surface as ONE non-blocking review exception instead of blocking takeoff
+# on an intact drawing. Mirrors ingestion.dxf.repair.is_annotation_only.
+_ANNOTATION_TYPES = frozenset({
+    "DIMENSION", "HATCH", "LEADER", "MLEADER", "TOLERANCE", "IMAGE",
+    "WIPEOUT", "MTEXT_BACKGROUND",
+})
+
 
 class DxfParseError(ValueError):
     """Structural DXF problems that make parsing impossible."""
@@ -305,19 +315,158 @@ def _read_units(doc: Any) -> str:
     return _INSUNITS_CODES.get(int(code or 0), "unknown")
 
 
+def _normalize_newlines(data: bytes) -> tuple[bytes, bool]:
+    """CRLF/CR → LF before ANY read (post-R9 manual pass root fix).
+
+    AutoCAD and most CAD exporters write CRLF line endings — spec-standard
+    for DXF. Decoding CRLF bytes into a StringIO WITHOUT newline translation
+    leaves a trailing '\\r' on every tag VALUE, which corrupts hex binary
+    tags (310-319) into odd-length strings ("Invalid binary data") and
+    poisons every later value compare. Normalizing to LF first makes these
+    files strict-loadable — zero repair needed. Returns (bytes, changed).
+    """
+    if b"\r" not in data:
+        return data, False
+    text = data.decode("utf-8", errors="replace")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    return normalized.encode("utf-8"), True
+
+
+def _load_document(data: bytes) -> tuple[Any, list[str], list[str], int]:
+    """Read DXF bytes into an ezdxf document with bounded, honest repair.
+
+    Returns (doc, blocking_warnings, notices, annotations_dropped).
+      * blocking_warnings — genuine refusals; the engine converts them to
+        blocking parse_incomplete exceptions (a quantity could be missing);
+      * notices — value-preserving transparency notes (repairs that made
+        entities measurable); the engine surfaces them as non-blocking
+        review exceptions;
+      * annotations_dropped — annotation-only entity drops (never measurable
+        geometry), surfaced as ONE non-blocking review notice.
+
+    The ladder (each rung only if the previous one failed, every applied fix
+    surfaced — never silent, never fabricated):
+      0. newline normalization (CRLF is spec-standard; not a repair, no
+         warning, changes no tag content);
+      1. strict readfile — spec-clean files pay zero cost;
+      2. subclass-marker injection for marker-less LWPOLYLINE/HATCH (real-
+         world exports that carry valid tag content without the R13+ markers
+         — the rewrite is value-preserving, so it is a NOTICE, not a block);
+      3. truncation closure for files cut before EOF (structural tail only —
+         a NOTICE: no drawing content is added or refused);
+      4. drop of an unparseable ANNOTATION-ONLY entity type (a broken HATCH
+         annotation never carried measurable geometry anyway — a drop-count,
+         not a block);
+      5. ezdxf's own recover mode for anything else (its auditor must report
+         what it did; a silent auditor's absorption is refused).
+
+    Measurable geometry is never dropped or guessed. If none of the rungs
+    load the file, DxfParseError propagates with the strict reader's reason.
+    """
+    from . import repair as dxf_repair
+
+    warnings: list[str] = []
+    notices: list[str] = []
+    # Rung 0 (not a repair): CRLF is spec-standard; normalizing it changes
+    # no tag content and raises no warning. LF-only files pass through
+    # byte-identical.
+    data, _changed = _normalize_newlines(data)
+    # A DXF with no ENTITIES section never reached the drawing content — a
+    # truncated fragment. No rung may rescue it: recover mode would hand
+    # back an EMPTY document masquerading as a parsed drawing. Refuse here.
+    if b"ENTITIES" not in data:
+        raise DxfParseError("file has no ENTITIES section — not a complete drawing")
+    stream = io.StringIO(data.decode("utf-8", errors="replace"))
+    try:
+        return ezdxf.read(stream), warnings, notices, 0  # type: ignore[attr-defined]
+    except Exception as first_exc:
+        strict_reason = f"{type(first_exc).__name__}: {first_exc}"
+
+    # Rung 2: subclass markers (value-preserving — the repaired entities are
+    # measured, nothing was refused: transparency NOTICE, never a block).
+    repaired, marker_warnings = dxf_repair.inject_missing_subclass_markers(data)
+    attempt = repaired
+    if marker_warnings:
+        try:
+            return (ezdxf.read(  # type: ignore[attr-defined]
+                       io.StringIO(attempt.decode("utf-8", errors="replace"))),
+                    warnings, [*notices, *marker_warnings], 0)
+        except Exception as exc:
+            strict_reason = f"{type(exc).__name__}: {exc}"
+    # Rung 3: truncation closure (cumulative with rung 2's rewrite; only the
+    # missing structural tail is appended — no content added or refused).
+    closed, close_warnings = dxf_repair.close_truncation(attempt)
+    if close_warnings:
+        try:
+            return (ezdxf.read(  # type: ignore[attr-defined]
+                       io.StringIO(closed.decode("utf-8", errors="replace"))),
+                    warnings, [*notices, *marker_warnings, *close_warnings], 0)
+        except Exception as exc:
+            strict_reason = f"{type(exc).__name__}: {exc}"
+    # Rung 4: drop unparseable ANNOTATION-ONLY entity types. A broken HATCH
+    # annotation never carried measurable geometry; removing it keeps the
+    # measurable content loadable. First the type named in the error, then a
+    # bounded probe of other annotation-only types present in the file (an
+    # assert inside a loader does not name its type).
+    candidate: str | None = dxf_repair.entity_type_from_error(strict_reason)
+    probe_order: list[str] = [candidate] if candidate else []
+    probe_order += [t for t in dxf_repair.annotation_type_order()
+                    if t != candidate and dxf_repair.file_has_entity(closed, t)]
+    for named in probe_order:
+        if not dxf_repair.is_annotation_only(named):
+            continue
+        dropped, count = dxf_repair.drop_entity_type(closed, named)
+        if not count:
+            continue
+        try:
+            # The dropped entities are annotation-only: reported as a COUNT
+            # (non-blocking review notice), not a blocking warning — the same
+            # entity class parse_dxf's loop classifies into annotations.
+            return (ezdxf.read(  # type: ignore[attr-defined]
+                       io.StringIO(dropped.decode("utf-8", errors="replace"))),
+                    warnings, [*notices, *marker_warnings, *close_warnings], count)
+        except Exception as exc:
+            strict_reason = f"{type(exc).__name__}: {exc}"
+    # Rung 5: ezdxf's own recover (encoding quirks, legacy structure).
+    # Guard: the auditor must REPORT what it did (errors or fixes > 0).
+    # A recover that loads a strict-refused file with a SILENT auditor
+    # (0/0) has absorbed the defect invisibly — e.g. a broken handle is
+    # silently reassigned, fabricating source-evidence that was never in
+    # the file. That is invisible content mutation: refuse it, the strict
+    # reason is the honest answer.
+    try:
+        from ezdxf import recover
+
+        doc, auditor = recover.read(io.BytesIO(data))
+        errors = len(auditor.errors)
+        fixes = len(auditor.fixes)
+        if not errors and not fixes:
+            raise DxfParseError(f"ezdxf could not parse: {strict_reason}")
+        note = f"loaded via ezdxf recover mode (auditor errors: {errors}, fixes: {fixes})"
+        if errors:
+            note += f" — first: {auditor.errors[0]}"
+        return doc, [note], notices, 0
+    except DxfParseError:
+        raise
+    except Exception:  # noqa: S110 — fall through to the honest refusal
+        pass
+    raise DxfParseError(f"ezdxf could not parse: {strict_reason}")
+
+
 def parse_dxf(data: bytes) -> ParseResult:
     """Parse DXF bytes → ParseResult (geometries + sheets + warnings)."""
-    try:
-        doc = ezdxf.read(io.StringIO(data.decode("utf-8", errors="replace")))  # type: ignore[attr-defined]
-    except Exception as exc:
-        raise DxfParseError(f"ezdxf could not parse: {exc}") from exc
+    doc, repair_warnings, repair_notices, dropped_annotations = _load_document(data)
     if not hasattr(doc, "modelspace"):
         raise DxfParseError("not a DXF drawing")
 
     msp = doc.modelspace()
     units = _read_units(doc)
     sheet_ref = "modelspace"
-    warnings: list[str] = []
+    warnings: list[str] = [*repair_warnings]
+    notices: list[str] = [*repair_notices]
+    # Repair-ladder annotation drops join the parser's own annotation count
+    # (one review notice for the whole class, never a blocking warning).
+    annotations = dropped_annotations
 
     geometries: list[NormalizedGeometry] = []
     text_tokens: list[TextToken] = []
@@ -352,20 +501,29 @@ def parse_dxf(data: bytes) -> ParseResult:
             geometries.append(geom)
             measurable += 1
         except Exception as exc:
-            # A malformed placement contributes no partial geometry. The warning
-            # is a run blocker, consumed by the parsed-measurement entrypoint.
+            # Post-R9 manual pass: an annotation-only entity skip cannot
+            # understate a quantity (it never carried geometry), so it
+            # counts for the single review-severity notice instead of a
+            # blocking warning — the drawing's walls still measure. Any
+            # OTHER refusal (measurable type refused, bad INSERT) remains
+            # a blocking warning: a believable-but-understated BOQ is the
+            # worse failure.
+            if entity.dxftype() in _ANNOTATION_TYPES:
+                annotations += 1
+                continue
             skipped += 1
             warnings.append(_warning(entity, str(exc)))
 
     # Modelspace is the measurable sheet (T031). Paper-space layouts are
     # parsed for completeness but refused: which viewport is "the drawing"?
-    # entity_count includes captured text tokens: they are entities on the
-    # sheet (visible evidence), just not measurable geometry.
+    # entity_count includes captured text tokens AND skipped annotations:
+    # they are entities on the sheet (visible evidence), just not
+    # measurable geometry.
     sheets = [
         SheetSummary(
             sheet_ref=sheet_ref,
             layout_name="Model",
-            entity_count=measurable + skipped + len(text_tokens),
+            entity_count=measurable + skipped + annotations + len(text_tokens),
             measurable_count=measurable,
             is_modelspace=True,
             unit_code=units,
@@ -387,7 +545,12 @@ def parse_dxf(data: bytes) -> ParseResult:
                 measurable=False,
             )
         )
-        warnings.append(f"paper-space layout {name!r} parsed but not measurable (V1)")
+        # Post-R9 manual pass: a paper-space layout is not on the measured
+        # modelspace sheet — its existence cannot understate a modelspace
+        # quantity. It surfaces through the sheet row itself (is_modelspace
+        # False, excluded from the run form) and the non-blocking review
+        # notice, not a blocking warning.
+        annotations += 1
 
     return ParseResult(
         source_sha256=hashlib.sha256(data).hexdigest(),
@@ -396,6 +559,8 @@ def parse_dxf(data: bytes) -> ParseResult:
         sheets=tuple(sheets),
         text_tokens=tuple(text_tokens),
         warnings=tuple(warnings),
+        notices=tuple(notices),
+        annotations_skipped=annotations,
     )
 
 
@@ -491,10 +656,7 @@ def block_names_by_insert_handle(data: bytes) -> dict[str, str]:
     so the result is deterministic. INSERTs without a usable name are left
     out: their placement is refused by the geometry path anyway.
     """
-    try:
-        doc = ezdxf.read(io.StringIO(data.decode("utf-8", errors="replace")))  # type: ignore[attr-defined]
-    except Exception as exc:
-        raise DxfParseError(f"ezdxf could not parse: {exc}") from exc
+    doc, _warnings, _notices, _annotations = _load_document(data)
     if not hasattr(doc, "modelspace"):
         raise DxfParseError("not a DXF drawing")
     names: dict[str, str] = {}

@@ -257,9 +257,9 @@ class TestDeterminismT050:
 
     def test_engine_version_bumped_for_new_rules(self) -> None:
         out = _run("room_plan")
-        assert out.engine_version == "0.5.0"
+        assert out.engine_version == "0.6.0"
         for m in out.measurements:
-            assert m.engine_version == "0.5.0"
+            assert m.engine_version == "0.6.0"
 
 
 class TestRoomRefusals:

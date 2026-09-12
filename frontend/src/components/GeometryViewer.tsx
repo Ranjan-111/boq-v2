@@ -10,6 +10,13 @@ export interface ViewerGeometry {
   layer: string | null;
   /** Highlighted (selected measurement) — red instead of blue. */
   highlighted: boolean;
+  /** Layer role: "base" is the run's classified drawing geometry (rendered
+   * neutral gray under the evidence overlays); "evidence" (default) is the
+   * measurement geometry — blue, or red when highlighted. */
+  variant?: "base" | "evidence";
+  /** Dashed outline — advisory (AI-classified) geometry awaiting human
+   * confirmation, visually distinct from deterministic geometry. */
+  dashed?: boolean;
 }
 
 export interface GeometryViewerProps {
@@ -25,6 +32,8 @@ const BLUE_STROKE = "#2563eb";
 const BLUE_FILL = "rgba(37,99,235,0.08)";
 const RED_STROKE = "#dc2626";
 const RED_FILL = "rgba(220,38,38,0.12)";
+const BASE_STROKE = "#64748b";
+const BASE_FILL = "rgba(100,116,139,0.06)";
 
 interface Transform {
   tx: number;
@@ -121,13 +130,25 @@ export default function GeometryViewer({
             transform={`translate(${t.tx} ${t.ty}) scale(${t.scale}) translate(0 ${flipOffset}) scale(1 -1)`}
           >
             {geometries.map((g) => {
-              const stroke = g.highlighted ? RED_STROKE : BLUE_STROKE;
-              const fill = g.highlighted ? RED_FILL : BLUE_FILL;
+              const isBase = g.variant === "base";
+              const stroke = g.highlighted
+                ? RED_STROKE
+                : isBase
+                  ? BASE_STROKE
+                  : BLUE_STROKE;
+              const fill = g.highlighted
+                ? RED_FILL
+                : isBase
+                  ? BASE_FILL
+                  : BLUE_FILL;
               const pts = pointsAttribute(g.coordinates);
+              const dash = g.dashed
+                ? ` ${3 / t.scale} ${2 / t.scale}`
+                : undefined;
               return g.geom_type === "polygon" ? (
-                <polygon key={g.id} points={pts} fill={fill} stroke={stroke} strokeWidth={1.5 / t.scale} />
+                <polygon key={g.id} points={pts} fill={fill} stroke={stroke} strokeWidth={1.5 / t.scale} strokeDasharray={dash} />
               ) : (
-                <polyline key={g.id} points={pts} fill="none" stroke={stroke} strokeWidth={1.5 / t.scale} />
+                <polyline key={g.id} points={pts} fill="none" stroke={stroke} strokeWidth={1.5 / t.scale} strokeDasharray={dash} />
               );
             })}
             {centerlines.map((ring, i) => (
