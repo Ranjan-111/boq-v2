@@ -1,0 +1,435 @@
+{
+  "case_id": "dxf__junction_split__modelspace",
+  "current_engine_version": "0.8.0",
+  "elements": [
+    {
+      "element_type": "wall",
+      "geometry": {
+        "coordinates": [
+          [
+            0.0,
+            200.0
+          ],
+          [
+            5800.0,
+            200.0
+          ],
+          [
+            5800.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            200.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": "WALL",
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "30",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "31",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 0,
+      "label": "Wall 1",
+      "type_source": "geometry_deterministic"
+    },
+    {
+      "element_type": "wall",
+      "geometry": {
+        "coordinates": [
+          [
+            5800.0,
+            200.0
+          ],
+          [
+            5800.0,
+            5000.0
+          ],
+          [
+            6000.0,
+            5000.0
+          ],
+          [
+            6000.0,
+            200.0
+          ],
+          [
+            5800.0,
+            200.0
+          ]
+        ],
+        "derived_from": [],
+        "geom_type": "polygon",
+        "layer": "WALL",
+        "source_format": "dxf_entity",
+        "source_handles": [
+          {
+            "entity_ref": "32",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          },
+          {
+            "entity_ref": "33",
+            "format": "dxf_entity",
+            "layer": "WALL",
+            "sheet_ref": "modelspace"
+          }
+        ]
+      },
+      "index": 1,
+      "label": "Wall 2",
+      "type_source": "geometry_deterministic"
+    }
+  ],
+  "engine_version": "0.8.0",
+  "exceptions": [],
+  "fixture": "dxf/junction_split.dxf",
+  "fixture_sha256": "c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285",
+  "format": "dxf",
+  "measurements": [
+    {
+      "centerline": [
+        [
+          0.0,
+          100.0
+        ],
+        [
+          5800.0,
+          100.0
+        ]
+      ],
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31"
+      ],
+      "inputs_digest": "6e98a2ec8b478c97636e2abe949e901d7d012aecfd317f764b64434688121685",
+      "label": "Wall 1",
+      "measurement_id": "02c95a61-9995-5e70-b52f-f1a6bbe9103b",
+      "quantity_type": "length",
+      "rule_id": "wall.centerline.length.v1",
+      "state": "measured",
+      "thickness": 200.0,
+      "unit": "m",
+      "value": "5.800000"
+    },
+    {
+      "centerline": null,
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31"
+      ],
+      "inputs_digest": "82509c5e8b571f378e4a76eb95d3a7a0b149162c551bf8db85817e6cc1ab78d4",
+      "label": "Wall 1 footprint",
+      "measurement_id": "5e0b5d28-3618-5215-8462-85fe239704f8",
+      "quantity_type": "area",
+      "rule_id": "wall.footprint.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "1.160000"
+    },
+    {
+      "centerline": null,
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "31"
+      ],
+      "inputs_digest": "f1829befeed403bae08c787fb5a5068a825130a91b8488a89f31ce498ba14f93",
+      "label": "Wall 1 openings (none detected)",
+      "measurement_id": "cb8f933b-6492-5db5-adec-2daa5d15aec8",
+      "quantity_type": "count",
+      "rule_id": "opening.count.v1",
+      "state": "measured_zero",
+      "thickness": null,
+      "unit": "count",
+      "value": "0.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 0,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"30\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 1 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"31\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "30",
+        "30",
+        "31",
+        "31"
+      ],
+      "inputs_digest": "fbf76d67a074a558679c60a7779cccd0aa9fdb776ec111d0dc3c68622ab5f08a",
+      "label": "Wall 1 net of openings",
+      "measurement_id": "cb57ed6b-f9e6-5cc4-b10a-c292e597853b",
+      "quantity_type": "area",
+      "rule_id": "wall.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "1.160000"
+    },
+    {
+      "centerline": [
+        [
+          5900.0,
+          200.0
+        ],
+        [
+          5900.0,
+          5000.0
+        ]
+      ],
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "33"
+      ],
+      "inputs_digest": "f1d38be0b9ab060ff6eccf77e9a4147f186a50d2fbc9b5a8117d11e31f86c1f9",
+      "label": "Wall 2",
+      "measurement_id": "2740bb42-f0ac-55ef-8020-597e5f144f8f",
+      "quantity_type": "length",
+      "rule_id": "wall.centerline.length.v1",
+      "state": "measured",
+      "thickness": 200.0,
+      "unit": "m",
+      "value": "4.800000"
+    },
+    {
+      "centerline": null,
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 footprint",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "33"
+      ],
+      "inputs_digest": "6d26a7a3530b89ed8e13e523e49a55807d94979faecd13b3255011f368c89df2",
+      "label": "Wall 2 footprint",
+      "measurement_id": "c99de41c-b00b-5c5a-a072-f4389490176f",
+      "quantity_type": "area",
+      "rule_id": "wall.footprint.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.960000"
+    },
+    {
+      "centerline": null,
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 openings (none detected)",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "33"
+      ],
+      "inputs_digest": "613b9442aacf9c218c107942a07d23e1e6e28c44967463b0e61eb32b12a42bee",
+      "label": "Wall 2 openings (none detected)",
+      "measurement_id": "d75ddb20-cc5f-5b02-9bbe-eb760c8bc4f0",
+      "quantity_type": "count",
+      "rule_id": "opening.count.v1",
+      "state": "measured_zero",
+      "thickness": null,
+      "unit": "count",
+      "value": "0.000000"
+    },
+    {
+      "centerline": null,
+      "element_index": 1,
+      "element_type": "wall",
+      "engine_version": "0.8.0",
+      "evidence": [
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"32\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        },
+        {
+          "kind": "geometry",
+          "note": "Wall 2 net of openings",
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\",\"version\":\"c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285\"}"
+        }
+      ],
+      "inputs": [
+        "32",
+        "32",
+        "33",
+        "33"
+      ],
+      "inputs_digest": "a7a8fcecdb1790905fbfe4a14dc806a2187400953969554ba5582749b07c7eea",
+      "label": "Wall 2 net of openings",
+      "measurement_id": "154080f6-949c-5eb6-81b9-5bbb4512f45c",
+      "quantity_type": "area",
+      "rule_id": "wall.net.area.v1",
+      "state": "measured",
+      "thickness": null,
+      "unit": "m2",
+      "value": "0.960000"
+    }
+  ],
+  "parse": {
+    "drawing_units": "mm",
+    "geometry_count": 4,
+    "sheet_count": 1,
+    "sheets": [
+      {
+        "entity_count": 4,
+        "is_modelspace": true,
+        "layout_name": "Model",
+        "measurable": true,
+        "measurable_count": 4,
+        "sheet_ref": "modelspace",
+        "title": null,
+        "unit_code": "mm"
+      }
+    ],
+    "source_sha256": "c989a6a97dd57511a2a98e9ea2c9f700f16d3b649ad540ccb2841d1d9ad6a285",
+    "text_token_count": 0,
+    "text_tokens": [],
+    "warnings": []
+  },
+  "run_inputs": {
+    "block_names": {},
+    "calibration": {
+      "method": "detected_from_dxf_units",
+      "sheet_id": "modelspace",
+      "status": "confirmed",
+      "units_per_drawing_unit": "1.0"
+    },
+    "drawing_units": "mm",
+    "drawing_units_override": null,
+    "emit_candidates": false,
+    "max_wall_thickness": 250.0,
+    "sheet_id": "modelspace"
+  },
+  "schema": "golden-run-v1"
+}

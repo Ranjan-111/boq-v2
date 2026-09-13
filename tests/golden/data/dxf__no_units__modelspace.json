@@ -1,8 +1,8 @@
 {
   "case_id": "dxf__no_units__modelspace",
-  "current_engine_version": "0.6.0",
+  "current_engine_version": "0.8.0",
   "elements": [],
-  "engine_version": "0.6.0",
+  "engine_version": "0.8.0",
   "exceptions": [
     {
       "ai_explanation": null,
@@ -16,7 +16,7 @@
     }
   ],
   "fixture": "dxf/no_units.dxf",
-  "fixture_sha256": "feebc3efd832d72940c72d725a0e28cad1a9ef910d5329a214ed5aee902314f7",
+  "fixture_sha256": "465efb60f3b2a3214708f71cdf3b454d2b16633909e78e4073152ad0460355af",
   "format": "dxf",
   "measurements": [],
   "parse": {
@@ -35,7 +35,7 @@
         "unit_code": "unknown"
       }
     ],
-    "source_sha256": "feebc3efd832d72940c72d725a0e28cad1a9ef910d5329a214ed5aee902314f7",
+    "source_sha256": "465efb60f3b2a3214708f71cdf3b454d2b16633909e78e4073152ad0460355af",
     "text_token_count": 0,
     "text_tokens": [],
     "warnings": []

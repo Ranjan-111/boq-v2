@@ -16,16 +16,67 @@ from test_wall_detection import edge
 from core.domain.enums import BoqStatus, ExceptionSeverity, MeasurementState
 from core.geometry import ParseResult, SheetSummary
 from core.provenance.records import ExceptionRecord
+from ingestion.pdf import parse_pdf
 from takeoff.engine import measure_parsed, measure_sheet
 from takeoff.rules import run_rule
 from takeoff.wall_detection import detect_walls
 
 
-@pytest.mark.parametrize('start,end', [(10000,11000),(500,1500),(0,1500),(1000,2000)])
+@pytest.mark.parametrize('start,end', [(10000,11000)])
 def test_no_longitudinal_support_no_wall(start, end):
+    """Disjoint faces (no drawn overlap) are refused — support must be drawn."""
     result = detect_walls([F_A, edge((start,200),(end,200),'B')], max_thickness=250)
     assert not result.walls
     assert len(result.unmatched_edges) == 2
+
+
+@pytest.mark.parametrize('start,end,window', [
+    (500,1500,(500,1000)),   # partial overlap: drawn intersection is [500,1000]
+    (0,1500,(0,1000)),       # B extends past A: window is A's whole span
+    (1000,2000,(0,0)),       # touch only at an endpoint: no measurable window
+])
+def test_partial_overlap_pairs_over_drawn_intersection_only(start, end, window):
+    """Engine 0.8.0: a parallel offset face pair is measured ONLY over the
+    span both faces actually draw — never over undrawn extents. The leftover
+    face span is not a wall (extrapolation is still refused); the drawn
+    intersection is (that is real drawn support, not a guess)."""
+    result = detect_walls([F_A, edge((start,200),(end,200),'B')], max_thickness=250)
+    if window[1] - window[0] > 0:
+        assert len(result.walls) == 1
+        wall = result.walls[0]
+        assert wall.length == pytest.approx(window[1] - window[0])
+        assert wall.thickness == pytest.approx(200.0)
+        # window start along x: centerline endpoints match the drawn span
+        (x0, _), (x1, _) = wall.centerline
+        assert x0 == pytest.approx(window[0])
+        assert x1 == pytest.approx(window[1])
+    else:
+        assert not result.walls
+        assert len(result.unmatched_edges) == 2
+
+
+def test_disjoint_support_still_refused_after_engine_0_8():
+    """The Round-3 no-support invariant on faces with NO drawn overlap keeps
+    refusing — window pairing extends pairing to drawn intersections, it
+    never invents support where neither face draws a wall."""
+    result = detect_walls(
+        [F_A, edge((10000,200),(11000,200),'B')], max_thickness=250
+    )
+    assert result.walls == []
+    assert len(result.unmatched_edges) == 2
+
+
+def test_partial_overlap_wall_replays_from_truncated_inputs():
+    """The window's truncated faces satisfy the replay rule alone — the
+    measurement is re-derivable from its two-face inputs, no hidden span."""
+    result = detect_walls(
+        [F_A, edge((500,200),(1500,200),'B')], max_thickness=250
+    )
+    assert len(result.walls) == 1
+    wall = result.walls[0]
+    assert wall.length == pytest.approx(500.0)
+    assert run_rule('wall.centerline.length.v1',
+                    list(wall.edge_geometries)) == pytest.approx(500.0)
 
 
 def test_ambiguous_component_never_greedily_measured():
@@ -193,6 +244,45 @@ def test_measure_parsed_blocks_on_parser_warnings():
     assert all(e.code == 'parse_incomplete' and e.severity is ExceptionSeverity.BLOCKING
                for e in out.exceptions)
     assert any('CIRCLE' in e.message for e in out.exceptions)
+
+
+def test_measure_parsed_keeps_valid_geometry_when_other_entities_are_refused():
+    """Partial extraction is reviewable, not a zero-quantity run.
+
+    The refused entity remains visible as a parse warning, while the valid
+    wall faces still produce their deterministic measurements and evidence.
+    A source file with no surviving geometry continues to use the blocking
+    path above.
+    """
+    out = measure_parsed(
+        _parsed(geometries=(F_A, F_B),
+                warnings=('unsupported CIRCLE handle=2A: circles',)),
+        sheet_id='modelspace', calibration=CONFIRMED, max_wall_thickness=250,
+    )
+    assert out.measurements
+    assert any(e.code == 'parse_partial' and e.severity is ExceptionSeverity.REVIEW
+               for e in out.exceptions)
+    assert all(m.evidence for m in out.measurements)
+
+
+def test_real_pdf_partial_parse_still_emits_surviving_candidate():
+    """A refused curve must not erase the rect that the PDF parser kept."""
+    from pathlib import Path
+
+    parsed = parse_pdf((Path(__file__).resolve().parents[1]
+                        / 'fixtures' / 'pdf' / 'curves.pdf').read_bytes())
+    calibration = replace(
+        CONFIRMED, sheet_id='page:0',
+        method='test_confirmed',
+    )
+    out = measure_parsed(
+        parsed, sheet_id='page:0', calibration=calibration,
+        drawing_units='mm', max_wall_thickness=250, emit_candidates=True,
+    )
+    assert len(out.measurements) == 1
+    assert out.measurements[0].state is MeasurementState.NEEDS_REVIEW
+    assert any(e.code == 'parse_partial' and e.severity is ExceptionSeverity.REVIEW
+               for e in out.exceptions)
 
 
 def test_measure_parsed_blocks_absent_sheet_and_missing_source_version():

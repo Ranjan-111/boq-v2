@@ -263,6 +263,71 @@ def build_multi_storey_hint() -> bytes:
     return _export(doc)
 
 
+def build_junction_split() -> bytes:
+    """Engine 0.8.0 L-corner, drawn to real CAD convention: at a corner the
+    OUTER faces extend to meet each other while the INNER faces stop at the
+    corner — so each wall's own face pair is non-congruent (6000 vs 5800 and
+    5000 vs 4800). Old engine: both walls refused (non-congruent faces →
+    overlap/unmatched). New engine: wall A pairs over the drawn span
+    [0..5800], wall B over [200..5000]; the two 200mm corner nubs on the
+    outer faces are honest fragments — never extended, never walls.
+
+      y
+    5000 +--+
+      |  |  B (t=200; left face x=5800 y=200..5000,
+      |  |     right face x=6000 y=0..5000 — extends to meet A)
+    200 +--+------
+      |  A (t=200; bottom face y=0 x=0..6000 — extends to meet B,
+    0  |     top face y=200 x=0..5800 — stops at the inner corner)
+      0------------------6000
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4  # mm
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    msp = doc.modelspace()
+    # Wall A: horizontal, thickness 200. Outer (bottom) face continuous to
+    # x=6000; inner (top) face stops at the inner corner x=5800.
+    msp.add_line((0, 0), (6000, 0), dxfattribs={"layer": "WALL"})
+    msp.add_line((0, 200), (5800, 200), dxfattribs={"layer": "WALL"})
+    # Wall B: vertical, thickness 200. Outer (right) face continuous down to
+    # y=0 (meets A's bottom face); inner (left) face starts at y=200.
+    msp.add_line((5800, 200), (5800, 5000), dxfattribs={"layer": "WALL"})
+    msp.add_line((6000, 0), (6000, 5000), dxfattribs={"layer": "WALL"})
+    return _export(doc)
+
+
+def build_split_face_doorway() -> bytes:
+    """Engine 0.8.0 split-face doorway: the doorway splits ONE face of a
+    wall into two fragments while the opposite face stays continuous — the
+    classic CAD drawing of a door opening in a wall run. Old engine: each
+    fragment vs the continuous face is non-congruent → refused. New engine:
+    each fragment pairs with the continuous face over its own disjoint
+    window → TWO walls; the continuous face's leftover middle span is not a
+    wall (that is the doorway). No phantom third wall over the opening.
+
+      y=200 ====X(0..3000)  gap (door)  X(4200..6000)====   (face split)
+      y=0   ============continuous 0..6000================
+
+    Vertical jamb ticks at x=3000 and x=4200 close the doorway visually
+    (standard drawing practice); they delimit the fragment endpoints.
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4  # mm
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    msp = doc.modelspace()
+    # Continuous bottom face, full 0..6000
+    msp.add_line((0, 0), (6000, 0), dxfattribs={"layer": "WALL"})
+    # Top face split into two fragments around the 3000..4200 doorway
+    msp.add_line((0, 200), (3000, 200), dxfattribs={"layer": "WALL"})
+    msp.add_line((4200, 200), (6000, 200), dxfattribs={"layer": "WALL"})
+    # Door jamb ticks (vertical marks at the opening edges — drawn practice)
+    msp.add_line((3000, 0), (3000, 200), dxfattribs={"layer": "WALL"})
+    msp.add_line((4200, 0), (4200, 200), dxfattribs={"layer": "WALL"})
+    return _export(doc)
+
+
 FIXTURES: dict[str, object] = {
     "wall_plan.dxf": build_wall_plan,
     "no_units.dxf": build_no_units,
@@ -276,6 +341,8 @@ FIXTURES: dict[str, object] = {
     "wall_with_doorway.dxf": build_wall_with_doorway,
     "opening_blocks.dxf": build_opening_blocks,
     "multi_storey_hint.dxf": build_multi_storey_hint,
+    "junction_split.dxf": build_junction_split,
+    "split_face_doorway.dxf": build_split_face_doorway,
 }
 
 

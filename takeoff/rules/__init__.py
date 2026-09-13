@@ -25,13 +25,19 @@ from core.geometry import NormalizedGeometry
 # (additive rules + candidate emission; old persisted runs replay by their
 # own stamped version).
 #
-# Post-R9 manual pass — 0.6.0: annotation-only skips (dimensions, hatching,
+# Post-R9 manual pass — 0.7.0: partial parser warnings are reviewable when
+# valid geometry survives.  A hard structural refusal or a sheet with no
+# surviving geometry still blocks.  This preserves replay identity while
+# allowing a trustworthy partial takeoff from the geometry that actually
+# parsed.
+#
+# 0.6.0: annotation-only skips (dimensions, hatching,
 # paper-space layouts) no longer abort measurement. The rules themselves are
 # unchanged; what changed is which parse notices block: a paper-space or
 # annotation skip surfaces as ONE non-blocking annotation_skipped review
 # exception instead of a blocking parse_incomplete, so real-world drawings
 # with intact modelspace geometry measure honestly.
-ENGINE_VERSION = "0.6.0"
+ENGINE_VERSION = "0.8.0"
 
 
 class RuleFn(Protocol):

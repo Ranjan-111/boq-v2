@@ -13,8 +13,15 @@ Algorithm (deterministic, explainable, no AI):
   3. Accepted pairs become WallCandidates: centerline endpoints = midpoints of
      the two offset vectors, thickness = perpendicular distance, length =
      mean edge length.
-  4. Require finite congruent support and an explicit maximum thickness.
-     Accept only unique reciprocal pairs; ambiguous candidates are refused.
+  4. OVERLAP-WINDOW PAIRING (engine 0.8.0): a parallel constant-separation
+     face pair is a wall over the INTERSECTION of the two faces' drawn
+     longitudinal spans — never over undrawn extents. One face may pair with
+     several partners over DISJOINT windows (the split-face doorway: one
+     continuous face beside two face fragments). Windows that overlap on a
+     shared face are a true ambiguity: every claimant of the conflict is
+     refused together, independent of order (the Round-3 doctrine generalized
+     from whole faces to windows). Unpaired leftover spans surface as
+     fragments, never walls.
 
 Everything is float64 over drawing units; determinism is total given the same
 geometry list order (stable via sort by first source handle).
@@ -22,7 +29,6 @@ geometry list order (stable via sort by first source handle).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from itertools import combinations
 from math import isfinite
 from typing import cast
 
@@ -134,6 +140,11 @@ def are_offset_pair(
     vice versa — the two faces straddle a shared centerline).
     Zero-length edges never pair (degenerate drawing anomalies surface as
     unmatched edges instead of crashing the pairing math).
+
+    Engine 0.8.0: this gate is now applied to WINDOW faces (a pair truncated
+    to their common drawn span), so congruence is BY CONSTRUCTION for every
+    wall the detector accepts. Whole-face congruence (the 0.7.0 semantics)
+    remains the same predicate — callers without a window pass full faces.
     """
     if not all(isfinite(v) for v in (*s1.a, *s1.b, *s2.a, *s2.b)):
         return False
@@ -159,6 +170,73 @@ def are_offset_pair(
     return (abs(projections[0]) <= tolerance
             and abs(projections[1]-s1.length) <= tolerance
             and abs(s1.length-s2.length) <= tolerance)
+
+
+def _window(
+    s1: Seg, s2: Seg, *, offset_eps: float = OFFSET_EPS, parallel_eps: float = PARALLEL_EPS
+) -> tuple[float, float] | None:
+    """The common drawn span [lo, hi] of two parallel constant-separation faces.
+
+    None when the faces are not parallel/opposite-offset within tolerance, are
+    collinear (no thickness), share no longitudinal overlap (disjoint
+    extents — the 0.7.0 refusal, kept: support must be DRAWN, both faces
+    present across the whole window), or when the overlap is a measurement-
+    noise sliver (below offset tolerance, or shorter than 1/1000 of either
+    face — a coincidental touch beside a long face is not a drawn wall
+    segment; the ratio bound keeps pairing deterministic and scale-free).
+
+    The returned window never extends either face: it is the exact
+    intersection of both faces' drawn spans, so no wall is ever measured over
+    undrawn geometry.
+    """
+    if not all(isfinite(v) for v in (*s1.a, *s1.b, *s2.a, *s2.b)):
+        return None
+    if s1.length == 0 or s2.length == 0:
+        return None
+    if not are_parallel_pair(s1, s2, parallel_eps=parallel_eps):
+        return None
+    d_a = _perp_distance(s1.a, s2)
+    d_b = _perp_distance(s1.b, s2)
+    if abs(d_a - d_b) > offset_eps or d_a <= offset_eps:
+        return None
+    e_a = _perp_distance(s2.a, s1)
+    e_b = _perp_distance(s2.b, s1)
+    if abs(e_a - e_b) > offset_eps:
+        return None
+    u = s1.unit()
+    p_a = (s2.a[0]-s1.a[0])*u[0] + (s2.a[1]-s1.a[1])*u[1]
+    p_b = (s2.b[0]-s1.a[0])*u[0] + (s2.b[1]-s1.a[1])*u[1]
+    lo, hi = min(p_a, p_b), max(p_a, p_b)
+    ov_lo, ov_hi = max(lo, 0.0), min(hi, s1.length)
+    if ov_hi - ov_lo <= offset_eps:
+        return None  # disjoint or a zero-width touch
+    if ov_hi - ov_lo < 1e-3 * max(s1.length, s2.length):
+        return None
+    return ov_lo, ov_hi
+
+
+def _window_seg(s: Seg, lo: float, hi: float) -> Seg:
+    """The sub-segment of s over longitudinal span [lo, hi] in s's own frame,
+    carrying its OWN geometry record (the window span as drawn) while
+    inheriting the original entity's source handles and layer — provenance is
+    the original drawn line; the coordinates are the window both faces draw.
+
+    Deterministic point-in-space computation: lo/hi come from projecting the
+    partner face onto s, so the truncated face is exactly the geometry both
+    faces actually draw. This geometry record is what the wall's replay rule
+    consumes: window length is re-derivable from the truncated pair alone.
+    """
+    u = s.unit()
+    a = (s.a[0] + u[0]*lo, s.a[1] + u[1]*lo)
+    b = (s.a[0] + u[0]*hi, s.a[1] + u[1]*hi)
+    geom = NormalizedGeometry(
+        geom_type=GeomType.POLYLINE,
+        coordinates=[a, b],
+        source_format=s.geometry.source_format,
+        source_handles=s.geometry.source_handles,
+        layer=s.geometry.layer,
+    )
+    return Seg(a=a, b=b, geometry=geom)
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +268,131 @@ class WallDetectionResult:
     overlaps: list[tuple[str, str]] = field(default_factory=list)  # (handleA, handleB)
     unmatched_edges: list[str] = field(default_factory=list)  # handles w/o pair
     considered_edges: int = 0
+    paired_windows: int = 0  # windows whose truncated faces became walls
+    refused_windows: int = 0  # windows lost to a conflict on one of their faces
+
+
+@dataclass(frozen=True, slots=True)
+class _FaceWindow:
+    """One wall-window claim: faces i/j paired over their common drawn span.
+
+    lo_i/hi_i are the window's longitudinal span in face i's own frame;
+    lo_j/hi_j the same geometric span in face j's frame (parallel frames may
+    run in opposite orientations — each span is computed by projecting the
+    OTHER face's endpoints into this face's frame and intersecting). The two
+    spans describe the same window in space; both are carried so conflict
+    checks on either face read a span in that face's consistent frame.
+    """
+
+    i: int
+    j: int
+    lo_i: float
+    hi_i: float
+    lo_j: float
+    hi_j: float
+    thickness: float
+
+
+def _spans(
+    s1: Seg, s2: Seg, *, offset_eps: float
+) -> tuple[tuple[float, float], tuple[float, float]] | None:
+    """The common drawn span of two offset-consistent faces, in both frames.
+
+    Returns ((lo, hi) in s1's frame, (lo, hi) in s2's frame), or None under
+    the same refusals as _window. Both spans are the same geometric interval
+    (the faces' longitudinal intersection), expressed per face.
+    """
+    u1 = s1.unit()
+    p_a = (s2.a[0]-s1.a[0])*u1[0] + (s2.a[1]-s1.a[1])*u1[1]
+    p_b = (s2.b[0]-s1.a[0])*u1[0] + (s2.b[1]-s1.a[1])*u1[1]
+    lo1, hi1 = max(min(p_a, p_b), 0.0), min(max(p_a, p_b), s1.length)
+    if hi1 - lo1 <= offset_eps or hi1 - lo1 < 1e-3 * max(s1.length, s2.length):
+        return None
+    u2 = s2.unit()
+    q_a = (s1.a[0]-s2.a[0])*u2[0] + (s1.a[1]-s2.a[1])*u2[1]
+    q_b = (s1.b[0]-s2.a[0])*u2[0] + (s1.b[1]-s2.a[1])*u2[1]
+    lo2, hi2 = max(min(q_a, q_b), 0.0), min(max(q_a, q_b), s2.length)
+    if hi2 - lo2 <= offset_eps:
+        return None  # pragma: no cover - symmetric with the s1-frame check
+    return (lo1, hi1), (lo2, hi2)
+
+
+def _build_windows(
+    segs: list[Seg], *, max_thickness: float,
+    offset_eps: float, parallel_eps: float,
+) -> list[_FaceWindow]:
+    """Every pairwise face-window within the thickness selection limit."""
+    windows: list[_FaceWindow] = []
+    for i in range(len(segs)):
+        for j in range(i + 1, len(segs)):
+            s_i, s_j = segs[i], segs[j]
+            if _window(s_i, s_j, offset_eps=offset_eps,
+                       parallel_eps=parallel_eps) is None:
+                continue
+            thickness = _perp_distance(s_i.a, s_j)
+            if thickness > max_thickness:
+                continue
+            spans = _spans(s_i, s_j, offset_eps=offset_eps)
+            if spans is None:
+                continue  # pragma: no cover - _window already filtered
+            windows.append(_FaceWindow(
+                i=i, j=j,
+                lo_i=spans[0][0], hi_i=spans[0][1],
+                lo_j=spans[1][0], hi_j=spans[1][1],
+                thickness=thickness,
+            ))
+    return windows
+
+
+def _conflict_groups(windows: list[_FaceWindow]) -> list[list[_FaceWindow]]:
+    """Windows partitioned into singleton groups (accepted candidates) and
+    conflict groups (refused together).
+
+    A conflict is LOCAL: two windows sharing a face whose spans overlap on
+    that face. Every window touching that contested span is refused — the
+    Round-3 three-parallel-faces doctrine generalized to windows. The
+    refusal never cascades transitively through independent windows: a
+    window whose own faces' spans are uncontested survives even if one of
+    its faces participates in a DIFFERENT, disjoint contested span (that
+    fragment is a separate wall — the split-face doorway case).
+
+    Order-independent: the verdict for each window depends only on the
+    window set, never on iteration order.
+    """
+    def span_on(w: _FaceWindow, face: int) -> tuple[float, float]:
+        return (w.lo_i, w.hi_i) if w.i == face else (w.lo_j, w.hi_j)
+
+    by_face: dict[int, list[int]] = {}
+    for w_idx, w in enumerate(windows):
+        by_face.setdefault(w.i, []).append(w_idx)
+        by_face.setdefault(w.j, []).append(w_idx)
+
+    conflicted: set[int] = set()
+    for idxs in by_face.values():
+        for a_pos in range(len(idxs)):
+            for b_pos in range(a_pos + 1, len(idxs)):
+                wa, wb = windows[idxs[a_pos]], windows[idxs[b_pos]]
+                shared = {wa.i, wa.j} & {wb.i, wb.j}
+                if not shared:
+                    continue
+                f = min(shared)  # deterministic; two faces share at most one
+                sa, sb = span_on(wa, f), span_on(wb, f)
+                if sa[1] > sb[0] and sb[1] > sa[0]:
+                    conflicted.update((idxs[a_pos], idxs[b_pos]))
+
+    groups: dict[int, list[_FaceWindow]] = {}
+    for w_idx, w in enumerate(windows):
+        if w_idx not in conflicted:
+            groups.setdefault(-1 - w_idx, []).append(w)  # singleton candidates
+    # every conflicted window forms one refusal group entry (kept separate so
+    # callers can report each contested pair honestly)
+    current_group: list[_FaceWindow] = []
+    for w_idx, w in enumerate(windows):
+        if w_idx in conflicted:
+            current_group.append(w)
+    if current_group:
+        groups[len(windows)] = current_group
+    return list(groups.values())
 
 
 def detect_walls(
@@ -200,7 +403,15 @@ def detect_walls(
     offset_eps: float = OFFSET_EPS,
     max_thickness: float | None = None,
 ) -> WallDetectionResult:
-    """Only unique reciprocal supported pairs are walls; ambiguity is refused.
+    """Overlap-window wall pairing (engine 0.8.0).
+
+    A parallel constant-separation face pair is a wall over the intersection
+    of the two faces' drawn spans — never over undrawn extents. One face may
+    pair with several partners over DISJOINT windows (a continuous face
+    beside face fragments split by a doorway). Windows that overlap on a
+    shared face are a true ambiguity: ALL claimants of the conflict group
+    are refused together, independent of order. Unpaired leftover spans
+    surface as fragments, never walls.
 
     max_thickness is an explicit drawing-unit selection input, not an inferred
     construction dimension. With no selection limit all edges remain unmatched.
@@ -215,27 +426,41 @@ def detect_walls(
         raise ValueError("maximum thickness must be finite and greater than tolerance")
     segs = extract_segs(geometries, wall_layers_only=wall_layers_only)
     result = WallDetectionResult(considered_edges=len(segs))
-    partners: dict[int, set[int]] = {i: set() for i in range(len(segs))}
+
+    windows: list[_FaceWindow] = []
     if max_thickness is not None:
-        for i, j in combinations(range(len(segs)), 2):
-            s1, s2 = segs[i], segs[j]
-            if (are_offset_pair(s1, s2, offset_eps=offset_eps, parallel_eps=parallel_eps)
-                    and _perp_distance(s1.a, s2) <= max_thickness):
-                partners[i].add(j)
-                partners[j].add(i)
+        windows = _build_windows(
+            segs, max_thickness=max_thickness,
+            offset_eps=offset_eps, parallel_eps=parallel_eps,
+        )
+
+    accepted: list[_FaceWindow] = []
+    for group in (_conflict_groups(windows) if windows else []):
+        if len(group) == 1:
+            accepted.append(group[0])
+        else:
+            result.refused_windows += len(group)
+            for w in group:
+                result.overlaps.append(
+                    (_first_handle(segs[w.i]), _first_handle(segs[w.j]))
+                )
+
     used: set[int] = set()
-    for i, js in partners.items():
-        for j in sorted(js):
-            if j <= i:
-                continue
-            if len(js) != 1 or len(partners[j]) != 1:
-                result.overlaps.append((_first_handle(segs[i]), _first_handle(segs[j])))
-                continue
-            wall = _make_wall(segs[i], segs[j])
-            if wall is not None:
-                result.walls.append(wall)
-                used.update((i,j))
-    result.unmatched_edges = [_first_handle(s) for i,s in enumerate(segs) if i not in used]
+    for w in sorted(accepted, key=lambda w: (w.i, w.j, w.lo_i, w.hi_i)):
+        s_i = _window_seg(segs[w.i], w.lo_i, w.hi_i)
+        s_j = _window_seg(segs[w.j], w.lo_j, w.hi_j)
+        # The truncated pair must satisfy the SAME gate the replay rule
+        # applies — detection can never accept what the rule would refuse.
+        if not are_offset_pair(s_i, s_j, offset_eps=offset_eps,
+                               parallel_eps=parallel_eps):
+            continue
+        wall = _make_wall(s_i, s_j)
+        if wall is None:
+            continue
+        result.walls.append(wall)
+        result.paired_windows += 1
+        used.update((w.i, w.j))
+    result.unmatched_edges = [_first_handle(s) for i, s in enumerate(segs) if i not in used]
     return result
 
 

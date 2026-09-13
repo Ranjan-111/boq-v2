@@ -232,6 +232,38 @@ block the sheet without producing authoritative quantities. Parser warnings
 are propagated by the pure parse-result measurement entry point; low-level
 geometry callers must supply their full source context and warnings.
 
+### Engine 0.8.0 — overlap-window wall pairing (2026-09-14)
+
+Round 3 refused partial overlaps between wall faces: a whole-face congruence
+requirement. On real architectural drawings (junctions, openings splitting
+one face into fragments) that rule refuses the majority of drawn walls —
+measured on the reference corpus at 26 walls from 354 wall faces. Engine
+0.8.0 generalizes pairing from whole faces to **drawn windows**:
+
+* A parallel, constant-positive-separation face pair is a wall over the
+  **intersection of the two faces' drawn longitudinal spans** — and only
+  over that span. No wall is measured over geometry either face does not
+  draw (the no-extrapolation invariant, applied per-window rather than
+  per-face).
+* One face may pair with several partners over **disjoint** windows: the
+  split-face doorway (one continuous face beside two fragments) yields two
+  walls, each with full two-face support. This is the junction-splitting
+  behavior that makes real drawings measurable.
+* Windows that **overlap on a shared face** are a true ambiguity: every
+  claimant of the conflict group is refused together, independent of order
+  (the Round 3 three-parallel-faces doctrine generalized from faces to
+  windows).
+* Disjoint face extents (no drawn overlap) remain refused.
+* Each accepted window's truncated face pair must independently satisfy the
+  same congruent-support gate the replay rule applies — detection can never
+  accept what `wall.centerline.length.v1` would refuse, so every measurement
+  stays replayable from its two-face inputs alone.
+* Face spans consumed by no window surface as unmatched-edge fragments for
+  review — a drawing's leftover geometry is never silently absorbed.
+
+The reciprocal-unique-pairing, explicit-max-thickness, and tolerance-binding
+rules are unchanged.
+
 Replay identity binds canonical input geometry and handle chains, sheet,
 source identity/version (raw SHA-256 for parsed files), confirmed scale,
 drawing/target units, rule id/version, engine version, selection parameters

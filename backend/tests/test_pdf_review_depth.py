@@ -253,7 +253,10 @@ class TestPdfRunCandidates:
                 select(MeasurementRun).where(MeasurementRun.id == run.id)
             )).scalar_one()
             assert (run.params or {}).get("emit_candidates") is True
-            assert run.engine_version == "0.6.0"
+            # The run stamps the engine that measured it — the golden suite
+            # owns exact-version drift verdicts; tests never pin the literal.
+            from takeoff.rules import ENGINE_VERSION
+            assert run.engine_version == ENGINE_VERSION
 
             rows = (await session.execute(
                 select(MeasurementModel).where(

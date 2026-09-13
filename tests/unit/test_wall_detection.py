@@ -167,3 +167,87 @@ class TestExtractSegs:
         )
         segs = extract_segs([F_A, three])
         assert len(segs) == 1  # the 3-vertex polyline is not a pairing candidate
+
+
+class TestOverlapWindowPairing:
+    """Engine 0.8.0 — junction-splitting: walls form over the drawn
+    intersection of parallel offset faces; leftover spans are fragments,
+    never walls; contested spans refuse all claimants together."""
+
+    def test_l_corner_measures_both_walls_over_drawn_spans(self) -> None:
+        # Real CAD convention: outer faces meet at the corner; inner faces
+        # stop at it — non-congruent face pairs the 0.7.0 engine refused.
+        bottom_full = edge((0.0, 0.0), (6000.0, 0.0), handle="L1")
+        top_short = edge((0.0, 200.0), (5800.0, 200.0), handle="L2")
+        left_inner = edge((5800.0, 200.0), (5800.0, 5000.0), handle="L3")
+        right_full = edge((6000.0, 0.0), (6000.0, 5000.0), handle="L4")
+        result = detect_walls([bottom_full, top_short, left_inner, right_full],
+                              max_thickness=250)
+        assert len(result.walls) == 2
+        by_len = sorted(result.walls, key=lambda w: -w.length)
+        assert by_len[0].length == pytest.approx(5800.0)  # horizontal window
+        assert by_len[1].length == pytest.approx(4800.0)  # vertical window
+        # The 200mm corner nubs are NOT walls and NOT silently dropped:
+        assert result.unmatched_edges == []
+
+    def test_split_face_doorway_yields_two_walls_no_phantom(self) -> None:
+        # One continuous face beside two fragments: two disjoint windows,
+        # each a wall; the doorway span is nobody's wall.
+        cont = edge((0.0, 0.0), (6000.0, 0.0), handle="C1")
+        f1 = edge((0.0, 200.0), (3000.0, 200.0), handle="C2")
+        f2 = edge((4200.0, 200.0), (6000.0, 200.0), handle="C3")
+        result = detect_walls([cont, f1, f2], max_thickness=250)
+        assert len(result.walls) == 2
+        lens = sorted(w.length for w in result.walls)
+        assert lens == [pytest.approx(1800.0), pytest.approx(3000.0)]
+        # Continuous face participated in both windows (disjoint spans) —
+        # no conflict, no phantom wall over the 1200 doorway span.
+
+    def test_contested_span_refuses_all_claimants_together(self) -> None:
+        # Two fragments overlapping the SAME span of the continuous face:
+        # each fragment's window covers the other's span on the shared face
+        # → genuine ambiguity → both refused, order-independent.
+        cont = edge((0.0, 0.0), (6000.0, 0.0), handle="K1")
+        f1 = edge((1000.0, 200.0), (5000.0, 200.0), handle="K2")
+        f2 = edge((2000.0, 200.0), (6000.0, 200.0), handle="K3")
+        a = detect_walls([cont, f1, f2], max_thickness=250)
+        b = detect_walls([f2, cont, f1], max_thickness=250)
+        assert a.walls == []
+        assert a == b
+
+    def test_disjoint_windows_on_shared_face_coexist(self) -> None:
+        # Same continuous face, two fragments in DISJOINT spans: no overlap
+        # on the shared face → both windows are walls (the doorway case).
+        cont = edge((0.0, 0.0), (6000.0, 0.0), handle="D1")
+        f1 = edge((0.0, 200.0), (2000.0, 200.0), handle="D2")
+        f2 = edge((4000.0, 200.0), (6000.0, 200.0), handle="D3")
+        result = detect_walls([cont, f1, f2], max_thickness=250)
+        assert len(result.walls) == 2
+
+    def test_window_never_extends_beyond_either_face(self) -> None:
+        # The wall's length is exactly the drawn intersection — the 500mm
+        # undrawn span of the longer face is never measured.
+        short = edge((0.0, 0.0), (5000.0, 0.0), handle="S1")
+        long_face = edge((0.0, 200.0), (6000.0, 200.0), handle="S2")
+        result = detect_walls([short, long_face], max_thickness=250)
+        assert len(result.walls) == 1
+        assert result.walls[0].length == pytest.approx(5000.0)
+
+    def test_truncated_faces_replay_from_own_inputs(self) -> None:
+        from takeoff.rules import run_rule
+
+        # The wall's edge_geometries are the WINDOW faces — replay computes
+        # the window length from them alone (no hidden span constants).
+        short = edge((0.0, 0.0), (5000.0, 0.0), handle="R1")
+        long_face = edge((0.0, 200.0), (6000.0, 200.0), handle="R2")
+        wall = detect_walls([short, long_face], max_thickness=250).walls[0]
+        assert run_rule("wall.centerline.length.v1",
+                       list(wall.edge_geometries)) == pytest.approx(5000.0)
+
+    def test_sliver_alignment_is_not_a_wall(self) -> None:
+        # A 2-unit fragment beside a 6000-unit face: coincidental touch,
+        # below the pairing ratio bound — never a wall.
+        long_face = edge((0.0, 0.0), (6000.0, 0.0), handle="P1")
+        sliver = edge((100.0, 200.0), (102.0, 200.0), handle="P2")
+        result = detect_walls([long_face, sliver], max_thickness=250)
+        assert result.walls == []
