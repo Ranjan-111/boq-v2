@@ -17,11 +17,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
+from backend.app.api.routes import CommitOnWriteRouter
 from backend.app.api.scope import get_storage, owned_project, problem_error
 from backend.app.config import Settings, get_settings
 from backend.app.db.dependencies import session_dependency
@@ -39,8 +40,8 @@ from backend.app.jobs.queue import DuplicateJob, JobSpec
 from backend.app.storage.base import KeyNotFound, Storage
 from backend.app.uploads.validation import UploadRejected, validate_upload
 
-router = APIRouter(prefix="/projects/{project_id}/drawings", tags=["drawings"])
-drawing_router = APIRouter(prefix="/drawings", tags=["drawings"])
+router = CommitOnWriteRouter(prefix="/projects/{project_id}/drawings", tags=["drawings"])
+drawing_router = CommitOnWriteRouter(prefix="/drawings", tags=["drawings"])
 
 PARSE_JOB_KIND = "parse_drawing"
 

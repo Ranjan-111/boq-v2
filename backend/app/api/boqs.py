@@ -11,12 +11,13 @@ import uuid
 from decimal import Decimal
 from typing import Any, NoReturn
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
+from backend.app.api.routes import CommitOnWriteRouter
 from backend.app.api.scope import get_storage, owned_project, problem_error
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import (
@@ -29,7 +30,7 @@ from backend.app.jobs.queue import DuplicateJob, JobSpec, submit
 from backend.app.services import boq_service
 from backend.app.storage.base import Storage
 
-router = APIRouter(tags=["boq"])
+router = CommitOnWriteRouter(tags=["boq"])
 
 
 class BoqCreate(BaseModel):

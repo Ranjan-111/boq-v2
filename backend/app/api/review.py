@@ -29,12 +29,13 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import Depends, Query
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
+from backend.app.api.routes import CommitOnWriteRouter
 from backend.app.api.scope import problem_error
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import (
@@ -53,7 +54,7 @@ from backend.app.services import review_service
 from backend.app.services.review_service import ReviewServiceError
 from core.domain.enums import AuditAction
 
-router = APIRouter(tags=["review"])
+router = CommitOnWriteRouter(tags=["review"])
 
 
 async def _measurement_row(

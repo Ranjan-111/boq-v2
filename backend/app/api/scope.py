@@ -3,6 +3,9 @@
 Every project-scoped route resolves ownership through `owned_project` —
 the ONLY authorization path for project data (creator scoping, V1 has no
 membership table). Storage is a request-scoped adapter from settings.
+
+The write-committing router classes live in backend.app.api.routes (this
+module is imported by auth, so it cannot host them without a cycle).
 """
 from __future__ import annotations
 

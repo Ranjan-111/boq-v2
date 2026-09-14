@@ -10,12 +10,13 @@ import uuid
 from collections.abc import Sequence
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
+from backend.app.api.routes import CommitOnWriteRouter
 from backend.app.api.scope import get_storage, owned_project, problem_error
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import (
@@ -31,7 +32,7 @@ from backend.app.db.models import (
 from backend.app.jobs.queue import DuplicateJob, JobSpec, submit
 from backend.app.storage.base import KeyNotFound, Storage
 
-router = APIRouter(tags=["runs"])
+router = CommitOnWriteRouter(tags=["runs"])
 
 
 class RunCreate(BaseModel):

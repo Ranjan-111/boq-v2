@@ -1,17 +1,18 @@
 """Auth API: register (dev bootstrap) + login + me."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.api.routes import CommitOnWriteRouter
 from backend.app.auth.tokens import TokenInvalid, issue_token, verify_password, verify_token
 from backend.app.config import Settings, get_settings
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import User
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = CommitOnWriteRouter(prefix="/auth", tags=["auth"])
 
 
 class LoginBody(BaseModel):

@@ -12,20 +12,21 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import Depends
 from pydantic import BaseModel, Field, field_validator
 from rapidfuzz import fuzz, process
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
+from backend.app.api.routes import CommitOnWriteRouter
 from backend.app.api.scope import problem_error
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import AuditEntry, CatalogueItem, RateModel, User
 from core.domain.enums import AuditAction
 from core.units.money import Currency, Money
 
-router = APIRouter(prefix="/catalog", tags=["catalog"])
+router = CommitOnWriteRouter(prefix="/catalog", tags=["catalog"])
 
 SEARCH_LIMIT = 20
 RATE_SCOPES = ("default", "project", "vendor")

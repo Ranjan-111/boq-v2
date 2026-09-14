@@ -4,16 +4,17 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
+from backend.app.api.routes import CommitOnWriteRouter
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import Project, User
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = CommitOnWriteRouter(prefix="/projects", tags=["projects"])
 
 
 class ProjectCreate(BaseModel):
