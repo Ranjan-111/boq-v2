@@ -1,6 +1,6 @@
 {
   "case_id": "pdf__corrupt__page-0",
-  "current_engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
   "fixture": "pdf/corrupt.pdf",
   "fixture_sha256": "7064ccd45c34f9bd5d5aff8ad83603f3e4f28470472ca51ea833b79b6b6c929c",
   "format": "pdf",

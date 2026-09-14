@@ -1,8 +1,8 @@
 {
   "case_id": "raster__border_rect__image-1",
-  "current_engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
   "elements": [],
-  "engine_version": "0.8.0",
+  "engine_version": "0.9.0",
   "exceptions": [
     {
       "ai_explanation": null,

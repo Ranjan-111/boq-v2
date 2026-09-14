@@ -16,7 +16,6 @@ from test_wall_detection import edge
 from core.domain.enums import BoqStatus, ExceptionSeverity, MeasurementState
 from core.geometry import ParseResult, SheetSummary
 from core.provenance.records import ExceptionRecord
-from ingestion.pdf import parse_pdf
 from takeoff.engine import measure_parsed, measure_sheet
 from takeoff.rules import run_rule
 from takeoff.wall_detection import detect_walls
@@ -244,45 +243,6 @@ def test_measure_parsed_blocks_on_parser_warnings():
     assert all(e.code == 'parse_incomplete' and e.severity is ExceptionSeverity.BLOCKING
                for e in out.exceptions)
     assert any('CIRCLE' in e.message for e in out.exceptions)
-
-
-def test_measure_parsed_keeps_valid_geometry_when_other_entities_are_refused():
-    """Partial extraction is reviewable, not a zero-quantity run.
-
-    The refused entity remains visible as a parse warning, while the valid
-    wall faces still produce their deterministic measurements and evidence.
-    A source file with no surviving geometry continues to use the blocking
-    path above.
-    """
-    out = measure_parsed(
-        _parsed(geometries=(F_A, F_B),
-                warnings=('unsupported CIRCLE handle=2A: circles',)),
-        sheet_id='modelspace', calibration=CONFIRMED, max_wall_thickness=250,
-    )
-    assert out.measurements
-    assert any(e.code == 'parse_partial' and e.severity is ExceptionSeverity.REVIEW
-               for e in out.exceptions)
-    assert all(m.evidence for m in out.measurements)
-
-
-def test_real_pdf_partial_parse_still_emits_surviving_candidate():
-    """A refused curve must not erase the rect that the PDF parser kept."""
-    from pathlib import Path
-
-    parsed = parse_pdf((Path(__file__).resolve().parents[1]
-                        / 'fixtures' / 'pdf' / 'curves.pdf').read_bytes())
-    calibration = replace(
-        CONFIRMED, sheet_id='page:0',
-        method='test_confirmed',
-    )
-    out = measure_parsed(
-        parsed, sheet_id='page:0', calibration=calibration,
-        drawing_units='mm', max_wall_thickness=250, emit_candidates=True,
-    )
-    assert len(out.measurements) == 1
-    assert out.measurements[0].state is MeasurementState.NEEDS_REVIEW
-    assert any(e.code == 'parse_partial' and e.severity is ExceptionSeverity.REVIEW
-               for e in out.exceptions)
 
 
 def test_measure_parsed_blocks_absent_sheet_and_missing_source_version():

@@ -37,6 +37,7 @@ from typing import Any, cast
 
 from shapely.errors import GEOSException
 from shapely.geometry import LineString, Polygon
+from shapely.geometry import Point as _Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import polygonize, unary_union
 
@@ -46,6 +47,7 @@ from core.geometry import (
     TextToken,
     polygon_ring_area,
 )
+from takeoff.junction import JunctionCompletionResult
 from takeoff.wall_detection import WallCandidate, wall_footprint
 
 # Tolerances in DRAWING UNITS — data, not magic: the caller binds them into
@@ -110,10 +112,18 @@ def _area(ring: tuple[tuple[float, float], ...]) -> float:
 def detect_rooms(
     walls: list[WallCandidate],
     *,
+    junctions: JunctionCompletionResult | None = None,
     boundary_overlap_eps: float = BOUNDARY_OVERLAP_EPS,
     containment_eps: float = CONTAINMENT_EPS,
 ) -> RoomDetectionResult:
     """Polygonize wall centerlines into rooms; every refusal is surfaced.
+
+    junctions (engine 0.9.0): completed junction links from
+    takeoff.junction.complete_junctions. The links' connector segments
+    join the noding set so legitimate corner/T junctions and corroborated
+    doorway gaps close room rings; every link's source handles ride into
+    the enclosing rooms' provenance. Connectors carry NO measurement —
+    wall rows are byte-identical with or without completion.
 
     Pure: walls in → rooms + refusals out. No I/O, no clock, no AI.
     """
@@ -122,6 +132,11 @@ def detect_rooms(
     refusals: list[str] = []
     try:
         lines = [LineString(w.centerline) for w in walls]
+        if junctions is not None and junctions.links:
+            lines.extend(
+                LineString([a, b]) for link in junctions.links
+                for a, b in link.connectors
+            )
         noded = unary_union(lines)
         parts = getattr(noded, "geoms", None)
         iterable = list(parts) if parts is not None else [noded]
@@ -182,7 +197,17 @@ def detect_rooms(
         bounding[fi] = sorted(hits)
 
     try:
-        walls_union = unary_union([f for f in footprints if not f.is_empty])
+        subtractors = [f for f in footprints if not f.is_empty]
+        # Engine 0.9.0: junction closures — the owning wall's footprint
+        # extended to the junction point covers the corner nub (drawn
+        # material the 0.8.0 windows refuse to measure). Subtracting it
+        # beside the footprints keeps NET the clear interior region; the
+        # extension is bounded by the partner's drawn half-thickness.
+        if junctions is not None:
+            for link in junctions.links:
+                for rect in link.closures:
+                    subtractors.append(Polygon([(x, y) for x, y in rect]))
+        walls_union = unary_union(subtractors)
     except GEOSException as exc:
         return RoomDetectionResult(
             wall_count=len(walls), topology_refusals=(*refusals, f"wall union failed: {exc}")
@@ -220,6 +245,24 @@ def detect_rooms(
         for wi in wall_indices:
             for h in walls[wi].source_handles:
                 handles[(h.format.value, h.sheet_ref, h.entity_ref)] = h
+        # Engine 0.9.0: completed junctions ON this room's boundary carry
+        # their partner-wall (and doorway-evidence) handles into the room's
+        # provenance — a closed ring is derived geometry, not just its walls.
+        if junctions is not None:
+            boundary = face.exterior
+            for link in junctions.links:
+                try:
+                    on_boundary = any(
+                        boundary.distance(_Point(p)) <= CONTAINMENT_EPS + 1e-6
+                        for p in (link.point, *(
+                            c[0] for c in link.connectors))
+                    )
+                except GEOSException:  # pragma: no cover - defensive
+                    on_boundary = False
+                if not on_boundary:
+                    continue
+                for h in (*link.source_handles, *link.corroborating_handles):
+                    handles[(h.format.value, h.sheet_ref, h.entity_ref)] = h
         rooms.append(RoomRecord(
             gross_ring=gross_ring,
             net_ring=net_ring,

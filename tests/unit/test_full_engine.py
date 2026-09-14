@@ -38,6 +38,7 @@ from core.domain.enums import (
 from core.units.geometry_units import ScaleCalibration
 from ingestion.dxf import block_names_by_insert_handle, parse_dxf
 from takeoff.engine import measure_parsed
+from takeoff.rules import ENGINE_VERSION
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "dxf"
 
@@ -257,9 +258,9 @@ class TestDeterminismT050:
 
     def test_engine_version_bumped_for_new_rules(self) -> None:
         out = _run("room_plan")
-        assert out.engine_version == "0.6.0"
+        assert out.engine_version == ENGINE_VERSION
         for m in out.measurements:
-            assert m.engine_version == "0.6.0"
+            assert m.engine_version == ENGINE_VERSION
 
 
 class TestRoomRefusals:

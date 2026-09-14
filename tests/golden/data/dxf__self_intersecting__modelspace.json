@@ -1,8 +1,8 @@
 {
   "case_id": "dxf__self_intersecting__modelspace",
-  "current_engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
   "elements": [],
-  "engine_version": "0.8.0",
+  "engine_version": "0.9.0",
   "exceptions": [
     {
       "ai_explanation": null,
@@ -16,7 +16,7 @@
     }
   ],
   "fixture": "dxf/self_intersecting.dxf",
-  "fixture_sha256": "fda0f75103f50ee7358003eb563c75eb23d5e69f5ecbdf771011356496cae8fb",
+  "fixture_sha256": "19b65b6314d909ebcccf196218c8fd348b50fadb38af419df9a3f115f6724fee",
   "format": "dxf",
   "measurements": [],
   "parse": {
@@ -35,7 +35,7 @@
         "unit_code": "mm"
       }
     ],
-    "source_sha256": "fda0f75103f50ee7358003eb563c75eb23d5e69f5ecbdf771011356496cae8fb",
+    "source_sha256": "19b65b6314d909ebcccf196218c8fd348b50fadb38af419df9a3f115f6724fee",
     "text_token_count": 0,
     "text_tokens": [],
     "warnings": []

@@ -37,7 +37,15 @@ from core.geometry import NormalizedGeometry
 # annotation skip surfaces as ONE non-blocking annotation_skipped review
 # exception instead of a blocking parse_incomplete, so real-world drawings
 # with intact modelspace geometry measure honestly.
-ENGINE_VERSION = "0.8.0"
+# 0.9.0: centerline junction completion — the 0.8.0 window walls leave
+# centerlines stopping at corners (each ends at the partner's face, half a
+# thickness short), so exact-endpoint noding closes no room ring on real
+# drawings (reference corpus: 76 walls, 0 rooms). 0.9.0 completes legitimate
+# corner/T junctions (bounded mutual extension within drawn thickness,
+# unique junction point required) and bridges collinear doorway gaps that
+# carry drawn opening-layer evidence — in the ROOM GRAPH ONLY. Wall
+# measurements are byte-identical to 0.8.0; only room closure changes.
+ENGINE_VERSION = "0.9.0"
 
 
 class RuleFn(Protocol):

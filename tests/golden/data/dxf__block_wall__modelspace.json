@@ -1,6 +1,6 @@
 {
   "case_id": "dxf__block_wall__modelspace",
-  "current_engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
   "elements": [
     {
       "element_type": "wall",
@@ -123,10 +123,10 @@
       "type_source": "geometry_deterministic"
     }
   ],
-  "engine_version": "0.8.0",
+  "engine_version": "0.9.0",
   "exceptions": [],
   "fixture": "dxf/block_wall.dxf",
-  "fixture_sha256": "4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6",
+  "fixture_sha256": "686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0",
   "format": "dxf",
   "measurements": [
     {
@@ -142,27 +142,27 @@
       ],
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
           "note": "Wall 1",
-          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1",
-          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         }
       ],
       "inputs": [
@@ -171,9 +171,9 @@
         "35",
         "35"
       ],
-      "inputs_digest": "2053fe51124787eec3503a83edd4b29d8e3408b908a5aed4e2c7dee8e22b99df",
+      "inputs_digest": "9806d04186175f5b151d63363cabdf962038c93199348deae6acb5830192bb65",
       "label": "Wall 1",
-      "measurement_id": "42e13109-5bec-5d7f-96ac-fe1e01778526",
+      "measurement_id": "4b2c7262-788f-56c6-a6d4-e20ce2b3a89e",
       "quantity_type": "length",
       "rule_id": "wall.centerline.length.v1",
       "state": "measured",
@@ -185,27 +185,27 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
           "note": "Wall 1 footprint",
-          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 footprint",
-          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 footprint",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 footprint",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         }
       ],
       "inputs": [
@@ -214,9 +214,9 @@
         "35",
         "35"
       ],
-      "inputs_digest": "8a751ec18bd8308f6a232bc50896784ec60c071331881fac4bd658726e081e5c",
+      "inputs_digest": "7e0108b1ce92ebc4ca04b8ad02fafa2e19e272eff45b42dfbd689cea4bf8d571",
       "label": "Wall 1 footprint",
-      "measurement_id": "682fd091-cbe8-5686-9c04-660259e48d33",
+      "measurement_id": "0099f156-d65b-52f5-af52-d5caa4d97d22",
       "quantity_type": "area",
       "rule_id": "wall.footprint.area.v1",
       "state": "measured",
@@ -228,27 +228,27 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
           "note": "Wall 1 openings (1)",
-          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 openings (1)",
-          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 openings (1)",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 openings (1)",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         }
       ],
       "inputs": [
@@ -257,9 +257,9 @@
         "35",
         "35"
       ],
-      "inputs_digest": "dfa8b32e19baab361dc7aba8368f4e4a3c54e8de52e0e36804086b75ff71b58b",
+      "inputs_digest": "3764896e9a628b7e134228e450f073dd7ed78ce6ec8ab5a112fba702ffee5ce7",
       "label": "Wall 1 openings (1)",
-      "measurement_id": "cb9ecc39-495f-5568-a46c-26fe86301618",
+      "measurement_id": "ca3e3dbe-544e-566f-899a-1c1931fac57b",
       "quantity_type": "count",
       "rule_id": "opening.count.v1",
       "state": "measured",
@@ -271,67 +271,67 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "wall",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"33\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"34\",\"format\":\"dxf_entity\",\"layer\":\"WALL\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         },
         {
           "kind": "geometry",
           "note": "Wall 1 net of openings",
-          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\",\"version\":\"4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6\"}"
+          "ref": "{\"handle\":{\"entity_ref\":\"35\",\"format\":\"dxf_entity\",\"layer\":\"0\",\"sheet_ref\":\"modelspace\"},\"source\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\",\"version\":\"686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0\"}"
         }
       ],
       "inputs": [
@@ -348,9 +348,9 @@
         "35",
         "35"
       ],
-      "inputs_digest": "d31cf3adfe7b68fa0053c9ef95bc460be966725c72b2c97840051d6825a48c21",
+      "inputs_digest": "77e9eba8492689d34b150de87b376fbbcf44986bafd6877e435839a75f99e59e",
       "label": "Wall 1 net of openings",
-      "measurement_id": "505500bd-2078-5866-a18f-c967577fb9de",
+      "measurement_id": "7f99aef0-6349-573a-ba0c-4211d20cf0be",
       "quantity_type": "area",
       "rule_id": "wall.net.area.v1",
       "state": "measured_zero",
@@ -375,7 +375,7 @@
         "unit_code": "mm"
       }
     ],
-    "source_sha256": "4b77f17bab58718e4840329c1cd9c41900761e57df628054bd6f11cd264e9da6",
+    "source_sha256": "686af54650e83328c5c22352f0a5bd3339412b3be9a0a41abad6b307139381c0",
     "text_token_count": 0,
     "text_tokens": [],
     "warnings": []

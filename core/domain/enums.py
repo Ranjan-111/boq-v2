@@ -123,6 +123,9 @@ class ExceptionCode(StrEnum):
     # takeoff.engine.SEVERITY_POLICY; every refusal surfaces, never swallows.
     ROOM_NOT_ENCLOSED = "room_not_enclosed"
     ROOM_TOPOLOGY = "room_topology"
+    # Engine 0.9.0: an endpoint with multiple feasible junction points —
+    # left open and surfaced, never resolved by picking the nearer wall.
+    JUNCTION_AMBIGUOUS = "junction_ambiguous"
     OPENING_AMBIGUOUS = "opening_ambiguous"
     OPENING_PARTIAL_SPAN = "opening_partial_span"
     PDF_PATH_UNCLASSIFIED = "pdf_path_unclassified"

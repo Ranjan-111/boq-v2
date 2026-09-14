@@ -39,6 +39,7 @@ from core.geometry import NormalizedGeometry, SourceHandleRef
 from core.units.geometry_units import ScaleCalibration
 from ingestion.pdf import parse_pdf
 from takeoff.engine import measure_parsed, measure_sheet
+from takeoff.rules import ENGINE_VERSION
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "pdf"
 
@@ -110,7 +111,7 @@ class TestCandidateEmission:
             assert all(e.kind == "geometry" for e in m.evidence)
             # replay contract on candidate rows too
             assert len(m.inputs_digest) == 64
-            assert m.engine_version == "0.6.0"
+            assert m.engine_version == ENGINE_VERSION
             # the drawn source handle is the input (p0:rect:0 / p0:curve:0)
             assert all(ref.startswith("p0:") for ref in m.inputs)
 

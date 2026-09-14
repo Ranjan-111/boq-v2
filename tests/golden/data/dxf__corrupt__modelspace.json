@@ -1,8 +1,8 @@
 {
   "case_id": "dxf__corrupt__modelspace",
-  "current_engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
   "fixture": "dxf/corrupt.dxf",
-  "fixture_sha256": "d81faf1dbbaeea211a02463f42d0c95790d98bfd03b9fd001732cf24225e40cd",
+  "fixture_sha256": "249db52e5a8ce5759e2ffb817682e102130d9417e4598226df44157921677bcc",
   "format": "dxf",
   "parse_error_type": "DxfParseError",
   "parse_refused": true,

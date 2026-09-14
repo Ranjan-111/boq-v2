@@ -328,6 +328,139 @@ def build_split_face_doorway() -> bytes:
     return _export(doc)
 
 
+def build_corner_room() -> bytes:
+    """Engine 0.9.0 real-CAD corner: a closed 4000x3000 room drawn the way
+    real CAD draws corners — OUTER faces extend to meet each other while
+    INNER faces stop at the inner corner lines. Every wall's own face pair
+    is non-congruent, so 0.7.0 refused all four walls; 0.8.0 windows measure
+    each wall over its drawn span; 0.9.0 completes the four corner
+    junctions (each centerline stops at the partner's face, half a
+    thickness short) and the room ring closes.
+
+      (0,3000)---------------------------(4000,3000)   outer top face
+          (200,2800)------------- (3800,2800)         inner top face
+          |                             |
+      (200,200)---- ------(3800,200)                  inner bottom face
+      (0,0)---------------------------(4000,0)        outer bottom face
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    msp = doc.modelspace()
+    # Bottom wall: outer face full width, inner face stops at x=3800.
+    msp.add_line((0, 0), (4000, 0), dxfattribs={"layer": "WALL"})
+    msp.add_line((0, 200), (3800, 200), dxfattribs={"layer": "WALL"})
+    # Top wall: outer face full width, inner face from x=200 to x=3800.
+    msp.add_line((0, 3000), (4000, 3000), dxfattribs={"layer": "WALL"})
+    msp.add_line((200, 2800), (3800, 2800), dxfattribs={"layer": "WALL"})
+    # Left wall: outer face full height, inner face from y=200 to y=2800.
+    msp.add_line((0, 0), (0, 3000), dxfattribs={"layer": "WALL"})
+    msp.add_line((200, 200), (200, 2800), dxfattribs={"layer": "WALL"})
+    # Right wall: outer face full height, inner face from y=200 to y=2800.
+    msp.add_line((4000, 0), (4000, 3000), dxfattribs={"layer": "WALL"})
+    msp.add_line((3800, 200), (3800, 2800), dxfattribs={"layer": "WALL"})
+    msp.add_text("LIVING", dxfattribs={
+        "layer": "TEXT", "height": 200}).set_placement((1000, 1500))
+    return _export(doc)
+
+
+def _doorway_room(with_opening_evidence: bool) -> bytes:
+    """Engine 0.9.0 doorway bridge: a closed room whose bottom side is TWO
+    collinear walls with an 800mm doorway gap between them. The ring closes
+    ONLY when drawn opening evidence occupies the gap (a header line on
+    the OPENING layer across the gap span); without it the gap stays open
+    (two separate structures is equally plausible) and the room honestly
+    refuses to enclose. Same corner convention as corner_room on the other
+    three sides.
+
+    Bottom-left wall: faces x∈[0,1800]; gap x∈[1800,2600];
+    bottom-right wall: faces x∈[2600,4000]; header on y=100 (centerline).
+    """
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    for layer in ("WALL", "OPENING", "TEXT"):
+        if layer not in doc.layers:
+            doc.layers.add(layer)
+    msp = doc.modelspace()
+    # Bottom-left wall (complete pair, x 0..1800).
+    msp.add_line((0, 0), (1800, 0), dxfattribs={"layer": "WALL"})
+    msp.add_line((0, 200), (1800, 200), dxfattribs={"layer": "WALL"})
+    # Bottom-right wall (complete pair, x 2600..4000).
+    msp.add_line((2600, 0), (4000, 0), dxfattribs={"layer": "WALL"})
+    msp.add_line((2600, 200), (4000, 200), dxfattribs={"layer": "WALL"})
+    # Top / left / right walls: the CAD-corner convention (outer faces meet).
+    msp.add_line((0, 3000), (4000, 3000), dxfattribs={"layer": "WALL"})
+    msp.add_line((200, 2800), (3800, 2800), dxfattribs={"layer": "WALL"})
+    msp.add_line((0, 0), (0, 3000), dxfattribs={"layer": "WALL"})
+    msp.add_line((200, 200), (200, 2800), dxfattribs={"layer": "WALL"})
+    msp.add_line((4000, 0), (4000, 3000), dxfattribs={"layer": "WALL"})
+    msp.add_line((3800, 200), (3800, 2800), dxfattribs={"layer": "WALL"})
+    if with_opening_evidence:
+        # The drawn evidence: a door header across the gap span, on the
+        # OPENING layer (the same layer hints the opening detector uses).
+        msp.add_line((1800, 100), (2600, 100), dxfattribs={"layer": "OPENING"})
+    msp.add_text("HALL", dxfattribs={
+        "layer": "TEXT", "height": 200}).set_placement((1000, 1500))
+    return _export(doc)
+
+
+def build_doorway_bridge_room() -> bytes:
+    return _doorway_room(with_opening_evidence=True)
+
+
+def build_open_gap_room() -> bytes:
+    return _doorway_room(with_opening_evidence=False)
+
+
+def build_ambiguous_junction() -> bytes:
+    """Engine 0.9.0 ambiguity: wall A's right endpoint (2000,100) has TWO
+    distinct feasible junction points — B's centerline (vertical, cl x=2100;
+    a mutual corner, both sides extend half a thickness) and C's centerline
+    (a 45-degree wall whose cl crosses A's at (2050,100), interior to C's
+    span, so A reaches it well inside C's drawn thickness). All three
+    walls pair cleanly (no shared faces, no thickness conflicts); the
+    endpoint must be refused (junction_ambiguous, REVIEW) — never resolved
+    by picking the nearer wall.
+
+      A: horizontal, cl y=100,  x∈[0,2000], t=200  (I_B=(2100,100), s=100)
+      B: vertical,   cl x=2100, y∈[200,1000], t=200 (B extends 100 down to I_B)
+      C: 45°,        cl through (2050,100), t=240  (I_C=(2050,100), s=50)
+    """
+    import math
+
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    if "WALL" not in doc.layers:
+        doc.layers.add("WALL")
+    msp = doc.modelspace()
+    # Wall A (t=200): faces y=0 and y=200, both x∈[0,2000].
+    msp.add_line((0, 0), (2000, 0), dxfattribs={"layer": "WALL"})
+    msp.add_line((0, 200), (2000, 200), dxfattribs={"layer": "WALL"})
+    # Wall B (t=200): faces x=2000 and x=2200, both y∈[200,1000] — B's near
+    # endpoint (2100,200) stops exactly one half-thickness above I_B.
+    msp.add_line((2000, 200), (2000, 1000), dxfattribs={"layer": "WALL"})
+    msp.add_line((2200, 200), (2200, 1000), dxfattribs={"layer": "WALL"})
+    # Wall C (t=240): a 45-degree wall whose centerline runs through
+    # (2050,100) — A's endpoint reaches it 50 forward (inside C's drawn
+    # half-thickness 120), interior to C's 1000-long span.
+    c = math.sqrt(0.5)
+    p1 = (2050 - 500 * c, 100 - 500 * c)
+    p2 = (2050 + 500 * c, 100 + 500 * c)
+    n = (-c, c)  # unit normal to C's centerline
+    msp.add_line(
+        (p1[0] + n[0] * 120, p1[1] + n[1] * 120),
+        (p2[0] + n[0] * 120, p2[1] + n[1] * 120),
+        dxfattribs={"layer": "WALL"},
+    )
+    msp.add_line(
+        (p1[0] - n[0] * 120, p1[1] - n[1] * 120),
+        (p2[0] - n[0] * 120, p2[1] - n[1] * 120),
+        dxfattribs={"layer": "WALL"},
+    )
+    return _export(doc)
+
+
 FIXTURES: dict[str, object] = {
     "wall_plan.dxf": build_wall_plan,
     "no_units.dxf": build_no_units,
@@ -343,6 +476,10 @@ FIXTURES: dict[str, object] = {
     "multi_storey_hint.dxf": build_multi_storey_hint,
     "junction_split.dxf": build_junction_split,
     "split_face_doorway.dxf": build_split_face_doorway,
+    "corner_room.dxf": build_corner_room,
+    "doorway_bridge_room.dxf": build_doorway_bridge_room,
+    "open_gap_room.dxf": build_open_gap_room,
+    "ambiguous_junction.dxf": build_ambiguous_junction,
 }
 
 

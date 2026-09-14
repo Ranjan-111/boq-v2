@@ -1,93 +1,24 @@
 {
   "case_id": "pdf__curves__page-0",
-  "current_engine_version": "0.8.0",
-  "elements": [
-    {
-      "element_type": "other",
-      "geometry": {
-        "coordinates": [
-          [
-            72.0,
-            32.0
-          ],
-          [
-            312.0,
-            32.0
-          ],
-          [
-            312.0,
-            152.0
-          ],
-          [
-            72.0,
-            152.0
-          ],
-          [
-            72.0,
-            32.0
-          ]
-        ],
-        "derived_from": [],
-        "geom_type": "polygon",
-        "layer": null,
-        "source_format": "pdf_vector",
-        "source_handles": [
-          {
-            "entity_ref": "p0:rect:0",
-            "format": "pdf_vector",
-            "layer": null,
-            "sheet_ref": "page:0"
-          }
-        ]
-      },
-      "index": 0,
-      "label": "PDF vector area candidate 1 (28800.000000 pt2)",
-      "type_source": "geometry_deterministic"
-    }
-  ],
-  "engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
+  "elements": [],
+  "engine_version": "0.9.0",
   "exceptions": [
     {
       "ai_explanation": null,
-      "code": "parse_partial",
+      "code": "parse_incomplete",
       "element_id": null,
       "evidence": [],
       "measurement_id": null,
       "message": "unsupported path p0:curve:0: curved segment",
-      "severity": "review",
+      "severity": "blocking",
       "sheet_id": "page:0"
     }
   ],
   "fixture": "pdf/curves.pdf",
   "fixture_sha256": "de6726cbabed4574d8589d6cb7a3261b1a93de4ae3974fcb1c34f2062d4180af",
   "format": "pdf",
-  "measurements": [
-    {
-      "centerline": null,
-      "element_index": 0,
-      "element_type": "other",
-      "engine_version": "0.8.0",
-      "evidence": [
-        {
-          "kind": "geometry",
-          "note": "PDF vector area candidate 1 (28800.000000 pt2)",
-          "ref": "{\"handle\":{\"entity_ref\":\"p0:rect:0\",\"format\":\"pdf_vector\",\"layer\":null,\"sheet_ref\":\"page:0\"},\"source\":\"de6726cbabed4574d8589d6cb7a3261b1a93de4ae3974fcb1c34f2062d4180af\",\"version\":\"de6726cbabed4574d8589d6cb7a3261b1a93de4ae3974fcb1c34f2062d4180af\"}"
-        }
-      ],
-      "inputs": [
-        "p0:rect:0"
-      ],
-      "inputs_digest": "2ac8322547814bf80570a48dfae4a9874823bd405fe366f3b837343dcc012eb1",
-      "label": "PDF vector area candidate 1 (28800.000000 pt2)",
-      "measurement_id": "3c9a6cb7-f86f-5a61-8f99-bd229399b0b8",
-      "quantity_type": "area",
-      "rule_id": "polygon.area.v1",
-      "state": "needs_review",
-      "thickness": null,
-      "unit": "m2",
-      "value": "35.842222"
-    }
-  ],
+  "measurements": [],
   "parse": {
     "drawing_units": "unknown",
     "geometry_count": 1,

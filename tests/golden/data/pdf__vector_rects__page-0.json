@@ -1,6 +1,6 @@
 {
   "case_id": "pdf__vector_rects__page-0",
-  "current_engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
   "elements": [
     {
       "element_type": "other",
@@ -163,7 +163,7 @@
       "type_source": "geometry_deterministic"
     }
   ],
-  "engine_version": "0.8.0",
+  "engine_version": "0.9.0",
   "exceptions": [],
   "fixture": "pdf/vector_rects.pdf",
   "fixture_sha256": "dc85b9224daad018c29e6453519c85c2e012d754d558a021fb6504dad68a6743",
@@ -173,7 +173,7 @@
       "centerline": null,
       "element_index": 0,
       "element_type": "other",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -184,9 +184,9 @@
       "inputs": [
         "p0:rect:0"
       ],
-      "inputs_digest": "b610685a01a7fcf134d98260f596c34e238f372b85d693a4b936cf5493d4ba71",
+      "inputs_digest": "761490047550e78251a1f62d9a77c48eed137766452958f88fb383e6c39ebedf",
       "label": "PDF vector area candidate 1 (28800.000000 pt2)",
-      "measurement_id": "19d1a413-00a8-5155-9825-270ddbc5f557",
+      "measurement_id": "f9136701-cbf8-5dbd-8522-ad04c5d78ba7",
       "quantity_type": "area",
       "rule_id": "polygon.area.v1",
       "state": "needs_review",
@@ -198,7 +198,7 @@
       "centerline": null,
       "element_index": 1,
       "element_type": "other",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -209,9 +209,9 @@
       "inputs": [
         "p0:rect:1"
       ],
-      "inputs_digest": "6da4e9d6b2c3e8665f652227aa079ef0edfeff0f5dafde1115405965dc2f5395",
+      "inputs_digest": "42cf8ebf3156aad2d1d370ab2a6fa55f3f8306db5106c91923aaa69401b8b0a6",
       "label": "PDF vector area candidate 2 (16200.000000 pt2)",
-      "measurement_id": "303746b7-c99b-534f-b94a-8fe073bcf966",
+      "measurement_id": "aa62a38c-de03-5470-b104-b44f10e32247",
       "quantity_type": "area",
       "rule_id": "polygon.area.v1",
       "state": "needs_review",
@@ -223,7 +223,7 @@
       "centerline": null,
       "element_index": 2,
       "element_type": "other",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -234,9 +234,9 @@
       "inputs": [
         "p0:rect:2"
       ],
-      "inputs_digest": "4aa1f85f8f60c9ce930511a8b30ab2adb02201f9f7a49d14e11b8896cad0fafb",
+      "inputs_digest": "d018ea8934748b811a7190560962e7206fef1d28ddb205ba653eb4152929c399",
       "label": "PDF vector area candidate 3 (7200.000000 pt2)",
-      "measurement_id": "03e81fcb-f486-54b0-a691-b54ac81976ef",
+      "measurement_id": "128687df-fa48-5a06-9d5d-88472a2121b7",
       "quantity_type": "area",
       "rule_id": "polygon.area.v1",
       "state": "needs_review",
@@ -248,7 +248,7 @@
       "centerline": null,
       "element_index": 3,
       "element_type": "other",
-      "engine_version": "0.8.0",
+      "engine_version": "0.9.0",
       "evidence": [
         {
           "kind": "geometry",
@@ -259,9 +259,9 @@
       "inputs": [
         "p0:curve:0"
       ],
-      "inputs_digest": "5aed8683e9caaeba9de3ff1cc101643366308112ee740d911e06a913c91cafb1",
+      "inputs_digest": "4ba922552c98b87e7f064cd57f5ccee841e356604371f981f9ab651a8f42a7ad",
       "label": "PDF vector length candidate 1 (300.000000 pt)",
-      "measurement_id": "202ae60f-8103-52a4-9b17-58c317d8f366",
+      "measurement_id": "b62e8fa3-ce42-51ac-9c3c-96ea07737f2d",
       "quantity_type": "length",
       "rule_id": "polyline.length.v1",
       "state": "needs_review",

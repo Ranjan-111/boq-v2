@@ -88,6 +88,9 @@ SEVERITY_POLICY: dict[str, ExceptionSeverity] = {
     # Round 5 (full takeoff engine) — rooms/openings refusals.
     "room_not_enclosed": ExceptionSeverity.REVIEW,
     "room_topology": ExceptionSeverity.BLOCKING,
+    # Engine 0.9.0: an endpoint with multiple feasible junction points is
+    # left open and surfaced — the engine never picks the nearer wall.
+    "junction_ambiguous": ExceptionSeverity.REVIEW,
     "opening_ambiguous": ExceptionSeverity.REVIEW,
     "opening_partial_span": ExceptionSeverity.REVIEW,
     "pdf_path_unclassified": ExceptionSeverity.REVIEW,
@@ -315,6 +318,7 @@ def measure_sheet(
                                sheet_id=sheet_id))
 
     # --- Rooms (T043) -------------------------------------------------------
+    from takeoff.junction import complete_junctions
     from takeoff.room_detection import (
         RoomDetectionResult,
         assign_room_labels,
@@ -322,7 +326,16 @@ def measure_sheet(
         room_geometry,
     )
 
-    room_result: RoomDetectionResult = detect_rooms(detection.walls)
+    # Engine 0.9.0: complete legitimate centerline junctions (corners/T,
+    # corroborated doorway gaps) so real drawings close room rings. The
+    # links join the room graph ONLY — wall rows are never extended.
+    junction_result = complete_junctions(detection.walls, geometries)
+    for msg in junction_result.ambiguous:
+        exceptions.append(_exc("junction_ambiguous", msg, sheet_id=sheet_id))
+
+    room_result: RoomDetectionResult = detect_rooms(
+        detection.walls, junctions=junction_result
+    )
     room_records = list(room_result.rooms)
     assign_room_labels(room_records, text_tokens)
     for msg in room_result.topology_refusals:
@@ -555,7 +568,8 @@ def measure_sheet(
             element_index=room_element_index[ri],
             evidence_refs=room.source_handles,
             label=f"{label} gross area",
-            extra_constants={"bounding_walls": list(room.bounding_walls)},
+            extra_constants={"bounding_walls": list(room.bounding_walls),
+                         "junction_eps": junction_result.junction_eps},
             element_type=ElementType.ROOM,
         )
         # Round 8: the gross centerline ring's perimeter — the same element,
@@ -569,7 +583,8 @@ def measure_sheet(
             element_index=room_element_index[ri],
             evidence_refs=room.source_handles,
             label=f"{label} gross perimeter",
-            extra_constants={"bounding_walls": list(room.bounding_walls)},
+            extra_constants={"bounding_walls": list(room.bounding_walls),
+                         "junction_eps": junction_result.junction_eps},
             element_type=ElementType.ROOM,
         )
         _emit(
@@ -581,7 +596,8 @@ def measure_sheet(
             element_index=room_element_index[ri],
             evidence_refs=room.source_handles,
             label=f"{label} net area",
-            extra_constants={"bounding_walls": list(room.bounding_walls)},
+            extra_constants={"bounding_walls": list(room.bounding_walls),
+                         "junction_eps": junction_result.junction_eps},
             element_type=ElementType.ROOM,
         )
         if room.label_token is not None:

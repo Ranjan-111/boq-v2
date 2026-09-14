@@ -1,8 +1,8 @@
 {
   "case_id": "dxf__paperspace_only__modelspace",
-  "current_engine_version": "0.8.0",
+  "current_engine_version": "0.9.0",
   "elements": [],
-  "engine_version": "0.8.0",
+  "engine_version": "0.9.0",
   "exceptions": [
     {
       "ai_explanation": null,
@@ -16,7 +16,7 @@
     }
   ],
   "fixture": "dxf/paperspace_only.dxf",
-  "fixture_sha256": "880f3ebc369b64ee45b608aad654afc8ca1e3be4a21579a28da634bc116e0095",
+  "fixture_sha256": "6b92d604052d48a9afb2229aecd11c844c16d4d5c2a26a081909ca2ce67adcb2",
   "format": "dxf",
   "measurements": [],
   "parse": {
@@ -45,7 +45,7 @@
         "unit_code": "mm"
       }
     ],
-    "source_sha256": "880f3ebc369b64ee45b608aad654afc8ca1e3be4a21579a28da634bc116e0095",
+    "source_sha256": "6b92d604052d48a9afb2229aecd11c844c16d4d5c2a26a081909ca2ce67adcb2",
     "text_token_count": 0,
     "text_tokens": [],
     "warnings": []

@@ -264,6 +264,78 @@ measured on the reference corpus at 26 walls from 354 wall faces. Engine
 The reciprocal-unique-pairing, explicit-max-thickness, and tolerance-binding
 rules are unchanged.
 
+### Engine 0.9.0 — centerline junction completion (2026-09-14)
+
+Engine 0.8.0 windows truncate every wall to the span both faces draw, so on
+real drawings wall centerlines stop at corners: each centerline ends at the
+partner wall's face (half a thickness short of the partner's centerline), and
+exact-endpoint noding finds no closed ring — measured on the reference
+corpus at 76 walls, 0 rooms. Engine 0.9.0 completes legitimate junctions in
+the ROOM GRAPH ONLY, never in wall measurements:
+
+* **Perpendicular completion (corner / T-junction).** For an endpoint P of
+  wall A with outward direction d, a non-parallel wall B whose centerline
+  intersects A's at I, forward from P, is a junction partner when BOTH
+  sides stay within the drawn thickness: A's extension |P→I| must not exceed
+  t_B/2 (A's centerline may reach at most B's centerline — the material B
+  actually draws), and B's side must either need no extension at all (I
+  lies within B's drawn span: a T-junction) or extend B's own near endpoint
+  by at most t_A/2 (a mutual corner, each centerline stopping at the other's
+  face). The completed junction point is the centerline intersection I.
+* **Uniqueness is required per endpoint.** All partners that satisfy the
+  bounds must resolve to the SAME junction point I; a single endpoint with
+  two distinct feasible junction points is `junction_ambiguous` (REVIEW) and
+  the endpoint stays open — the engine never picks the nearer wall.
+* **Collinear doorway bridge.** Two walls on one centerline line (same
+  thickness within tolerance) with a gap between their finite spans are
+  bridged ONLY when drawn evidence occupies the gap, in two classes:
+  * *Seam* — a drawn wall-layer face extends through the whole gap inside
+    the wall band: the walls are two 0.8.0 window measurements of ONE drawn
+    wall-run (the drawing supports continuity; the seam is a pairing
+    artifact, not an opening). The corroborating line is the ORIGINAL drawn
+    line from the sheet, never the walls' own window-truncated edge
+    geometries — those are cut at the seam by construction.
+  * *Doorway* — an opening/header-layer geometry (the opening detector's
+    layer hints plus header layers) whose VERTEX EXTENT covers the full gap
+    span and stays in the wall band's corridor: real drawings draw doorways
+    as jamb lines, swing symbols, and closed 4-vertex header rectangles
+    spanning exactly the gap; evidence of any vertex count corroborates via
+    its extent, not only two-point segments.
+  The bridge is the corridor segment on the shared line across the gap,
+  reusing the walls' OWN endpoint coordinates. Three guards refuse the rest:
+  the gap must be EMPTY (a third collinear wall inside the interval means
+  the outer pair is not adjacent — bridging them would invent a corridor
+  through a real wall); evidence must COVER the full span (a short line
+  touching inside a long gap corroborates nothing — probe-measured on the
+  reference drawing, where A-OPENING headers overlap every gap on a line
+  and a coverage-less rule manufactured 88 bridges including phantom
+  corridors); and a bare gap stays open (two separate structures is equally
+  plausible; the multi-storey fixture demonstrates the refusal).
+* **Bridging never invents wall.** Connectors and bridges are inputs to room
+  polygonization only: no wall measurement, element, or evidence row ever
+  derives from a connector; wall rows are byte-identical to 0.8.0. A room
+  gross ring still runs along wall CENTERLINES (plus the zero-area junction
+  points); net areas still subtract the wall footprints.
+* **Junction points are canonical.** The same junction computed in two
+  walls' frames differs in the last float bits; every connector end is
+  canonicalized onto the merged link's single point (noding never snaps
+  near-coincident endpoints — a last-bit split breaks every downstream ring).
+* **Closure rectangles.** Each perpendicular connector contributes the
+  owning wall's footprint band extended from its endpoint to I — the corner
+  nub, drawn material the 0.8.0 windows refuse to measure (outer faces meet,
+  inner faces stop). NET room area subtracts these beside the wall
+  footprints; the extension is bounded by the partner's drawn
+  half-thickness, the same bound that admitted the junction. GROSS is
+  unchanged — the nub sits inside the centerline ring.
+* **Provenance.** A completed junction carries the partner walls' source
+  handles as derived geometry; a doorway bridge additionally carries the
+  corroborating opening-layer line's handles (the drawn evidence that made
+  the bridge legitimate).
+* **Open gaps are honest.** Endpoints with no bounded unique partner
+  produce nothing — no exception, no phantom room. `room_not_enclosed`
+  still fires (REVIEW) when ≥3 walls exist and no face closes, and
+  `junction_ambiguous` surfaces per ambiguous endpoint.
+
 Replay identity binds canonical input geometry and handle chains, sheet,
 source identity/version (raw SHA-256 for parsed files), confirmed scale,
 drawing/target units, rule id/version, engine version, selection parameters
