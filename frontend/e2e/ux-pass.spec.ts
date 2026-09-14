@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { seedInRegionCatalog } from "./support/seedCatalog";
 
 /**
  * Manual-testing regression spec (post-R9 UX pass):
@@ -37,6 +38,9 @@ test("register validation + region dropdown + upload staging", async ({ page }) 
   await expect(page.getByRole("button", { name: "New project" })).toBeVisible();
 
   // --- 2. Region dropdown from supported regions ------------------------
+  // Seed the catalogue-backed IN region first — on a fresh database the
+  // dropdown is empty until an item exists (CI runs against one).
+  await seedInRegionCatalog(page);
   await page.getByRole("button", { name: "New project" }).click();
   const regionSelect = page.getByLabel("Region");
   // The dropdown offers the seeded IN region (the only catalogue-backed
@@ -103,6 +107,8 @@ test("parse failure shows human error + retry", async ({ page }) => {
     },
     { email, password: "uxfail-password-1", display_name: "UX Fail" },
   );
+  // Seed before the form — the region dropdown is catalogue-backed.
+  await seedInRegionCatalog(page);
   await page.goto("/projects");
   await page.getByRole("button", { name: "New project" }).click();
   await page

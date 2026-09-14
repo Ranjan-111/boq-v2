@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { seedInRegionCatalog } from "./support/seedCatalog";
 
 /**
  * THE Round 4 exit-criterion journey (T126 slice), browser-first:
@@ -49,6 +50,9 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   const email = `e2e-${Date.now()}@example.com`;
   const token = await apiRegister(page, email);
   expect(token).toBeTruthy();
+  // Seed the catalogue FIRST: the region dropdown offers only regions with
+  // catalogue items, and a fresh database (CI) has none until this runs.
+  await seedInRegionCatalog(page);
   await page.goto("/projects");
   await expect(page.getByRole("button", { name: "New project" })).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
@@ -62,41 +66,6 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   await page.getByLabel("Currency").fill("INR");
   await page.getByRole("button", { name: "Create project" }).click();
   await expect(page.getByRole("heading", { name: "E2E Gated Journey" })).toBeVisible();
-
-  // Seed catalogue + rate via the API (catalog UI is a later ticket). The
-  // catalogue is workspace-global, so a 409 just means a previous run
-  // already seeded it — fetch the id instead.
-  await page.evaluate(async () => {
-    const t = localStorage.getItem("boq.token")!;
-    const hdr = { "Content-Type": "application/json", Authorization: `Bearer ${t}` };
-    const create = await fetch("/api/v1/catalog/items", {
-      method: "POST", headers: hdr,
-      body: JSON.stringify({
-        region_code: "IN", code: "2.1.1",
-        description: "Brick wall 230mm thick", unit: "m",
-        category_path: "walls/brick",
-      }),
-    });
-    let id: string;
-    if (create.status === 201) {
-      id = ((await create.json()) as { id: string }).id;
-    } else if (create.status === 409) {
-      const res = await fetch("/api/v1/catalog/search?q=2.1.1&region_code=IN", {
-        headers: { Authorization: `Bearer ${t}` },
-      });
-      if (!res.ok) throw new Error(`catalog lookup failed: ${res.status}`);
-      const found = (await res.json()) as { items: { id: string }[] };
-      if (found.items.length === 0) throw new Error("seeded item not found");
-      id = found.items[0].id;
-    } else {
-      throw new Error(`catalog seed failed: ${create.status}`);
-    }
-    const rate = await fetch(`/api/v1/catalog/items/${id}/rates/default`, {
-      method: "PUT", headers: hdr,
-      body: JSON.stringify({ amount_minor: 85000, currency: "INR" }),
-    });
-    if (rate.status !== 200) throw new Error(`rate seed failed: ${rate.status}`);
-  });
 
   // Open the project workspace (card link -> full navigation; the token
   // lives in localStorage and rehydrates the auth store).
@@ -362,6 +331,8 @@ test("gated PDF candidates: proposed scale -> human gate -> accept", async ({ pa
   const email = `e2e-pdf-${Date.now()}@example.com`;
   const token = await apiRegister(page, email);
   expect(token).toBeTruthy();
+  // Seed before opening the form — the region dropdown is catalogue-backed.
+  await seedInRegionCatalog(page);
   await page.goto("/projects");
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("E2E PDF Candidates");

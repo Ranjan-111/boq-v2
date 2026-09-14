@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { seedInRegionCatalog } from "./support/seedCatalog";
 
 /**
  * Post-R9 manual pass, browser-first surfaces:
@@ -43,6 +44,8 @@ test("viewer shows base geometry + guidance-driven exceptions + state-aware BOQ 
   await page.goto("/projects");
   const email = `e2e-view-${Date.now()}@example.com`;
   await apiRegister(page, email);
+  // Seed before the form — the region dropdown is catalogue-backed.
+  await seedInRegionCatalog(page);
   await page.goto("/projects");
 
   await page.getByRole("button", { name: "New project" }).click();
