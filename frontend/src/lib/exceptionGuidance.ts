@@ -38,6 +38,14 @@ const GUIDANCE: Record<string, ExceptionGuidance> = {
       "Check the drawing row's warnings on the Drawings tab. If the source file is damaged, re-upload a corrected export of it.",
     humanResolvable: false,
   },
+  parse_partial: {
+    what: "Some source entities were refused, but other drawing geometry was parsed successfully.",
+    consequence:
+      "Quantities are available only for the geometry that was actually extracted; the refused entities are excluded.",
+    action:
+      "Review the refused entity in the drawing warnings. Resolve this notice with a recorded reason if the partial takeoff is acceptable, or upload a corrected export for complete coverage.",
+    humanResolvable: true,
+  },
   unmapped_measurement: {
     what: "A measured quantity has no catalogue item to bill against.",
     consequence: "The BOQ cannot include this quantity — approval and export stay blocked.",

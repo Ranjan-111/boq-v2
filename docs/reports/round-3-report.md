@@ -96,10 +96,13 @@ warning and zero geometry.
 
 ### 5. Parser warnings reach the measurement boundary
 `measure_parsed` (the file-caller entrypoint) folds the full parse result —
-warnings, sheet presence/modelspace, raw source version — into the run:
-any parse warning becomes BLOCKING parse_incomplete exceptions with zero
-measurements; a missing/non-modelspace sheet or missing source SHA also
-blocks. A sheet containing unsupported geometry can never look like a
+warnings, sheet presence/modelspace, raw source version — into the run. The
+original Round 3 gate treated every parse warning as a BLOCKING
+`parse_incomplete` exception with zero measurements. The Round 10 follow-up
+supersedes that behavior for partial parses: supported geometry survives and
+the warning is a REVIEW `parse_partial` exception. A missing/non-modelspace
+sheet, missing source SHA, or warning-only parse still blocks. A sheet
+containing unsupported geometry can never look like a
 complete authoritative takeoff. The library integration test now flows
 through `measure_parsed` instead of the pure entrypoint.
 Tests: `test_measure_parsed_blocks_on_parser_warnings`,

@@ -89,6 +89,17 @@ describe("viewBoxFromGeometries", () => {
   it("returns null when no geometries", () => {
     expect(viewBoxFromGeometries([])).toBeNull();
   });
+
+  it("creates a visible viewport for one preserved source point", () => {
+    const vb = viewBoxFromGeometries([
+      { geom_type: "point", coordinates: [[3, 4]] },
+    ]);
+    expect(vb).not.toBeNull();
+    expect(vb!.x).toBeLessThan(3);
+    expect(vb!.y).toBeLessThan(4);
+    expect(vb!.width).toBeGreaterThan(0);
+    expect(vb!.height).toBeGreaterThan(0);
+  });
 });
 
 describe("clampScale", () => {

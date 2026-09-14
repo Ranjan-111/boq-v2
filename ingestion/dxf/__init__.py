@@ -45,9 +45,16 @@ _INSUNITS_CODES: dict[int, str] = {
     6: "m",
 }
 
-# Entity types we normalize. Anything else is skipped with a warning (never
-# silently dropped, never guessed at).
+# Entity types with deterministic measurement rules. Additional exact source
+# geometry may be normalized as render-only evidence below. Everything else
+# is skipped with a warning (never silently dropped, never guessed at).
 _MEASURABLE_TYPES = frozenset({"LINE", "LWPOLYLINE", "POLYLINE"})
+
+# Exact source geometry that is useful as visual evidence but has no
+# deterministic quantity by itself. It is normalized without being counted
+# as measurable, so POINT-only survey/control files render honestly while
+# producing no invented length, area, or count.
+_RENDER_ONLY_TYPES = frozenset({"POINT"})
 
 # Label entities (T043): captured as text tokens, NOT geometry. They stay out
 # of _MEASURABLE_TYPES — a label is evidence for room naming, never a shape.
@@ -92,6 +99,9 @@ def _handle_ref(sheet_ref: str, entity: DXFEntity) -> SourceHandleRef:
 def _vertices_of(entity: DXFEntity) -> list[tuple[float, float]]:
     """Read preflight-validated WCS XY straight vertices without reinterpretation."""
     etype = entity.dxftype()
+    if etype == "POINT":
+        point = entity.dxf.location
+        return [(point.x, point.y)]
     if etype == "LINE":
         s = entity.dxf.start
         e = entity.dxf.end
@@ -118,6 +128,8 @@ def _raw_vertices_of(entity: DXFEntity) -> list[tuple[float, float]]:
     real, explicitly-drawn vertices only.
     """
     etype = entity.dxftype()
+    if etype == "POINT":
+        return _vertices_of(entity)
     if etype == "LINE":
         return _vertices_of(entity)
     if etype == "LWPOLYLINE":
@@ -144,6 +156,15 @@ def _normalize_entity(
     def shift(p: tuple[float, float]) -> tuple[float, float]:
         return (p[0] + insertion[0], p[1] + insertion[1])
 
+    if etype == "POINT":
+        pts = [shift(p) for p in _vertices_of(entity)]
+        return NormalizedGeometry(
+            geom_type=GeomType.POINT,
+            coordinates=pts,
+            source_format=SourceFormat.DXF_ENTITY,
+            source_handles=handles,
+            layer=layer,
+        )
     if etype in ("LINE", "LWPOLYLINE", "POLYLINE"):
         pts = [shift(p) for p in _vertices_of(entity)]
         if len(pts) < 2:
@@ -167,7 +188,7 @@ def _unsupported_reason(entity: Any) -> str | None:
     This preflight runs on block definitions AND their placed virtual copies.
     """
     etype = entity.dxftype()
-    if etype not in _MEASURABLE_TYPES | {"INSERT"}:
+    if etype not in _MEASURABLE_TYPES | _RENDER_ONLY_TYPES | {"INSERT"}:
         return "entity semantics not supported"
     if tuple(entity.dxf.get("extrusion", (0, 0, 1))) != (0, 0, 1):
         return "non-default OCS/extrusion"
@@ -184,6 +205,13 @@ def _unsupported_reason(entity: Any) -> str | None:
                 entity.dxf.get("rotation", 0), entity.dxf.get("xscale", 1),
                 entity.dxf.get("yscale", 1), entity.dxf.get("zscale", 1))):
             return "non-finite INSERT transform"
+        return None
+    if etype == "POINT":
+        location = entity.dxf.location
+        if location.z != 0:
+            return "nonzero Z coordinate"
+        if not all(math.isfinite(float(v)) for v in location):
+            return "non-finite coordinates"
         return None
     if etype == "LINE":
         if entity.dxf.start.z != 0 or entity.dxf.end.z != 0:
@@ -490,7 +518,9 @@ def parse_dxf(data: bytes) -> ParseResult:
             if etype == "INSERT":
                 geoms = _explode_insert(entity, sheet_ref)
                 geometries.extend(geoms)
-                measurable += len(geoms)
+                measurable += sum(
+                    geom.geom_type is not GeomType.POINT for geom in geoms
+                )
                 continue
             reason = _unsupported_reason(entity)
             if reason:
@@ -499,7 +529,8 @@ def parse_dxf(data: bytes) -> ParseResult:
             if geom is None:
                 raise DxfParseError("normalization refused")
             geometries.append(geom)
-            measurable += 1
+            if geom.geom_type is not GeomType.POINT:
+                measurable += 1
         except Exception as exc:
             # Post-R9 manual pass: an annotation-only entity skip cannot
             # understate a quantity (it never carried geometry), so it
@@ -523,7 +554,7 @@ def parse_dxf(data: bytes) -> ParseResult:
         SheetSummary(
             sheet_ref=sheet_ref,
             layout_name="Model",
-            entity_count=measurable + skipped + annotations + len(text_tokens),
+            entity_count=len(geometries) + skipped + annotations + len(text_tokens),
             measurable_count=measurable,
             is_modelspace=True,
             unit_code=units,

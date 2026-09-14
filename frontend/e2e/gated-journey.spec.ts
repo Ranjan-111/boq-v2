@@ -272,43 +272,24 @@ test("gated DXF to wall to BOQ to CSV journey", async ({ page }) => {
   const download = page.getByRole("link", { name: /download/i });
   await expect(download).toBeVisible();
 
-  // Round 7 (T060/T073): the advisory AI loop, closed by a human. Kick the
-  // analyze job (stub provider — honest 5% confidence), then APPLY one
-  // element_classification suggestion through the UI with the audited
-  // reason: the element's type becomes human_set, and the audit trail
-  // carries the override. AI never touched a quantity anywhere in this.
+  // AI is optional. With the default local configuration no model is
+  // connected, so the UI explains that the test-only stub did not run
+  // rather than presenting 5% confidence as a real analysis.
   await page.getByRole("button", { name: "Runs", exact: true }).click();
   const insights = page.getByText("AI insights").first();
   await expect(insights).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: /run ai analysis/i }).first().click();
   await expect(
-    page.getByText("element_classification").first(),
-  ).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText(/5% confidence/i).first()).toBeVisible();
-  const firstSuggestion = page
-    .getByRole("listitem")
-    .filter({ hasText: "element_classification" })
-    .first();
-  await firstSuggestion.getByRole("button", { name: /apply…/i }).click();
-  await firstSuggestion
-    .getByLabel(/reason \(required, audited\)/i)
-    .fill("e2e: reviewer confirms the stub's proposal");
-  await firstSuggestion.getByRole("button", { name: "Apply", exact: true }).click();
-  await expect(firstSuggestion.getByText("applied").first()).toBeVisible({
-    timeout: 15_000,
-  });
+    page.getByText(/AI is not configured for this environment/i),
+  ).toBeVisible({ timeout: 15_000 });
 
-  // Round 6 (T075) + Round 7: the audit trail — every decision this journey
-  // made is on one screen: the correction, the approvals, the export, the
-  // human catalogue mapping, and the AI-suggestion apply (a human action
-  // on an advisory row, never an AI write).
+  // Round 6 (T075): the audit trail records every authoritative decision
+  // made by this journey.
   await page.getByRole("button", { name: "Audit", exact: true }).click();
   await expect(
     page.getByText("correct_quantity").first(),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("approve").first()).toBeVisible();
   await expect(page.getByText("map_catalogue").first()).toBeVisible();
-  await expect(page.getByText("override_element_type").first()).toBeVisible();
 });
 
 /**

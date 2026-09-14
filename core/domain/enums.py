@@ -119,6 +119,10 @@ class ExceptionCode(StrEnum):
     MISSING_RATE = "missing_rate"
     MISSING_EVIDENCE = "missing_evidence"
     PARSE_INCOMPLETE = "parse_incomplete"
+    # Some source entities may be unsupported while other geometry on the
+    # sheet remains valid.  Those warnings are reviewable partial parses;
+    # they must not erase quantities derived from the valid geometry.
+    PARSE_PARTIAL = "parse_partial"
     # Round 5 (full takeoff engine) — additive codes. Severity policy in
     # takeoff.engine.SEVERITY_POLICY; every refusal surfaces, never swallows.
     ROOM_NOT_ENCLOSED = "room_not_enclosed"

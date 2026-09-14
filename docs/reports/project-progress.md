@@ -1,6 +1,6 @@
 # Project Progress
 
-**Project:** boq-v2 · **Verified:** 2026-09-12 · **Checkpoint:** Round 9
+**Project:** boq-v2 · **Verified:** 2026-09-13 · **Checkpoint:** Round 10 follow-up
 
 | Round | Phase | Status | Evidence / remaining gate |
 |---|---|---|---|
@@ -13,6 +13,7 @@
 | 7 | BOQ, pricing, approval and export hardening | COMPLETE | XLSX/PDF, provenance sidecars, list endpoints, catalogue UI/mapping, audited suggestion apply, raster parse/preview, CI E2E composition — pushed, remote CI green (run 34621027125) |
 | 8 | Vector-PDF depth, deterministic perimeter, S3 + deploy, authz matrix | COMPLETE | PDF scale proposal + candidate emission, `room.gross.perimeter.v1`, `S3Storage` + Dockerfile/prod compose + CI docker job, cross-user authz pinned + 3 latent defects fixed, second E2E journey — pushed, remote CI green (run 34652270146) |
 | 9 | Perf targets, golden-run determinism, deploy pipeline | COMPLETE | §G benchmarks measured green (recompute N+1 fixed 6.07s→0.29s), 25-fixture golden suite + 37 property tests, TLS profile + least-privilege MinIO user + GHCR publish, worker healthcheck defect fixed — pushed, remote CI green (run 34668532001, nine jobs) |
+| 10 | Trust/UI remediation follow-up | COMPLETE — LIVE-VERIFIED | Partial parser warnings preserve supported takeoff with `parse_partial` review exceptions; unconfigured AI stub is no longer presented as model output; terminal-run source geometry fallback and render-only DXF POINT support added. Measurement semantics ride unchanged on engine 0.9.0 (f496fc1); the pdf__curves golden records the previously-leaked state honestly. Verified 2026-09-14: 692 unit + 149 integration (live PG+MinIO) + 6/6 browser E2E on the full R10 stack; base-commit remote CI green (run 34845002372). |
 
 ## Round 7 checkpoint (historical)
 
@@ -53,3 +54,7 @@ against the published image (host + DNS are the only missing pieces), the
 viewer first-paint benchmark, and the T124/T047/T034 remainders.
 DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap. Raster takeoff
 remains refused until its human scale and review contract is extended.
+
+The Round 10 follow-up is not marked complete until the partial-parse
+persistence/viewer path is exercised with live PostgreSQL and the browser
+journeys are rerun. See `docs/reports/round-10-report.md`.

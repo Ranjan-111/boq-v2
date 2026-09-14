@@ -32,3 +32,17 @@ Installed/runtime tools exercised include Python 3.13, pytest 9.1.1,
 SQLAlchemy asyncpg, Alembic, ruff, mypy 2.3.1, import-linter 2.15, Node/Vite,
 Vitest, Playwright 1.63 Chromium, Docker Compose PostgreSQL 16 + quay.io
 MinIO, boto3 1.43.92, openpyxl, and reportlab.
+
+## Round 10 follow-up verification — 2026-09-14 (live re-verified)
+
+| Capability | Actual result this checkpoint |
+|---|---|
+| Python regression suite | 692 passed, 6 skipped (perf gated by `BOQ_PERF=1` as designed) |
+| Integration suite | 149 passed, 1 skipped against live PostgreSQL + live MinIO |
+| Golden replays | 31 cases green under engine 0.9.0 (4 new junction fixtures); pdf__curves records the R10 candidate semantics |
+| Frontend | 135 Vitest tests passed; tsc + Vite build passed |
+| Ruff / strict mypy | clean / clean (111 source files) |
+| Architecture | import-linter 9 kept, 0 broken |
+| Browser E2E | all six journeys passed on the full R10 stack (api :8099 + worker + vite :5173, live Postgres) |
+| Remote CI | nine jobs green on the base commit `0e8235a` (run 34845002372), including e2e and publish |
+| AI provider | no model credentials/configuration present; HTTP provider path remains configuration-gated |

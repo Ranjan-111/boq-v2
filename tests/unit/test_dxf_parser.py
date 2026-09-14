@@ -176,7 +176,7 @@ def _parse_document(doc):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("kind", [
-    "spline", "ellipse", "point", "solid",
+    "spline", "ellipse", "solid",
     "point_1", "lwpolyline_1",
 ])
 def test_other_entity_types_never_silently_dropped(kind):
@@ -195,8 +195,6 @@ def test_other_entity_types_never_silently_dropped(kind):
         entity = msp.add_spline([(0, 0), (5, 5), (10, 0)])
     elif kind == "ellipse":
         entity = msp.add_ellipse((0, 0), (10, 0), 0.5)
-    elif kind == "point":
-        entity = msp.add_point((3, 3))
     elif kind == "solid":
         entity = msp.add_solid([(0, 0), (10, 0), (10, 10), (0, 10)])
     elif kind == "point_1":
@@ -210,6 +208,37 @@ def test_other_entity_types_never_silently_dropped(kind):
         entity.dxf.handle in w and entity.dxftype() in w and "unsupported" in w
         for w in result.warnings
     )
+
+
+@pytest.mark.unit
+def test_point_is_preserved_for_viewing_but_not_counted_as_measurable():
+    """A DXF POINT is exact source geometry, but carries no quantity alone."""
+    doc = ezdxf.new("R2010")
+    doc.units = 4
+    entity = doc.modelspace().add_point((3, 4))
+    result = _parse_document(doc)
+
+    assert result.warnings == ()
+    assert len(result.geometries) == 1
+    point = result.geometries[0]
+    assert point.geom_type is GeomType.POINT
+    assert point.coordinates == [(3.0, 4.0)]
+    assert point.source_handles[0].entity_ref == entity.dxf.handle
+    assert result.sheets[0].entity_count == 1
+    assert result.sheets[0].measurable_count == 0
+    assert result.sheets[0].measurable is False
+
+
+@pytest.mark.unit
+def test_nonplanar_point_is_refused_instead_of_projected_to_xy():
+    doc = ezdxf.new("R2010")
+    doc.units = 4
+    entity = doc.modelspace().add_point((3, 4, 5))
+    result = _parse_document(doc)
+
+    assert result.geometries == ()
+    assert any(entity.dxf.handle in warning and "nonzero Z" in warning
+               for warning in result.warnings)
 
 
 @pytest.mark.unit

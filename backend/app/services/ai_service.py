@@ -245,6 +245,12 @@ def _clamped_confidence(confidence: float) -> float:
 
 async def load_insights(session: AsyncSession, *, run_id: str) -> dict[str, Any]:
     """GET /runs/{id}/ai/insights — the advisory rows, read-only."""
+    settings = get_settings()
+    configured = (
+        settings.ai_provider == "http"
+        and bool(settings.ai_base_url.strip())
+        and bool(settings.ai_model.strip())
+    )
     run = (await session.execute(
         select(MeasurementRun).where(MeasurementRun.id == run_id)
     )).scalar_one_or_none()
@@ -256,7 +262,14 @@ async def load_insights(session: AsyncSession, *, run_id: str) -> dict[str, Any]
     )).scalars().all()
     return {
         "run_id": str(run.id),
-        "generated_note": "advisory only — nothing here changes a quantity",
+        "provider": settings.ai_provider,
+        "model": settings.ai_model,
+        "configured": configured,
+        "generated_note": (
+            "advisory only — nothing here changes a quantity"
+            if configured else
+            "No AI model is configured. The deterministic stub is test-only and no model ran."
+        ),
         "suggestions": [
             {
                 "id": str(s.id),

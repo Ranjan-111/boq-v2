@@ -148,6 +148,35 @@ class TestRunGeometry:
         finally:
             await _close(engine, session)
 
+    async def test_completed_run_falls_back_to_valid_source_geometry(
+        self, migrated_db: str
+    ) -> None:
+        """A completed partial/refused run still renders extracted source lines.
+
+        The fallback is viewer-only: it creates no Element/Measurement rows and
+        therefore cannot make an unsupported shape billable.
+        """
+        engine, session, user, project, drawing, sheet, storage = (
+            await _setup(migrated_db))
+        try:
+            run = MeasurementRun(
+                id=str(uuid.uuid4()), project_id=project.id,
+                status="completed_with_exceptions",
+                params={"drawing_file_id": str(drawing.id),
+                        "sheet_id": str(sheet.id)},
+            )
+            session.add(run)
+            await session.flush()
+            out = await get_run_geometry(
+                str(run.id), user=user, session=session, storage=storage,
+            )
+            assert out["count"] > 0
+            assert all(e["element_type"] == "other" for e in out["elements"])
+            assert all(e["label"] == "Unclassified source geometry"
+                       for e in out["elements"])
+        finally:
+            await _close(engine, session)
+
     async def test_stranger_gets_404_not_geometry(
         self, migrated_db: str
     ) -> None:

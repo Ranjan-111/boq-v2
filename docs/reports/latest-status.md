@@ -1,7 +1,9 @@
 # Latest Status
 
-**Verified:** 2026-09-12 · **Current:** Round 9 COMPLETE — pushed and
-remotely verified green (CI run 34668532001 on `e811368`, all nine jobs incl. the
+**Verified:** 2026-09-14 · **Current:** Round 9 COMPLETE, engine 0.9.0
+(junction completion) and the Round 10 trust/UI follow-up implemented and
+live-verified — pushed and remotely verified green (latest CI run 34845002372
+on `0e8235a`, all nine jobs incl. the
 perf benchmarks and the GHCR publish; image live at
 ghcr.io/ranjan-111/boq-v2:main).
 
@@ -47,7 +49,31 @@ Round 7's completed surfaces remain green beneath:
 - The browser E2E service composition is wired into CI, and the complete
   local gated journey is green.
 
-## Verified checks
+## Round 10 follow-up — trust/UI remediation
+
+The follow-up preserves supported geometry when a parser refuses unrelated
+entities, emits explicit `parse_partial` review exceptions, and keeps
+warning-only or structurally invalid sheets blocking. It also prevents the
+test-only AI stub from appearing as a model run, reports missing HTTP model
+configuration honestly, and adds a viewer-only source-geometry fallback for
+terminal runs with no persisted classified elements. Exact planar DXF `POINT`
+entities are preserved as render-only evidence without becoming quantities.
+Engine measurement semantics are unchanged from `0.9.0` (the junction slice
+commits 8692236/f496fc1); `parse_partial` changes only how parser warnings
+gate a run, never a measured value. The single golden that changes under it
+(pdf__curves) records the rectangle candidate surfacing as NEEDS_REVIEW
+with the parse_partial review exception, generated from the code that is
+actually committed (the 8692236-era golden had recorded this state while
+its implementation stayed uncommitted — repaired in f496fc1). See
+[`round-10-report.md`](round-10-report.md) for the exact files and checks.
+
+The full matrix was rerun 2026-09-14: 692 Python unit tests, 149
+integration tests against live PostgreSQL + MinIO, ruff/strict-mypy clean,
+import contracts 9/9, tsc + 135 vitest green, and all six browser E2E
+journeys green on the full R10 stack — plus remote CI fully green on the
+base commit 0e8235a (run 34845002372, nine jobs including e2e).
+
+## Round 9 verified checks (historical)
 
 | Check | Result |
 |---|---|
@@ -64,14 +90,27 @@ Round 7's completed surfaces remain green beneath:
 | Docker build + prod compose smoke | passed live (full stack + caddy proxy; least-privilege boq-app storage proof) |
 | Alembic | live database at `a1f4c0d2e9b3 (head)` |
 
+## Round 10 follow-up checks
+
+| Check | Result |
+|---|---|
+| Python regression suite | Passed; five optional perf tests skipped because `BOQ_PERF=1` was not set |
+| Trust + golden regressions | 36 trust-hardening tests and all 25 golden fixtures passed |
+| Backend geometry API | Five targeted tests skipped because PostgreSQL was unavailable |
+| Frontend Vitest / build | 135 passed / passed |
+| Ruff / strict mypy | clean / clean (110 source files) |
+| Import contracts | 9 kept, 0 broken |
+| Browser E2E | not rerun for this follow-up |
+
 The perf suite runs in its own CI job (the only deliberate deselect).
 Remote CI run 34668532001 (`e811368`) is green across all nine jobs — the R8
 seven plus the perf benchmarks and the GHCR publish.
 
 ## Remaining roadmap
 
-The next milestone is real-server deployment against the published
-GHCR image (host + DNS are the only missing pieces), the viewer
+The next milestone is live-stack verification of the Round 10 follow-up, then
+real-server deployment against the published GHCR image (host + DNS are the
+only missing pieces), the viewer
 first-paint benchmark, and the T124/T047/T034 remainders. DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap.
 Raster measurement remains deliberately refused until its human scale and
 review contract is extended.

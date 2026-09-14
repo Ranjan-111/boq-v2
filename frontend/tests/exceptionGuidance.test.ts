@@ -13,6 +13,7 @@ import { guidanceFor } from "../src/lib/exceptionGuidance";
 const ALL_CODES = [
   "scale_unconfirmed",
   "parse_incomplete",
+  "parse_partial",
   "unmapped_measurement",
   "missing_rate",
   "missing_evidence",
@@ -47,6 +48,7 @@ describe("guidanceFor", () => {
   it("offers the audited resolve path ONLY for human-decision codes", () => {
     const humanDecision = new Set([
       "unmapped_measurement",
+      "parse_partial",
       "self_intersecting",
       "open_polyline",
       "overlap_detected",
@@ -79,6 +81,8 @@ describe("guidanceFor", () => {
     // a damaged file is re-uploaded, never "resolved away"
     expect(guidanceFor("parse_incomplete").humanResolvable).toBe(false);
     expect(guidanceFor("parse_incomplete").action).toMatch(/re-upload/i);
+    expect(guidanceFor("parse_partial").humanResolvable).toBe(true);
+    expect(guidanceFor("parse_partial").action).toMatch(/partial takeoff/i);
     // pricing is fixed in the catalogue, not on the exception
     expect(guidanceFor("missing_rate").humanResolvable).toBe(false);
     expect(guidanceFor("missing_rate").action).toMatch(/Catalogue tab/i);

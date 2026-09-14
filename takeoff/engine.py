@@ -84,6 +84,7 @@ SEVERITY_POLICY: dict[str, ExceptionSeverity] = {
     "overlap_detected": ExceptionSeverity.REVIEW,
     "missing_evidence": ExceptionSeverity.BLOCKING,
     "parse_incomplete": ExceptionSeverity.BLOCKING,
+    "parse_partial": ExceptionSeverity.REVIEW,
     "ambiguous_sheet": ExceptionSeverity.BLOCKING,
     # Round 5 (full takeoff engine) — rooms/openings refusals.
     "room_not_enclosed": ExceptionSeverity.REVIEW,
@@ -211,16 +212,18 @@ def measure_parsed(
     """
     sheet = next((s for s in parsed.sheets if s.sheet_ref == sheet_id), None)
     warnings = parsed.warnings
+    structural_warnings: list[str] = []
     if sheet is None or not sheet.is_modelspace:
-        warnings = (*warnings, "requested sheet is absent or not modelspace")
+        structural_warnings.append("requested sheet is absent or not modelspace")
     if not parsed.source_sha256:
-        warnings = (*warnings, "parsed input has no raw source version")
+        structural_warnings.append("parsed input has no raw source version")
     return measure_sheet(
         sheet_id=sheet_id, geometries=list(parsed.geometries), calibration=calibration,
         drawing_units=drawing_units if drawing_units is not None else parsed.drawing_units,
         max_wall_thickness=max_wall_thickness,
         source_id=parsed.source_sha256, source_version=parsed.source_sha256,
-        parse_warnings=warnings, text_tokens=parsed.text_tokens,
+        parse_warnings=warnings, parse_blocking_warnings=tuple(structural_warnings),
+        text_tokens=parsed.text_tokens,
         block_names=block_names, emit_candidates=emit_candidates,
         annotations_skipped=parsed.annotations_skipped,
         parse_notices=parsed.notices,
@@ -234,6 +237,7 @@ def measure_sheet(
     max_wall_thickness: float | None = None,
     source_id: str | None = None, source_version: str | None = None,
     parse_warnings: tuple[str, ...] = (),
+    parse_blocking_warnings: tuple[str, ...] = (),
     text_tokens: tuple[TextToken, ...] = (),
     block_names: dict[str, str] | None = None,
     emit_candidates: bool = False,
@@ -263,16 +267,33 @@ def measure_sheet(
             raise ValueError("invalid area target")
     except (ScaleNotConfirmed, ValueError) as exc:
         return RunOutput((), (_exc("scale_unconfirmed", str(exc), sheet_id=sheet_id),))
-    if parse_warnings:
-        return RunOutput((), tuple(_exc("parse_incomplete", warning, sheet_id=sheet_id)
-                                   for warning in sorted(set(parse_warnings))))
+    # A parser warning describes a refused source entity, not necessarily a
+    # failed sheet.  If valid geometry survived, retain it and surface each
+    # warning as a review exception.  Only structural context failures, or a
+    # warning-only parse with no geometry at all, may block the entire run.
+    if parse_blocking_warnings:
+        return RunOutput(
+            (), tuple(
+                _exc("parse_incomplete", warning, sheet_id=sheet_id)
+                for warning in sorted(set(parse_blocking_warnings))
+            )
+        )
+    if parse_warnings and not geometries:
+        return RunOutput(
+            (), tuple(
+                _exc("parse_incomplete", warning, sheet_id=sheet_id)
+                for warning in sorted(set(parse_warnings))
+            )
+        )
     # Post-R9 manual pass: annotation-only skips (dimensions, hatching,
     # leaders, paper-space layouts) never carried measurable geometry, so
     # they surface as ONE non-blocking review notice — the measurable
-    # content of the sheet is not tainted by their absence. Anything that
-    # COULD have contributed geometry stays in parse_warnings (blocking)
-    # above: an understated-but-believable quantity is the worse failure.
+    # content of the sheet is not tainted by their absence. Refused geometry
+    # stays in parse_warnings and is surfaced as a review exception above;
+    # a warning-only parse with no surviving geometry remains blocking.
     exceptions: list[ExceptionRecord] = []
+    for warning in sorted(set(parse_warnings)):
+        exceptions.append(_exc("parse_partial", warning, sheet_id=sheet_id))
     if annotations_skipped > 0:
         exceptions.append(_exc(
             "annotation_skipped",

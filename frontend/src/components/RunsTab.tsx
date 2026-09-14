@@ -817,6 +817,7 @@ function AiInsightsPanel({ runId, projectId }: { runId: string; projectId: strin
     void qc.invalidateQueries({ queryKey: ["measurements", runId] });
     void qc.invalidateQueries({ queryKey: ["runs", projectId] });
   };
+  const aiUnavailable = insights.data != null && !insights.data.configured;
 
   return (
     <div className="card p-5">
@@ -825,6 +826,15 @@ function AiInsightsPanel({ runId, projectId }: { runId: string; projectId: strin
         {insights.data?.generated_note ??
           "advisory only — nothing here changes a quantity"}
       </p>
+      {aiUnavailable ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          AI is not configured for this environment. The stub provider is
+          test-only, so no model ran and no AI suggestion will be created.
+          Configure <code>AI_PROVIDER=http</code>, <code>AI_BASE_URL</code>, and
+          <code> AI_MODEL</code> (plus the provider key when required), then
+          restart the API and worker.
+        </div>
+      ) : null}
       {insights.isPending ? (
         <div className="h-16 animate-pulse rounded bg-ink-100" />
       ) : insights.isError ? (
@@ -833,7 +843,7 @@ function AiInsightsPanel({ runId, projectId }: { runId: string; projectId: strin
             ? insights.error.message
             : "Could not load insights."}
         </p>
-      ) : (insights.data?.suggestions.length ?? 0) === 0 ? (
+      ) : aiUnavailable ? null : (insights.data?.suggestions.length ?? 0) === 0 ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-xs text-ink-500">No suggestions yet for this run.</p>
           <button

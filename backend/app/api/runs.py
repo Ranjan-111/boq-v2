@@ -16,9 +16,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.auth import require_user
-from backend.app.api.scope import owned_project, problem_error
+from backend.app.api.scope import get_storage, owned_project, problem_error
 from backend.app.db.dependencies import session_dependency
 from backend.app.db.models import (
+    DrawingFile,
     DrawingSheet,
     Element,
     ExceptionModel,
@@ -28,6 +29,7 @@ from backend.app.db.models import (
     User,
 )
 from backend.app.jobs.queue import DuplicateJob, JobSpec, submit
+from backend.app.storage.base import KeyNotFound, Storage
 
 router = APIRouter(tags=["runs"])
 
@@ -232,6 +234,7 @@ async def get_run_geometry(
     run_id: str,
     user: User = Depends(require_user),
     session: AsyncSession = Depends(session_dependency),
+    storage: Storage | None = Depends(get_storage),
 ) -> dict[str, Any]:
     """The run's classified base geometry — the drawing as the engine saw it.
 
@@ -269,6 +272,72 @@ async def get_run_geometry(
                                if h.get("layer")), None),
             },
         })
+    # A run can finish with valid source geometry but no classified element
+    # (for example, a sheet containing only generic linework or a PDF whose
+    # candidate rows are still refused/review-only).  The viewer must still
+    # show what was honestly extracted.  Reparse the immutable stored bytes
+    # as a read-only fallback; this creates no measurement or BOQ authority.
+    storage_obj = storage if isinstance(storage, Storage) else None
+    if not elements and storage_obj is not None and run.status in {
+        "completed", "completed_with_exceptions",
+    }:
+        params = run.params or {}
+        drawing_id = params.get("drawing_file_id")
+        drawing_sheet_id = params.get("sheet_id")
+        drawing = None
+        drawing_sheet = None
+        if drawing_id:
+            drawing = (await session.execute(
+                select(DrawingFile).where(DrawingFile.id == drawing_id)
+            )).scalar_one_or_none()
+        if drawing is not None and drawing_sheet_id:
+            drawing_sheet = (await session.execute(
+                select(DrawingSheet).where(
+                    DrawingSheet.id == drawing_sheet_id,
+                    DrawingSheet.drawing_file_id == drawing.id,
+                )
+            )).scalar_one_or_none()
+        if drawing is not None:
+            try:
+                data = storage_obj.get(drawing.storage_key)
+                if drawing.format == "dxf":
+                    from ingestion.dxf import parse_dxf
+                    parsed = parse_dxf(data)
+                elif drawing.format == "pdf":
+                    from ingestion.pdf import parse_pdf
+                    parsed = parse_pdf(data)
+                elif drawing.format == "raster":
+                    from ingestion.raster import parse_raster
+                    parsed = parse_raster(data)
+                else:
+                    parsed = None
+            except (KeyNotFound, ValueError, OSError):
+                parsed = None
+            if parsed is not None:
+                source_sheet_ref = (
+                    drawing_sheet.sheet_ref if drawing_sheet is not None else None
+                )
+                for index, geo in enumerate(parsed.geometries):
+                    if source_sheet_ref and any(
+                        handle.sheet_ref != source_sheet_ref
+                        for handle in geo.source_handles
+                    ):
+                        continue
+                    handle = next(iter(geo.source_handles), None)
+                    elements.append({
+                        "element_id": (
+                            f"source:{handle.entity_ref}" if handle is not None
+                            else f"source:{index}"
+                        ),
+                        "element_type": "other",
+                        "type_source": "geometry_deterministic",
+                        "label": "Unclassified source geometry",
+                        "geometry": {
+                            "geom_type": geo.geom_type.value,
+                            "coordinates": geo.to_json()["coordinates"],
+                            "layer": geo.layer,
+                        },
+                    })
     return {
         "run_id": str(run.id),
         "count": len(elements),
@@ -315,6 +384,20 @@ async def start_analyze(
     fails the job — never a faked suggestion.
     """
     run = await _owned_run(session, run_id, user)
+    from backend.app.config import get_settings
+
+    settings = get_settings()
+    if (
+        settings.ai_provider != "http"
+        or not settings.ai_base_url.strip()
+        or not settings.ai_model.strip()
+    ):
+        raise problem_error(
+            409,
+            "ai_not_configured",
+            "No AI model is configured. Set AI_PROVIDER=http, AI_BASE_URL, "
+            "AI_MODEL, and (when required) AI_API_KEY, then restart the worker.",
+        )
     try:
         job_id = await submit(session, JobSpec(
             kind="ai_analyze",

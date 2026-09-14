@@ -5,7 +5,7 @@ import { pointsAttribute, viewBoxFromBBox, computeBBox, zoomAtPoint } from "../l
 export interface ViewerGeometry {
   /** Group key (e.g. `${measurementId}#${index}`). */
   id: string;
-  geom_type: "line" | "polyline" | "polygon";
+  geom_type: "point" | "line" | "polyline" | "polygon";
   coordinates: number[][];
   layer: string | null;
   /** Highlighted (selected measurement) — red instead of blue. */
@@ -145,6 +145,22 @@ export default function GeometryViewer({
               const dash = g.dashed
                 ? ` ${3 / t.scale} ${2 / t.scale}`
                 : undefined;
+              if (g.geom_type === "point") {
+                const point = g.coordinates[0];
+                return point ? (
+                  <circle
+                    key={g.id}
+                    cx={point[0]}
+                    cy={point[1]}
+                    r={(Math.max(viewBox.width, viewBox.height) * 0.008) / t.scale}
+                    fill={stroke}
+                    stroke="white"
+                    strokeWidth={
+                      (Math.max(viewBox.width, viewBox.height) * 0.002) / t.scale
+                    }
+                  />
+                ) : null;
+              }
               return g.geom_type === "polygon" ? (
                 <polygon key={g.id} points={pts} fill={fill} stroke={stroke} strokeWidth={1.5 / t.scale} strokeDasharray={dash} />
               ) : (

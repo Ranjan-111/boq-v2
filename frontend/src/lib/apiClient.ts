@@ -536,7 +536,7 @@ export interface SourceHandle {
   entity_ref: string;
   layer: string | null;
 }
-export type GeomType = "line" | "polyline" | "polygon";
+export type GeomType = "point" | "line" | "polyline" | "polygon";
 export interface EvidenceGeometry {
   geom_type: GeomType;
   coordinates: number[][];
@@ -681,6 +681,9 @@ export interface AiSuggestionRow {
 }
 export interface AiInsights {
   run_id: string;
+  provider: string;
+  model: string;
+  configured: boolean;
   generated_note: string;
   suggestions: AiSuggestionRow[];
 }
