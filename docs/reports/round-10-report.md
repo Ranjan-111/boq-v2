@@ -78,7 +78,9 @@ Tests and contracts: `tests/unit/test_trust_hardening.py`,
   AI suggestions. The repository does not contain model credentials.
 - The full-drawing product journey (upload → parse → scale → takeoff →
   rooms → review → BOQ → pricing → approval → export) on a real
-  architectural drawing — the acceptance question for the next manual pass.
+  architectural drawing was completed 2026-09-14 on `Floorplan (1).dxf`
+  (248 priced rows, money-exact export, audit-complete). Friction found on
+  the way is recorded in `latest-status.md` (§Product journey findings).
 - Keep unsupported geometry refusal rules explicit; supporting additional DXF
   entity semantics (arcs, INSERT-ARC members) requires its own parser and
   adversarial regression slice.

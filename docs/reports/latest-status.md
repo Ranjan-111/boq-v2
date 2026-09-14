@@ -108,9 +108,34 @@ seven plus the perf benchmarks and the GHCR publish.
 
 ## Remaining roadmap
 
-The next milestone is live-stack verification of the Round 10 follow-up, then
-real-server deployment against the published GHCR image (host + DNS are the
-only missing pieces), the viewer
-first-paint benchmark, and the T124/T047/T034 remainders. DWG/IFC/RVT ingestion remain post-V1 by the frozen roadmap.
-Raster measurement remains deliberately refused until its human scale and
-review contract is extended.
+The next milestone is the bulk/grouped exception-resolution UX (the real
+drawing's 256-card review queue is the top friction), the dev `/files/{key}`
+download route (local:// export links are dead hrefs against LocalStorage),
+and the scale-lie mitigation heuristic (T034: surface a suspicion when
+drawing text labels contradict `$INSUNITS`), then real-server deployment
+against the published GHCR image (host + DNS are the only missing pieces),
+the viewer first-paint benchmark, and the T124/T047 remainders. DWG/IFC/RVT
+ingestion remain post-V1 by the frozen roadmap. Raster measurement remains
+deliberately refused until its human scale and review contract is extended.
+
+## Product journey findings (2026-09-14, Floorplan (1).dxf, live stack)
+
+The real-drawing journey completed end-to-end: 248 priced rows approved and
+exported (CSV/XLSX/PDF), money exact to the minor unit (rows sum ==
+TOTAL row == API grand total), sha256-verified artifacts, provenance
+sidecars, and a complete audit trail (333 exception resolutions, 161
+audited catalogue mappings, BOQ transitions, 3 exports). Friction found:
+
+1. **Scale lie** — the DXF header claims mm while the drawing is drawn in
+   inches; a ratio-1.0 confirmation produced quantities 25.4× too small
+   that looked perfectly sane. Caught only by cross-checking the drawing's
+   own room labels against stored values. The scale gate needs a
+   labels-vs-header consistency suspicion (T034).
+2. **Auto-mapping is structurally impossible on a real drawing** —
+   candidates match by unit only, so two m-rule groups (wall length, room
+   perimeter) always collide symmetrically and every group needs the human
+   mapping path. 324 measurements → 248 human-mapped rows.
+3. **256 exception cards** resolved one-by-one is the #1 UX debt; the API
+   already permits grouped resolution (approve gate waits for REVIEW rows).
+4. **Dev export download** — LocalStorage returns `local://` URLs with no
+   serving route; the UI Download links are dead hrefs in dev.
